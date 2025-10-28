@@ -1002,7 +1002,7 @@
                     totalRunning++;
                     
                     // 构建搜索URL
-                    const searchUrl = `http://localhost:${ports[app]}?query=${encodeURIComponent(query)}&auto_search=true`;
+                    const searchUrl = `http://${window.location.hostname}:${ports[app]}?query=${encodeURIComponent(query)}&auto_search=true`;
                     console.log(`向 ${app} 发送搜索请求: ${searchUrl}`);
                     
                     // 直接更新主iframe的src来传递搜索参数
@@ -1206,7 +1206,7 @@
             
             for (const [app, port] of Object.entries(ports)) {
                 const iframe = document.createElement('iframe');
-                iframe.src = `http://localhost:${port}`;
+                iframe.src = `http://${window.location.hostname}:${port}`;
                 iframe.style.width = '100%';
                 iframe.style.height = '100%';
                 iframe.style.border = 'none';
