@@ -206,17 +206,7 @@ conda activate your_conda_name
 ```bash
 # 基础依赖安装
 pip install -r requirements.txt
-
-#========下面是可选项========
-# 如果需要本地情感分析功能，安装PyTorch
-# CPU版本
-pip install torch torchvision torchaudio
-
-# CUDA 11.8版本（如有GPU）
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-
-# 安装transformers等AI相关依赖
-pip install transformers scikit-learn xgboost
+# 如果不想使用本地情感分析模型（算力需求很小，默认安装cpu版本），可以将该文件中的“机器学习”部分注释掉再执行指令
 ```
 
 ### 3. 安装Playwright浏览器驱动

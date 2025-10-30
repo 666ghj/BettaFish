@@ -204,17 +204,7 @@ conda activate your_conda_name
 ```bash
 # Basic dependency installation
 pip install -r requirements.txt
-
-#========Below are optional========
-# If you need local sentiment analysis functionality, install PyTorch
-# CPU version
-pip install torch torchvision torchaudio
-
-# CUDA 11.8 version (if you have GPU)
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-
-# Install transformers and other AI-related dependencies
-pip install transformers scikit-learn xgboost
+# If you do not want to use the local sentiment analysis model (which has low computational requirements and defaults to the CPU version), you can comment out the 'Machine Learning' section in this file before executing the command.
 ```
 
 ### 3. Install Playwright Browser Drivers

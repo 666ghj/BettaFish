@@ -43,8 +43,6 @@ WORKDIR /app
 # Install Python dependencies first to leverage Docker layer caching
 COPY requirements.txt ./ 
 RUN uv pip install --system -r requirements.txt && \
-    uv pip install --system torch torchvision torchaudio && \
-    uv pip install --system transformers scikit-learn xgboost && \
     python -m playwright install chromium
 
 # Copy application source
