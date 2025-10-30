@@ -288,6 +288,8 @@ python app.py
 
 > Note 2: Data scraping needs to be performed as a separate operation. Please refer to the instructions in section 5.3.
 
+> Note 3: If page display issues occur during remote server deployment, see [PR#45](https://github.com/666ghj/BettaFish/pull/45)
+
 Visit http://localhost:5000 to use the complete system
 
 #### 5.2 Launch Individual Agents

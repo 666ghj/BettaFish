@@ -293,6 +293,8 @@ python app.py
 
 > 注2：数据爬取需要单独操作，见5.3指引
 
+> 注3：如果服务器远程部署出现页面显示问题，见[PR#45](https://github.com/666ghj/BettaFish/pull/45)
+
 访问 http://localhost:5000 即可使用完整系统
 
 #### 5.2 单独启动某个Agent
