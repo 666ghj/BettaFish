@@ -304,6 +304,12 @@ streamlit run SingleEngineApp/insight_engine_streamlit_app.py --server.port 8501
 
 这部分有详细的配置文档：[MindeSpider使用说明](./MindSpider/README.md)
 
+<div align="center">
+<img src="MindSpider\img\example.png" alt="banner" width="600">
+
+MindSpider 运行示例
+</div>
+
 ```bash
 # 进入爬虫目录
 cd MindSpider

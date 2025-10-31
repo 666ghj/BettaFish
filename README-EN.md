@@ -299,6 +299,12 @@ streamlit run SingleEngineApp/insight_engine_streamlit_app.py --server.port 8501
 
 This section has detailed configuration documentation: [MindSpider Usage Guide](./MindSpider/README.md)
 
+<div align="center">
+<img src="MindSpider\img\example.png" alt="banner" width="600">
+
+MindSpider Running Example
+</div>
+
 ```bash
 # Enter crawler directory
 cd MindSpider
