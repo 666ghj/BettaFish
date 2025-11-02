@@ -7,7 +7,7 @@ from openai import OpenAI
 import json
 import sys
 import os
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 
 # 添加项目根目录到Python路径以导入config
@@ -38,26 +38,27 @@ class KeywordOptimizer:
     使用硅基流动的Qwen3模型将Agent生成的搜索词优化为更贴近真实舆情的关键词
     """
     
-    def __init__(self, api_key: str = None, base_url: str = None, model_name: str = None):
+    def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None, model_name: Optional[str] = None):
         """
         初始化关键词优化器
         
         Args:
-            api_key: 硅基流动API密钥，如果不提供则从配置文件读取
-            base_url: 接口基础地址，默认使用配置文件提供的SiliconFlow地址
+            api_key: API密钥，使用Ollama时不需要真正的key（占位符即可）
+            base_url: 接口基础地址，默认使用本地Ollama地址
+            model_name: 模型名称，如果不提供则从配置文件读取
         """
-        self.api_key = api_key or KEYWORD_OPTIMIZER_API_KEY
+        # Ollama不需要真正的API key，使用占位符即可
+        self.api_key = api_key or KEYWORD_OPTIMIZER_API_KEY or "ollama"
+        self.base_url = base_url or KEYWORD_OPTIMIZER_BASE_URL or "http://localhost:11434/v1"
+        self.model = model_name or KEYWORD_OPTIMIZER_MODEL_NAME
 
-        if not self.api_key:
-            raise ValueError("未找到硅基流动API密钥，请在config.py中设置KEYWORD_OPTIMIZER_API_KEY")
-
-        self.base_url = base_url or KEYWORD_OPTIMIZER_BASE_URL
+        if not self.model:
+            raise ValueError("未找到模型名称，请在config.py中设置KEYWORD_OPTIMIZER_MODEL_NAME")
 
         self.client = OpenAI(
             api_key=self.api_key,
             base_url=self.base_url
         )
-        self.model = model_name or KEYWORD_OPTIMIZER_MODEL_NAME
     
     def optimize_keywords(self, original_query: str, context: str = "") -> KeywordOptimizationResponse:
         """

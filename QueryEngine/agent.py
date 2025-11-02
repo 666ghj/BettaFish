@@ -35,13 +35,26 @@ class DeepSearchAgent:
         """
         # 加载配置
         self.config = config or load_config()
-        os.environ["TAVILY_API_KEY"] = self.config.tavily_api_key or ""
+        # 本地搜索不需要API key
+        if hasattr(self.config, 'tavily_api_key'):
+            os.environ["TAVILY_API_KEY"] = self.config.tavily_api_key or ""
         
         # 初始化LLM客户端
         self.llm_client = self._initialize_llm()
         
-        # 初始化搜索工具集
-        self.search_agency = TavilyNewsAgency(api_key=self.config.tavily_api_key)
+        # 初始化搜索工具集（本地搜索不需要API key）
+        try:
+            from .tools import USE_LOCAL_SEARCH
+            if USE_LOCAL_SEARCH:
+                self.search_agency = TavilyNewsAgency()  # 本地搜索不需要api_key
+                search_type = "本地搜索服务"
+            else:
+                self.search_agency = TavilyNewsAgency(api_key=self.config.tavily_api_key)
+                search_type = "Tavily API"
+        except:
+            # 兼容性处理
+            self.search_agency = TavilyNewsAgency(api_key=getattr(self.config, 'tavily_api_key', None))
+            search_type = "搜索服务"
         
         # 初始化节点
         self._initialize_nodes()
@@ -54,7 +67,7 @@ class DeepSearchAgent:
         
         print(f"Query Agent已初始化")
         print(f"使用LLM: {self.llm_client.get_model_info()}")
-        print(f"搜索工具集: TavilyNewsAgency (支持6种搜索工具)")
+        print(f"搜索工具集: {search_type} (支持6种搜索工具)")
     
     def _initialize_llm(self) -> LLMClient:
         """初始化LLM客户端"""

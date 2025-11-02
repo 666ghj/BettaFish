@@ -30,26 +30,27 @@ class ForumHost:
     使用Qwen3-235B模型作为智能主持人
     """
     
-    def __init__(self, api_key: str = None, base_url: Optional[str] = None, model_name: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, base_url: Optional[str] = None, model_name: Optional[str] = None):
         """
         初始化论坛主持人
         
         Args:
-            api_key: 硅基流动API密钥，如果不提供则从配置文件读取
-            base_url: 接口基础地址，默认使用配置文件提供的SiliconFlow地址
+            api_key: API密钥，使用Ollama时不需要真正的key（占位符即可）
+            base_url: 接口基础地址，默认使用本地Ollama地址
+            model_name: 模型名称，如果不提供则从配置文件读取
         """
-        self.api_key = api_key or FORUM_HOST_API_KEY
+        # Ollama不需要真正的API key，使用占位符即可
+        self.api_key = api_key or FORUM_HOST_API_KEY or "ollama"
+        self.base_url = base_url or FORUM_HOST_BASE_URL or "http://localhost:11434/v1"
+        self.model = model_name or FORUM_HOST_MODEL_NAME
 
-        if not self.api_key:
-            raise ValueError("未找到硅基流动API密钥，请在config.py中设置FORUM_HOST_API_KEY")
-
-        self.base_url = base_url or FORUM_HOST_BASE_URL
+        if not self.model:
+            raise ValueError("未找到模型名称，请在config.py中设置FORUM_HOST_MODEL_NAME")
 
         self.client = OpenAI(
             api_key=self.api_key,
             base_url=self.base_url
         )
-        self.model = model_name or FORUM_HOST_MODEL_NAME  # Use configured model
 
         # Track previous summaries to avoid duplicates
         self.previous_summaries = []

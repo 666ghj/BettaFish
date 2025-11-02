@@ -96,13 +96,11 @@ def main():
         if not QUERY_ENGINE_API_KEY:
             st.error("请在您的配置文件(config.py)中设置QUERY_ENGINE_API_KEY")
             return
-        if not TAVILY_API_KEY:
-            st.error("请在您的配置文件(config.py)中设置TAVILY_API_KEY")
-            return
-
-        # 自动使用配置文件中的API密钥
+        # 本地搜索不需要API Key，但仍支持Tavily API作为可选
         engine_key = QUERY_ENGINE_API_KEY
-        tavily_key = TAVILY_API_KEY
+        tavily_key = TAVILY_API_KEY if TAVILY_API_KEY else None
+        if not tavily_key:
+            st.info("ℹ️ 未配置Tavily API Key，将使用本地搜索服务")
 
         # 创建配置
         config = Config(

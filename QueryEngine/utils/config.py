@@ -51,15 +51,12 @@ class Config:
             self.llm_provider = self.llm_model_name
 
     def validate(self) -> bool:
-        if not self.llm_api_key:
-            print("错误: Query Engine LLM API Key 未设置 (QUERY_ENGINE_API_KEY)。")
-            return False
         if not self.llm_model_name:
             print("错误: Query Engine 模型名称未设置 (QUERY_ENGINE_MODEL_NAME)。")
             return False
+        # Tavily API Key 现在可选（如果使用本地搜索）
         if not self.tavily_api_key:
-            print("错误: Tavily API Key 未设置 (TAVILY_API_KEY)。")
-            return False
+            print("提示: Tavily API Key 未设置，将使用本地搜索服务")
         return True
 
     @classmethod

@@ -26,11 +26,16 @@ class TopicExtractor:
     
     def __init__(self):
         """初始化话题提取器"""
+        # 使用本地Ollama服务
+        ollama_base_url = getattr(config, 'OLLAMA_BASE_URL', 'http://localhost:11434/v1')
+        api_key = getattr(config, 'DEEPSEEK_API_KEY', 'ollama')
+        model_name = getattr(config, 'DEEPSEEK_MODEL_NAME', 'deepseek-r1:8b')
+        
         self.client = OpenAI(
-            api_key=config.DEEPSEEK_API_KEY,
-            base_url="https://api.deepseek.com"
+            api_key=api_key,
+            base_url=ollama_base_url
         )
-        self.model = "deepseek-chat"
+        self.model = model_name
     
     def extract_keywords_and_summary(self, news_list: List[Dict], max_keywords: int = 100) -> Tuple[List[str], str]:
         """

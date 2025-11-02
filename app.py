@@ -305,11 +305,105 @@ def read_process_output(process, app_name):
             write_log_to_file(app_name, f"[{datetime.now().strftime('%H:%M:%S')}] {error_msg}")
             break
 
+def kill_process_on_port(port):
+    """杀死占用指定端口的进程（Windows/Linux通用）"""
+    try:
+        if sys.platform == 'win32':
+            # Windows系统
+            # 查找占用端口的进程
+            result = subprocess.run(
+                ['netstat', '-ano'], 
+                capture_output=True, 
+                text=True, 
+                creationflags=subprocess.CREATE_NO_WINDOW
+            )
+            lines = result.stdout.split('\n')
+            pid = None
+            for line in lines:
+                if f':{port}' in line and 'LISTENING' in line:
+                    parts = line.split()
+                    if len(parts) >= 5:
+                        pid = parts[-1]
+                        break
+            
+            if pid:
+                # 杀死进程
+                try:
+                    subprocess.run(
+                        ['taskkill', '/F', '/PID', pid],
+                        capture_output=True,
+                        creationflags=subprocess.CREATE_NO_WINDOW
+                    )
+                    print(f"已终止占用端口 {port} 的进程 (PID: {pid})")
+                    time.sleep(1)  # 等待进程完全终止
+                    return True
+                except Exception as e:
+                    print(f"终止进程失败 (PID: {pid}): {e}")
+                    return False
+            else:
+                return False
+        else:
+            # Linux/Mac系统
+            result = subprocess.run(
+                ['lsof', '-ti', f':{port}'],
+                capture_output=True,
+                text=True
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                pids = result.stdout.strip().split('\n')
+                for pid in pids:
+                    try:
+                        subprocess.run(['kill', '-9', pid], capture_output=True)
+                        print(f"已终止占用端口 {port} 的进程 (PID: {pid})")
+                    except Exception as e:
+                        print(f"终止进程失败 (PID: {pid}): {e}")
+                time.sleep(1)
+                return True
+            return False
+    except Exception as e:
+        print(f"检查端口 {port} 时出错: {e}")
+        return False
+
+def check_port_available(port):
+    """检查端口是否可用"""
+    try:
+        if sys.platform == 'win32':
+            result = subprocess.run(
+                ['netstat', '-ano'], 
+                capture_output=True, 
+                text=True,
+                creationflags=subprocess.CREATE_NO_WINDOW
+            )
+            # 检查是否有进程在监听该端口
+            lines = result.stdout.split('\n')
+            for line in lines:
+                if f':{port}' in line and 'LISTENING' in line:
+                    return False  # 端口被占用
+            return True  # 端口可用
+        else:
+            result = subprocess.run(
+                ['lsof', '-ti', f':{port}'],
+                capture_output=True
+            )
+            return result.returncode != 0  # 如果找不到进程，返回True（端口可用）
+    except Exception:
+        return True  # 如果检查失败，假设端口可用
+
 def start_streamlit_app(app_name, script_path, port):
     """启动Streamlit应用"""
     try:
         if processes[app_name]['process'] is not None:
             return False, "应用已经在运行"
+        
+        # 检查端口是否被占用，如果是则尝试清理
+        if not check_port_available(port):
+            print(f"端口 {port} 已被占用，尝试清理...")
+            kill_process_on_port(port)
+            time.sleep(2)  # 等待端口释放
+        
+        # 再次检查端口是否可用
+        if not check_port_available(port):
+            return False, f"端口 {port} 仍被占用，请手动关闭占用该端口的进程"
         
         # 检查文件是否存在
         if not os.path.exists(script_path):
@@ -680,6 +774,14 @@ def handle_status_request():
 if __name__ == '__main__':
     # 启动时自动启动所有Streamlit应用
     print("正在启动Streamlit应用...")
+    
+    # 先清理可能占用的端口
+    print("检查并清理占用端口...")
+    ports_to_check = [8501, 8502, 8503]  # Insight, Media, Query Engine 的端口
+    for port in ports_to_check:
+        if not check_port_available(port):
+            print(f"发现端口 {port} 被占用，正在清理...")
+            kill_process_on_port(port)
     
     # 先停止ForumEngine监控器，避免文件占用冲突
     print("停止ForumEngine监控器以避免文件冲突...")

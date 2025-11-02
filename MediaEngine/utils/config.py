@@ -50,15 +50,12 @@ class Config:
             self.llm_provider = self.llm_model_name
 
     def validate(self) -> bool:
-        if not self.llm_api_key:
-            print("错误: Media Engine LLM API Key 未设置 (MEDIA_ENGINE_API_KEY)。")
-            return False
         if not self.llm_model_name:
             print("错误: Media Engine 模型名称未设置 (MEDIA_ENGINE_MODEL_NAME)。")
             return False
+        # Bocha API Key 现在可选（如果使用本地搜索）
         if not self.bocha_api_key:
-            print("错误: Bocha API Key 未设置 (BOCHA_WEB_SEARCH_API_KEY)。")
-            return False
+            print("提示: Bocha API Key 未设置，将使用本地搜索服务")
         return True
 
     @classmethod

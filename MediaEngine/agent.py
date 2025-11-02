@@ -35,14 +35,27 @@ class DeepSearchAgent:
         """
         # 加载配置
         self.config = config or load_config()
-        os.environ["BOCHA_API_KEY"] = self.config.bocha_api_key or ""
-        os.environ["BOCHA_WEB_SEARCH_API_KEY"] = self.config.bocha_api_key or ""
+        # 本地搜索不需要API key
+        if hasattr(self.config, 'bocha_api_key'):
+            os.environ["BOCHA_API_KEY"] = self.config.bocha_api_key or ""
+            os.environ["BOCHA_WEB_SEARCH_API_KEY"] = self.config.bocha_api_key or ""
         
         # 初始化LLM客户端
         self.llm_client = self._initialize_llm()
         
-        # 初始化搜索工具集
-        self.search_agency = BochaMultimodalSearch(api_key=self.config.bocha_api_key)
+        # 初始化搜索工具集（本地搜索不需要API key）
+        try:
+            from .tools import USE_LOCAL_SEARCH
+            if USE_LOCAL_SEARCH:
+                self.search_agency = BochaMultimodalSearch()  # 本地搜索不需要api_key
+                search_type = "本地搜索服务"
+            else:
+                self.search_agency = BochaMultimodalSearch(api_key=self.config.bocha_api_key)
+                search_type = "Bocha API"
+        except:
+            # 兼容性处理
+            self.search_agency = BochaMultimodalSearch(api_key=getattr(self.config, 'bocha_api_key', None))
+            search_type = "搜索服务"
         
         # 初始化节点
         self._initialize_nodes()
@@ -53,9 +66,9 @@ class DeepSearchAgent:
         # 确保输出目录存在
         os.makedirs(self.config.output_dir, exist_ok=True)
         
-        print(f"Meida Agent已初始化")
+        print(f"Media Agent已初始化")
         print(f"使用LLM: {self.llm_client.get_model_info()}")
-        print(f"搜索工具集: BochaMultimodalSearch (支持5种多模态搜索工具)")
+        print(f"搜索工具集: {search_type} (支持5种多模态搜索工具)")
     
     def _initialize_llm(self) -> LLMClient:
         """初始化LLM客户端"""

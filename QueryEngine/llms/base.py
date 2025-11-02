@@ -28,14 +28,13 @@ except ImportError:
 class LLMClient:
     """Minimal wrapper around the OpenAI-compatible chat completion API."""
 
-    def __init__(self, api_key: str, model_name: str, base_url: Optional[str] = None):
-        if not api_key:
-            raise ValueError("Query Engine LLM API key is required.")
+    def __init__(self, api_key: Optional[str] = None, model_name: str = "", base_url: Optional[str] = None):
         if not model_name:
             raise ValueError("Query Engine model name is required.")
 
-        self.api_key = api_key
-        self.base_url = base_url
+        # Ollama不需要真正的API key，使用占位符即可
+        self.api_key = api_key or "ollama"
+        self.base_url = base_url or "http://localhost:11434/v1"
         self.model_name = model_name
         self.provider = model_name
         timeout_fallback = os.getenv("LLM_REQUEST_TIMEOUT") or os.getenv("QUERY_ENGINE_REQUEST_TIMEOUT") or "180"
@@ -45,11 +44,11 @@ class LLMClient:
             self.timeout = 180.0
 
         client_kwargs: Dict[str, Any] = {
-            "api_key": api_key,
+            "api_key": self.api_key,
             "max_retries": 0,
         }
-        if base_url:
-            client_kwargs["base_url"] = base_url
+        if self.base_url:
+            client_kwargs["base_url"] = self.base_url
         self.client = OpenAI(**client_kwargs)
 
     @with_retry(LLM_RETRY_CONFIG)

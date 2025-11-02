@@ -102,13 +102,11 @@ def main():
         if not MEDIA_ENGINE_API_KEY:
             st.error("请在您的配置文件(config.py)中设置MEDIA_ENGINE_API_KEY")
             return
-        if not BOCHA_WEB_SEARCH_API_KEY:
-            st.error("请在您的配置文件(config.py)中设置BOCHA_WEB_SEARCH_API_KEY")
-            return
-
-        # 自动使用配置文件中的API密钥
+        # 本地搜索不需要API Key，但仍支持Bocha API作为可选
         engine_key = MEDIA_ENGINE_API_KEY
-        bocha_key = BOCHA_WEB_SEARCH_API_KEY
+        bocha_key = BOCHA_WEB_SEARCH_API_KEY if BOCHA_WEB_SEARCH_API_KEY else None
+        if not bocha_key:
+            st.info("ℹ️ 未配置Bocha API Key，将使用本地搜索服务")
 
         # 创建配置
         config = Config(
