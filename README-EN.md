@@ -218,6 +218,8 @@ playwright install chromium
 
 #### 4.1 Configure API Keys
 
+Copy the `config.py.example` file to `config.py`
+
 Edit the `config.py` file and fill in your API keys (you can also choose your own models and search proxies; see the config file for details):
 
 ```python
