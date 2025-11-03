@@ -7,6 +7,8 @@
 pymysql==1.1.0
 aiomysql==0.2.0
 aiosqlite==0.21.0
+asyncpg
+sqlalchemy
 
 # ===============================
 # HTTP请求和网络
@@ -42,6 +44,8 @@ wordcloud==1.9.3
 matplotlib==3.9.0
 parsel==1.9.1
 pyexecjs==1.5.1
+typer>=0.12.3
+pyhumps==3.8.0
 
 # ===============================
 # 工具包

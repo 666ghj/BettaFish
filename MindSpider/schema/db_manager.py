@@ -7,10 +7,12 @@ MindSpider AI爬虫项目 - 数据库管理工具
 
 import os
 import sys
-import pymysql
+from sqlalchemy import create_engine, text, inspect
+from sqlalchemy.engine import Engine
 import argparse
 from pathlib import Path
 from datetime import datetime, timedelta
+from loguru import logger
 
 # 添加项目根目录到路径
 project_root = Path(__file__).parent.parent
@@ -19,125 +21,132 @@ sys.path.append(str(project_root))
 try:
     import config
 except ImportError:
-    print("错误: 无法导入config.py配置文件")
+    logger.error("错误: 无法导入config.py配置文件")
     sys.exit(1)
+
+from MindSpider.config import settings
 
 class DatabaseManager:
     def __init__(self):
-        self.connection = None
+        self.engine: Engine = None
         self.connect()
     
     def connect(self):
         """连接数据库"""
         try:
-            self.connection = pymysql.connect(
-                host=config.DB_HOST,
-                port=config.DB_PORT,
-                user=config.DB_USER,
-                password=config.DB_PASSWORD,
-                database=config.DB_NAME,
-                charset=config.DB_CHARSET,
-                autocommit=True
-            )
-            print(f"成功连接到数据库: {config.DB_NAME}")
+            dialect = (settings.DB_DIALECT or "mysql").lower()
+            if dialect in ("postgresql", "postgres"):
+                url = f"postgresql+psycopg://{settings.DB_USER}:{settings.DB_PASSWORD}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
+            else:
+                url = f"mysql+pymysql://{settings.DB_USER}:{settings.DB_PASSWORD}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}?charset={settings.DB_CHARSET}"
+            self.engine = create_engine(url, future=True)
+            logger.info(f"成功连接到数据库: {settings.DB_NAME}")
         except Exception as e:
-            print(f"数据库连接失败: {e}")
+            logger.error(f"数据库连接失败: {e}")
             sys.exit(1)
     
     def close(self):
         """关闭数据库连接"""
-        if self.connection:
-            self.connection.close()
+        if self.engine:
+            self.engine.dispose()
     
     def show_tables(self):
         """显示所有表"""
-        print("\n" + "=" * 60)
-        print("数据库表列表")
-        print("=" * 60)
+        data_list_message = ""
+        data_list_message += "\n" + "=" * 60
+        data_list_message += "数据库表列表"
+        data_list_message += "=" * 60
+        logger.info(data_list_message)
         
-        cursor = self.connection.cursor()
-        cursor.execute("SHOW TABLES")
-        tables = cursor.fetchall()
+        inspector = inspect(self.engine)
+        tables = inspector.get_table_names()
         
         if not tables:
-            print("数据库中没有表")
+            logger.info("数据库中没有表")
             return
         
         # 分类显示表
         mindspider_tables = []
         mediacrawler_tables = []
         
-        for table in tables:
-            table_name = table[0]
+        for table_name in tables:
             if table_name in ['daily_news', 'daily_topics', 'topic_news_relation', 'crawling_tasks']:
                 mindspider_tables.append(table_name)
             else:
                 mediacrawler_tables.append(table_name)
         
-        print("MindSpider核心表:")
+        data_list_message += "MindSpider核心表:"
+        data_list_message += "\n"
         for table in mindspider_tables:
-            cursor.execute(f"SELECT COUNT(*) FROM {table}")
-            count = cursor.fetchone()[0]
-            print(f"  - {table:<25} ({count:>6} 条记录)")
+            with self.engine.connect() as conn:
+                count = conn.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar_one()
+            data_list_message += f"  - {table:<25} ({count:>6} 条记录)"
+            data_list_message += "\n"
         
-        print("\nMediaCrawler平台表:")
+        data_list_message += "\nMediaCrawler平台表:"
+        data_list_message += "\n"
         for table in mediacrawler_tables:
             try:
-                cursor.execute(f"SELECT COUNT(*) FROM {table}")
-                count = cursor.fetchone()[0]
-                print(f"  - {table:<25} ({count:>6} 条记录)")
+                with self.engine.connect() as conn:
+                    count = conn.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar_one()
+                data_list_message += f"  - {table:<25} ({count:>6} 条记录)"
+                data_list_message += "\n"
             except:
-                print(f"  - {table:<25} (查询失败)")
+                data_list_message += f"  - {table:<25} (查询失败)"
+                data_list_message += "\n"
+        logger.info(data_list_message)
     
     def show_statistics(self):
         """显示数据统计"""
-        print("\n" + "=" * 60)
-        print("数据统计")
-        print("=" * 60)
-        
-        cursor = self.connection.cursor()
+        data_statistics_message = ""
+        data_statistics_message += "\n" + "=" * 60
+        data_statistics_message += "数据统计"
+        data_statistics_message += "=" * 60
+        data_statistics_message += "\n"
         
         try:
             # 新闻统计
-            cursor.execute("SELECT COUNT(*) FROM daily_news")
-            news_count = cursor.fetchone()[0]
+            with self.engine.connect() as conn:
+                news_count = conn.execute(text("SELECT COUNT(*) FROM daily_news")).scalar_one()
+                news_days = conn.execute(text("SELECT COUNT(DISTINCT crawl_date) FROM daily_news")).scalar_one()
+                platforms = conn.execute(text("SELECT COUNT(DISTINCT source_platform) FROM daily_news")).scalar_one()
             
-            cursor.execute("SELECT COUNT(DISTINCT crawl_date) FROM daily_news")
-            news_days = cursor.fetchone()[0]
-            
-            cursor.execute("SELECT COUNT(DISTINCT source_platform) FROM daily_news")
-            platforms = cursor.fetchone()[0]
-            
-            print(f"新闻数据:")
-            print(f"  - 总新闻数: {news_count}")
-            print(f"  - 覆盖天数: {news_days}")
-            print(f"  - 新闻平台: {platforms}")
-            
+            data_statistics_message += "新闻数据:"
+            data_statistics_message += "\n"
+            data_statistics_message += f"  - 总新闻数: {news_count}"
+            data_statistics_message += "\n"
+            data_statistics_message += f"  - 覆盖天数: {news_days}"
+            data_statistics_message += "\n"
+            data_statistics_message += f"  - 新闻平台: {platforms}"
+            data_statistics_message += "\n"
             # 话题统计
-            cursor.execute("SELECT COUNT(*) FROM daily_topics")
-            topic_count = cursor.fetchone()[0]
+            with self.engine.connect() as conn:
+                topic_count = conn.execute(text("SELECT COUNT(*) FROM daily_topics")).scalar_one()
+                topic_days = conn.execute(text("SELECT COUNT(DISTINCT extract_date) FROM daily_topics")).scalar_one()
             
-            cursor.execute("SELECT COUNT(DISTINCT extract_date) FROM daily_topics")
-            topic_days = cursor.fetchone()[0]
-            
-            print(f"\n话题数据:")
-            print(f"  - 总话题数: {topic_count}")
-            print(f"  - 提取天数: {topic_days}")
+            data_statistics_message += "话题数据:"
+            data_statistics_message += "\n"
+            data_statistics_message += f"  - 总话题数: {topic_count}"
+            data_statistics_message += "\n"
+            data_statistics_message += f"  - 提取天数: {topic_days}"
+            data_statistics_message += "\n"
             
             # 爬取任务统计
-            cursor.execute("SELECT COUNT(*) FROM crawling_tasks")
-            task_count = cursor.fetchone()[0]
+            with self.engine.connect() as conn:
+                task_count = conn.execute(text("SELECT COUNT(*) FROM crawling_tasks")).scalar_one()
+                task_status = conn.execute(text("SELECT task_status, COUNT(*) FROM crawling_tasks GROUP BY task_status")).all()
             
-            cursor.execute("SELECT task_status, COUNT(*) FROM crawling_tasks GROUP BY task_status")
-            task_status = cursor.fetchall()
-            
-            print(f"\n爬取任务:")
-            print(f"  - 总任务数: {task_count}")
+            data_statistics_message += "爬取任务:"
+            data_statistics_message += "\n"
+            data_statistics_message += f"  - 总任务数: {task_count}"
+            data_statistics_message += "\n"
             for status, count in task_status:
-                print(f"  - {status}: {count}")
+                data_statistics_message += f"  - {status}: {count}"
+                data_statistics_message += "\n"
             
             # 爬取内容统计
-            print(f"\n平台内容统计:")
+            data_statistics_message += "平台内容统计:"
+            data_statistics_message += "\n"
             platform_tables = {
                 'xhs_note': '小红书',
                 'douyin_aweme': '抖音',
@@ -150,60 +159,78 @@ class DatabaseManager:
             
             for table, platform in platform_tables.items():
                 try:
-                    cursor.execute(f"SELECT COUNT(*) FROM {table}")
-                    count = cursor.fetchone()[0]
-                    print(f"  - {platform}: {count}")
+                    with self.engine.connect() as conn:
+                        count = conn.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar_one()
+                    data_statistics_message += f"  - {platform}: {count}"
+                    data_statistics_message += "\n"
                 except:
-                    print(f"  - {platform}: 表不存在")
-                    
+                    data_statistics_message += f"  - {platform}: 表不存在"
+                    data_statistics_message += "\n"
+            logger.info(data_statistics_message)
         except Exception as e:
-            print(f"统计查询失败: {e}")
+            data_statistics_message += f"统计查询失败: {e}"
+            data_statistics_message += "\n"
+            logger.error(data_statistics_message)
     
     def show_recent_data(self, days=7):
         """显示最近几天的数据"""
-        print(f"\n" + "=" * 60)
-        print(f"最近{days}天的数据")
-        print("=" * 60)
+        data_recent_message = ""
+        data_recent_message += "\n" + "=" * 60
+        data_recent_message += "最近" + str(days) + "天的数据"
+        data_recent_message += "=" * 60
         
-        cursor = self.connection.cursor()
-        
+        from datetime import date, timedelta
+        start_date = date.today() - timedelta(days=days)
         # 最近的新闻
-        cursor.execute("""
-            SELECT crawl_date, COUNT(*) as news_count, COUNT(DISTINCT source_platform) as platforms
-            FROM daily_news 
-            WHERE crawl_date >= DATE_SUB(CURDATE(), INTERVAL %s DAY)
-            GROUP BY crawl_date 
-            ORDER BY crawl_date DESC
-        """, (days,))
-        
-        news_data = cursor.fetchall()
+        with self.engine.connect() as conn:
+            news_data = conn.execute(
+                text(
+                    """
+                    SELECT crawl_date, COUNT(*) as news_count, COUNT(DISTINCT source_platform) as platforms
+                    FROM daily_news 
+                    WHERE crawl_date >= :start_date
+                    GROUP BY crawl_date 
+                    ORDER BY crawl_date DESC
+                    """
+                ),
+                {"start_date": start_date},
+            ).all()
         if news_data:
-            print("每日新闻统计:")
+            data_recent_message += "每日新闻统计:"
+            data_recent_message += "\n"
             for date, count, platforms in news_data:
-                print(f"  {date}: {count} 条新闻, {platforms} 个平台")
+                data_recent_message += f"  {date}: {count} 条新闻, {platforms} 个平台"
+                data_recent_message += "\n"
         
         # 最近的话题
-        cursor.execute("""
-            SELECT extract_date, COUNT(*) as topic_count
-            FROM daily_topics 
-            WHERE extract_date >= DATE_SUB(CURDATE(), INTERVAL %s DAY)
-            GROUP BY extract_date 
-            ORDER BY extract_date DESC
-        """, (days,))
-        
-        topic_data = cursor.fetchall()
+        with self.engine.connect() as conn:
+            topic_data = conn.execute(
+                text(
+                    """
+                    SELECT extract_date, COUNT(*) as topic_count
+                    FROM daily_topics 
+                    WHERE extract_date >= :start_date
+                    GROUP BY extract_date 
+                    ORDER BY extract_date DESC
+                    """
+                ),
+                {"start_date": start_date},
+            ).all()
         if topic_data:
-            print("\n每日话题统计:")
+            data_recent_message += "每日话题统计:"
+            data_recent_message += "\n"
             for date, count in topic_data:
-                print(f"  {date}: {count} 个话题")
+                data_recent_message += f"  {date}: {count} 个话题"
+                data_recent_message += "\n"
+        logger.info(data_recent_message)
     
     def cleanup_old_data(self, days=90, dry_run=True):
         """清理旧数据"""
-        print(f"\n" + "=" * 60)
-        print(f"清理{days}天前的数据 ({'预览模式' if dry_run else '执行模式'})")
-        print("=" * 60)
+        cleanup_message = ""
+        cleanup_message += "\n" + "=" * 60
+        cleanup_message += f"清理{days}天前的数据 ({'预览模式' if dry_run else '执行模式'})"
+        cleanup_message += "=" * 60
         
-        cursor = self.connection.cursor()
         cutoff_date = datetime.now() - timedelta(days=days)
         
         # 检查要删除的数据
@@ -213,20 +240,25 @@ class DatabaseManager:
             ("crawling_tasks", f"SELECT COUNT(*) FROM crawling_tasks WHERE scheduled_date < '{cutoff_date.date()}'")
         ]
         
-        for table, query in cleanup_queries:
-            cursor.execute(query)
-            count = cursor.fetchone()[0]
-            if count > 0:
-                print(f"  {table}: {count} 条记录将被删除")
-                if not dry_run:
-                    delete_query = query.replace("SELECT COUNT(*)", "DELETE")
-                    cursor.execute(delete_query)
-                    print(f"    已删除 {count} 条记录")
-            else:
-                print(f"  {table}: 无需清理")
+        with self.engine.begin() as conn:
+            for table, query in cleanup_queries:
+                count = conn.execute(text(query)).scalar_one()
+                if count > 0:
+                    cleanup_message += f"  {table}: {count} 条记录将被删除"
+                    cleanup_message += "\n"
+                    if not dry_run:
+                        delete_query = query.replace("SELECT COUNT(*)", "DELETE")
+                        conn.execute(text(delete_query))
+                        cleanup_message += f"    已删除 {count} 条记录"
+                        cleanup_message += "\n"
+                else:
+                    cleanup_message += f"  {table}: 无需清理"
+                    cleanup_message += "\n"
         
         if dry_run:
-            print("\n这是预览模式，没有实际删除数据。使用 --execute 参数执行实际清理。")
+            cleanup_message += "\n这是预览模式，没有实际删除数据。使用 --execute 参数执行实际清理。"
+            cleanup_message += "\n"
+        logger.info(cleanup_message)
 
 def main():
     parser = argparse.ArgumentParser(description="MindSpider数据库管理工具")

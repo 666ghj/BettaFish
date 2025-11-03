@@ -13,6 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Optional
 import json
+from loguru import logger
 
 # 添加项目根目录到路径
 project_root = Path(__file__).parent.parent
@@ -36,11 +37,15 @@ class PlatformCrawler:
         if not self.mediacrawler_path.exists():
             raise FileNotFoundError(f"MediaCrawler目录不存在: {self.mediacrawler_path}")
         
-        print(f"初始化平台爬虫管理器，MediaCrawler路径: {self.mediacrawler_path}")
+        logger.info(f"初始化平台爬虫管理器，MediaCrawler路径: {self.mediacrawler_path}")
     
     def configure_mediacrawler_db(self):
-        """配置MediaCrawler使用我们的MySQL数据库"""
+        """配置MediaCrawler使用我们的数据库（MySQL或PostgreSQL）"""
         try:
+            # 判断数据库类型
+            db_dialect = (config.settings.DB_DIALECT or "mysql").lower()
+            is_postgresql = db_dialect in ("postgresql", "postgres")
+            
             # 修改MediaCrawler的数据库配置
             db_config_path = self.mediacrawler_path / "config" / "db_config.py"
             
@@ -48,7 +53,14 @@ class PlatformCrawler:
             with open(db_config_path, 'r', encoding='utf-8') as f:
                 content = f.read()
             
-            # 替换数据库配置
+            # PostgreSQL配置值：如果使用PostgreSQL则使用MindSpider配置，否则使用默认值或环境变量
+            pg_password = config.settings.DB_PASSWORD if is_postgresql else "bettafish"
+            pg_user = config.settings.DB_USER if is_postgresql else "bettafish"
+            pg_host = config.settings.DB_HOST if is_postgresql else "127.0.0.1"
+            pg_port = config.settings.DB_PORT if is_postgresql else 5432
+            pg_db_name = config.settings.DB_NAME if is_postgresql else "bettafish"
+            
+            # 替换数据库配置 - 使用MindSpider的数据库配置
             new_config = f'''# 声明：本代码仅供学习和研究目的使用。使用者应遵守以下原则：  
 # 1. 不得用于任何商业用途。  
 # 2. 使用时应遵守目标平台的使用条款和robots.txt规则。  
@@ -63,11 +75,19 @@ class PlatformCrawler:
 import os
 
 # mysql config - 使用MindSpider的数据库配置
-MYSQL_DB_PWD = "{config.DB_PASSWORD}"
-MYSQL_DB_USER = "{config.DB_USER}"
-MYSQL_DB_HOST = "{config.DB_HOST}"
-MYSQL_DB_PORT = {config.DB_PORT}
-MYSQL_DB_NAME = "{config.DB_NAME}"
+MYSQL_DB_PWD = "{config.settings.DB_PASSWORD}"
+MYSQL_DB_USER = "{config.settings.DB_USER}"
+MYSQL_DB_HOST = "{config.settings.DB_HOST}"
+MYSQL_DB_PORT = {config.settings.DB_PORT}
+MYSQL_DB_NAME = "{config.settings.DB_NAME}"
+
+mysql_db_config = {{
+    "user": MYSQL_DB_USER,
+    "password": MYSQL_DB_PWD,
+    "host": MYSQL_DB_HOST,
+    "port": MYSQL_DB_PORT,
+    "db_name": MYSQL_DB_NAME,
+}}
 
 
 # redis config
@@ -81,17 +101,39 @@ CACHE_TYPE_REDIS = "redis"
 CACHE_TYPE_MEMORY = "memory"
 
 # sqlite config
-SQLITE_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "schema", "sqlite_tables.db")'''
+SQLITE_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "database", "sqlite_tables.db")
+
+sqlite_db_config = {{
+    "db_path": SQLITE_DB_PATH
+}}
+
+# postgresql config - 使用MindSpider的数据库配置（如果DB_DIALECT是postgresql）或环境变量
+POSTGRESQL_DB_PWD = os.getenv("POSTGRESQL_DB_PWD", "{pg_password}")
+POSTGRESQL_DB_USER = os.getenv("POSTGRESQL_DB_USER", "{pg_user}")
+POSTGRESQL_DB_HOST = os.getenv("POSTGRESQL_DB_HOST", "{pg_host}")
+POSTGRESQL_DB_PORT = os.getenv("POSTGRESQL_DB_PORT", "{pg_port}")
+POSTGRESQL_DB_NAME = os.getenv("POSTGRESQL_DB_NAME", "{pg_db_name}")
+
+postgresql_db_config = {{
+    "user": POSTGRESQL_DB_USER,
+    "password": POSTGRESQL_DB_PWD,
+    "host": POSTGRESQL_DB_HOST,
+    "port": POSTGRESQL_DB_PORT,
+    "db_name": POSTGRESQL_DB_NAME,
+}}
+
+'''
             
             # 写入新配置
             with open(db_config_path, 'w', encoding='utf-8') as f:
                 f.write(new_config)
             
-            print("已配置MediaCrawler使用MindSpider数据库")
+            db_type = "PostgreSQL" if is_postgresql else "MySQL"
+            logger.info(f"已配置MediaCrawler使用MindSpider {db_type}数据库")
             return True
             
         except Exception as e:
-            print(f"配置MediaCrawler数据库失败: {e}")
+            logger.exception(f"配置MediaCrawler数据库失败: {e}")
             return False
     
     def create_base_config(self, platform: str, keywords: List[str], 
@@ -109,6 +151,11 @@ SQLITE_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "schem
             是否配置成功
         """
         try:
+            # 判断数据库类型，确定 SAVE_DATA_OPTION
+            db_dialect = (config.settings.DB_DIALECT or "mysql").lower()
+            is_postgresql = db_dialect in ("postgresql", "postgres")
+            save_data_option = "postgresql" if is_postgresql else "db"
+            
             base_config_path = self.mediacrawler_path / "config" / "base_config.py"
             
             # 将关键词列表转换为逗号分隔的字符串
@@ -130,7 +177,7 @@ SQLITE_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "schem
                 elif line.startswith('CRAWLER_TYPE = '):
                     new_lines.append(f'CRAWLER_TYPE = "{crawler_type}"  # 爬取类型，search(关键词搜索) | detail(帖子详情)| creator(创作者主页数据)')
                 elif line.startswith('SAVE_DATA_OPTION = '):
-                    new_lines.append('SAVE_DATA_OPTION = "db"  # csv or db or json or sqlite')
+                    new_lines.append(f'SAVE_DATA_OPTION = "{save_data_option}"  # csv or db or json or sqlite or postgresql')
                 elif line.startswith('CRAWLER_MAX_NOTES_COUNT = '):
                     new_lines.append(f'CRAWLER_MAX_NOTES_COUNT = {max_notes}')
                 elif line.startswith('ENABLE_GET_COMMENTS = '):
@@ -146,11 +193,11 @@ SQLITE_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "schem
             with open(base_config_path, 'w', encoding='utf-8') as f:
                 f.write('\n'.join(new_lines))
             
-            print(f"已配置 {platform} 平台，关键词数量: {len(keywords)}")
+            logger.info(f"已配置 {platform} 平台，爬取类型: {crawler_type}，关键词数量: {len(keywords)}，最大爬取数量: {max_notes}，保存数据方式: {save_data_option}")
             return True
             
         except Exception as e:
-            print(f"创建基础配置失败: {e}")
+            logger.exception(f"创建基础配置失败: {e}")
             return False
     
     def run_crawler(self, platform: str, keywords: List[str], 
@@ -173,8 +220,9 @@ SQLITE_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "schem
         if not keywords:
             raise ValueError("关键词列表不能为空")
         
-        print(f"\n开始爬取平台: {platform}")
-        print(f"关键词: {keywords[:5]}{'...' if len(keywords) > 5 else ''} (共{len(keywords)}个)")
+        start_message = f"\n开始爬取平台: {platform}"
+        start_message += f"\n关键词: {keywords[:5]}{'...' if len(keywords) > 5 else ''} (共{len(keywords)}个)"
+        logger.info(start_message)
         
         start_time = datetime.now()
         
@@ -187,22 +235,27 @@ SQLITE_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "schem
             if not self.create_base_config(platform, keywords, "search", max_notes):
                 return {"success": False, "error": "基础配置创建失败"}
             
+            # 判断数据库类型，确定 save_data_option
+            db_dialect = (config.settings.DB_DIALECT or "mysql").lower()
+            is_postgresql = db_dialect in ("postgresql", "postgres")
+            save_data_option = "postgresql" if is_postgresql else "db"
+            
             # 构建命令
             cmd = [
                 sys.executable, "main.py",
                 "--platform", platform,
                 "--lt", login_type,
                 "--type", "search",
-                "--save_data_option", "db"
+                "--save_data_option", save_data_option
             ]
             
-            print(f"执行命令: {' '.join(cmd)}")
+            logger.info(f"执行命令: {' '.join(cmd)}")
             
             # 切换到MediaCrawler目录并执行
             result = subprocess.run(
                 cmd,
                 cwd=self.mediacrawler_path,
-                timeout=1800  # 30分钟超时
+                timeout=3600  # 60分钟超时
             )
             
             end_time = datetime.now()
@@ -226,17 +279,17 @@ SQLITE_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "schem
             self.crawl_stats[platform] = crawl_stats
             
             if result.returncode == 0:
-                print(f"✅ {platform} 爬取完成，耗时: {duration:.1f}秒")
+                logger.info(f"✅ {platform} 爬取完成，耗时: {duration:.1f}秒")
             else:
-                print(f"❌ {platform} 爬取失败，返回码: {result.returncode}")
+                logger.error(f"❌ {platform} 爬取失败，返回码: {result.returncode}")
             
             return crawl_stats
             
         except subprocess.TimeoutExpired:
-            print(f"❌ {platform} 爬取超时")
+            logger.exception(f"❌ {platform} 爬取超时")
             return {"success": False, "error": "爬取超时", "platform": platform}
         except Exception as e:
-            print(f"❌ {platform} 爬取异常: {e}")
+            logger.exception(f"❌ {platform} 爬取异常: {e}")
             return {"success": False, "error": str(e), "platform": platform}
     
     def _parse_crawl_output(self, output_lines: List[str], error_lines: List[str]) -> Dict:
@@ -291,10 +344,14 @@ SQLITE_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "schem
         Returns:
             总体爬取统计
         """
-        print(f"\n🚀 开始全平台关键词爬取")
-        print(f"   关键词数量: {len(keywords)}")
-        print(f"   平台数量: {len(platforms)}")
-        print(f"   总爬取任务: {len(keywords)} × {len(platforms)} = {len(keywords) * len(platforms)}")
+        
+        start_message = f"\n🚀 开始全平台关键词爬取"
+        start_message += f"\n   关键词数量: {len(keywords)}"
+        start_message += f"\n   平台数量: {len(platforms)}"
+        start_message += f"\n   登录方式: {login_type}"
+        start_message += f"\n   每个关键词在每个平台的最大爬取数量: {max_notes_per_keyword}"
+        start_message += f"\n   总爬取任务: {len(keywords)} × {len(platforms)} = {len(keywords) * len(platforms)}"
+        logger.info(start_message)
         
         total_stats = {
             "total_keywords": len(keywords),
@@ -319,8 +376,8 @@ SQLITE_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "schem
         
         # 对每个平台一次性爬取所有关键词
         for platform in platforms:
-            print(f"\n📝 在 {platform} 平台爬取所有关键词")
-            print(f"   关键词: {', '.join(keywords[:5])}{'...' if len(keywords) > 5 else ''}")
+            logger.info(f"\n📝 在 {platform} 平台爬取所有关键词")
+            logger.info(f"   关键词: {', '.join(keywords[:5])}{'...' if len(keywords) > 5 else ''}")
             
             try:
                 # 一次性传递所有关键词给平台
@@ -344,7 +401,7 @@ SQLITE_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "schem
                             total_stats["keyword_results"][keyword] = {}
                         total_stats["keyword_results"][keyword][platform] = result
                     
-                    print(f"   ✅ 成功: {notes_count} 条内容, {comments_count} 条评论")
+                    logger.info(f"   ✅ 成功: {notes_count} 条内容, {comments_count} 条评论")
                 else:
                     total_stats["failed_tasks"] += len(keywords)
                     total_stats["platform_summary"][platform]["failed_keywords"] = len(keywords)
@@ -355,7 +412,7 @@ SQLITE_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "schem
                             total_stats["keyword_results"][keyword] = {}
                         total_stats["keyword_results"][keyword][platform] = result
                     
-                    print(f"   ❌ 失败: {result.get('error', '未知错误')}")
+                    logger.error(f"   ❌ 失败: {result.get('error', '未知错误')}")
             
             except Exception as e:
                 total_stats["failed_tasks"] += len(keywords)
@@ -368,22 +425,24 @@ SQLITE_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "schem
                         total_stats["keyword_results"][keyword] = {}
                     total_stats["keyword_results"][keyword][platform] = error_result
                 
-                print(f"   ❌ 异常: {e}")
+                logger.error(f"   ❌ 异常: {e}")
         
         # 打印详细统计
-        print(f"\n📊 全平台关键词爬取完成!")
-        print(f"   总任务: {total_stats['total_tasks']}")
-        print(f"   成功: {total_stats['successful_tasks']}")
-        print(f"   失败: {total_stats['failed_tasks']}")
-        print(f"   成功率: {total_stats['successful_tasks']/total_stats['total_tasks']*100:.1f}%")
-        print(f"   总内容: {total_stats['total_notes']} 条")
-        print(f"   总评论: {total_stats['total_comments']} 条")
+        finish_message = f"\n📊 全平台关键词爬取完成!"
+        finish_message += f"\n   总任务: {total_stats['total_tasks']}"
+        finish_message += f"\n   成功: {total_stats['successful_tasks']}"
+        finish_message += f"\n   失败: {total_stats['failed_tasks']}"
+        finish_message += f"\n   成功率: {total_stats['successful_tasks']/total_stats['total_tasks']*100:.1f}%"
+        finish_message += f"\n   总内容: {total_stats['total_notes']} 条"
+        finish_message += f"\n   总评论: {total_stats['total_comments']} 条"
+        logger.info(finish_message)
         
-        print(f"\n📈 各平台统计:")
+        platform_summary_message = f"\n� 各平台统计:"
         for platform, stats in total_stats["platform_summary"].items():
             success_rate = stats["successful_keywords"] / len(keywords) * 100 if keywords else 0
-            print(f"   {platform}: {stats['successful_keywords']}/{len(keywords)} 关键词成功 ({success_rate:.1f}%), "
-                  f"{stats['total_notes']} 条内容")
+            platform_summary_message += f"\n   {platform}: {stats['successful_keywords']}/{len(keywords)} 关键词成功 ({success_rate:.1f}%), "
+            platform_summary_message += f"{stats['total_notes']} 条内容"
+        logger.info(platform_summary_message)
         
         return total_stats
     
@@ -403,9 +462,9 @@ SQLITE_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "schem
         try:
             with open(log_path, 'w', encoding='utf-8') as f:
                 json.dump(self.crawl_stats, f, ensure_ascii=False, indent=2)
-            print(f"爬取日志已保存到: {log_path}")
+            logger.info(f"爬取日志已保存到: {log_path}")
         except Exception as e:
-            print(f"保存爬取日志失败: {e}")
+            logger.exception(f"保存爬取日志失败: {e}")
 
 if __name__ == "__main__":
     # 测试平台爬虫管理器
@@ -415,5 +474,5 @@ if __name__ == "__main__":
     test_keywords = ["科技", "AI", "编程"]
     result = crawler.run_crawler("xhs", test_keywords, max_notes=5)
     
-    print(f"测试结果: {result}")
-    print("平台爬虫管理器测试完成！")
+    logger.info(f"测试结果: {result}")
+    logger.info("平台爬虫管理器测试完成！")
