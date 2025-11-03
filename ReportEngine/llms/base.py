@@ -38,11 +38,11 @@ class LLMClient:
         self.base_url = base_url
         self.model_name = model_name
         self.provider = model_name
-        timeout_fallback = os.getenv("LLM_REQUEST_TIMEOUT") or os.getenv("REPORT_ENGINE_REQUEST_TIMEOUT") or "1800"
+        timeout_fallback = os.getenv("LLM_REQUEST_TIMEOUT") or os.getenv("REPORT_ENGINE_REQUEST_TIMEOUT") or "3000"
         try:
             self.timeout = float(timeout_fallback)
         except ValueError:
-            self.timeout = 1800.0
+            self.timeout = 3000.0
 
         client_kwargs: Dict[str, Any] = {
             "api_key": api_key,
