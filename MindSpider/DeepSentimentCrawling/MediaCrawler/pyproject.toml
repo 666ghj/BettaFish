@@ -4,11 +4,14 @@ author = "程序员阿江-Relakkes <relakkes@gmail.com>"
 version = "0.1.0"
 description = "A social media crawler project, support Xiaohongshu, Weibo, Zhihu, Bilibili, Douyin, BaiduTieBa etc."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 dependencies = [
     "aiofiles~=23.2.1",
     "aiomysql==0.2.0",
     "aiosqlite>=0.21.0",
+    "alembic>=1.16.5",
+    "asyncmy>=0.2.10",
+    "cryptography>=45.0.7",
     "fastapi==0.110.2",
     "httpx==0.28.1",
     "jieba==0.42.1",
@@ -20,10 +23,13 @@ dependencies = [
     "playwright==1.45.0",
     "pydantic==2.5.2",
     "pyexecjs==1.5.1",
+    "pyhumps>=3.8.0",
     "python-dotenv==1.0.1",
     "redis~=4.6.0",
     "requests==2.32.3",
+    "sqlalchemy>=2.0.43",
     "tenacity==8.2.2",
+    "typer>=0.12.3",
     "uvicorn==0.29.0",
     "wordcloud==1.9.3",
 ]
