@@ -218,6 +218,8 @@ playwright install chromium
 
 #### 4.1 Configure API Keys
 
+Copy the `config.py.example` file to `config.py`
+
 Edit the `config.py` file and fill in your API keys (you can also choose your own models and search proxies; see the config file for details):
 
 ```python
@@ -243,6 +245,9 @@ INSIGHT_ENGINE_MODEL_NAME = "kimi-k2-0711-preview"
 #### 4.2 Database Initialization
 
 **Option 1: Use Local Database**
+
+You can refer to `MindSpider\config.py\config.py.example` for the configuration template, and you can copy this file and rename it to `config.py`.
+
 ```bash
 # Local MySQL database initialization
 cd MindSpider

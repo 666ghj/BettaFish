@@ -455,19 +455,12 @@ CREATE TABLE tieba_comment
     KEY               `idx_tieba_comment_publish_time` (`publish_time`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='贴吧评论表';
 
--- 增加搜索来源关键字字段
-alter table bilibili_video
-    add column `source_keyword` varchar(255) default '' comment '搜索来源关键字';
-alter table douyin_aweme
-    add column `source_keyword` varchar(255) default '' comment '搜索来源关键字';
-alter table kuaishou_video
-    add column `source_keyword` varchar(255) default '' comment '搜索来源关键字';
-alter table weibo_note
-    add column `source_keyword` varchar(255) default '' comment '搜索来源关键字';
-alter table xhs_note
-    add column `source_keyword` varchar(255) default '' comment '搜索来源关键字';
-alter table tieba_note
-    add column `source_keyword` varchar(255) default '' comment '搜索来源关键字';
+alter table bilibili_video add column `source_keyword` varchar(255) default '' comment '搜索来源关键字';
+alter table douyin_aweme add column `source_keyword` varchar(255) default '' comment '搜索来源关键字';
+alter table kuaishou_video add column `source_keyword` varchar(255) default '' comment '搜索来源关键字';
+alter table weibo_note add column `source_keyword` varchar(255) default '' comment '搜索来源关键字';
+alter table xhs_note add column `source_keyword` varchar(255) default '' comment '搜索来源关键字';
+alter table tieba_note add column `source_keyword` varchar(255) default '' comment '搜索来源关键字';
 
 
 DROP TABLE IF EXISTS `weibo_creator`;

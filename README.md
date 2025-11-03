@@ -21,6 +21,9 @@
 
 </div>
 
+> [!IMPORTANT]
+> 周一（11.3）会上**在线一键部署体验**，欢迎持续关注！
+
 ## ⚡ 项目概述
 
 “**微舆**” 是一个从0实现的创新型 多智能体 舆情分析系统，帮助大家破除信息茧房，还原舆情原貌，预测未来走向，辅助决策。用户只需像聊天一样提出分析需求，智能体开始全自动分析 国内外30+主流社媒 与 数百万条大众评论。
@@ -220,6 +223,8 @@ playwright install chromium
 
 #### 4.1 配置API密钥
 
+复制一份 `config.py.example` 文件，命名为 `config.py`
+
 编辑 `config.py` 文件，填入您的API密钥（您也可以选择自己的模型、搜索代理，详情见config文件内）：
 
 ```python
@@ -247,6 +252,8 @@ INSIGHT_ENGINE_MODEL_NAME = "kimi-k2-0711-preview"
 **选择1：使用本地数据库**
 
 > MindSpider爬虫系统跟舆情系统是各自独立的，所以需要再去`MindSpider\config.py`配置一下
+
+配置模板可以参考`MindSpider\config.py\config.py.example`，可以复制该文件并命名为`config.py`
 
 ```bash
 # 本地MySQL数据库初始化

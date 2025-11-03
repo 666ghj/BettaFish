@@ -295,6 +295,8 @@ secrets.json
 *.key
 *.pem
 *.crt
+config.py
+MindSpider/config.py
 
 # API 密钥
 api_keys.txt

@@ -12,6 +12,7 @@ import json
 from datetime import datetime, date
 from pathlib import Path
 from typing import List, Dict, Optional
+from loguru import logger
 
 # 添加项目根目录到路径
 project_root = Path(__file__).parent.parent
@@ -38,8 +39,7 @@ SOURCE_NAMES = {
     "wallstreetcn": "华尔街见闻",
     "thepaper": "澎湃新闻",
     "cls-hot": "财联社",
-    "xueqiu": "雪球热榜",
-    "kuaishou": "快手热榜"
+    "xueqiu": "雪球热榜"
 }
 
 class NewsCollector:
@@ -72,15 +72,25 @@ class NewsCollector:
     async def fetch_news(self, source: str) -> dict:
         """从指定源获取最新新闻"""
         url = f"{BASE_URL}/api/s?id={source}&latest"
-        headers = {"Accept": "application/json"}
+        headers = {
+            "Accept": "application/json, text/plain, */*",
+            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/124.0.0.0 Safari/537.36"
+            ),
+            "Referer": BASE_URL,
+            "Connection": "keep-alive",
+        }
         
         try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
+            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
                 response = await client.get(url, headers=headers)
                 response.raise_for_status()
                 
                 # 解析JSON响应
-                data = json.loads(response.text)
+                data = response.json()
                 return {
                     "source": source,
                     "status": "success",
@@ -91,21 +101,21 @@ class NewsCollector:
             return {
                 "source": source,
                 "status": "timeout",
-                "error": "请求超时",
+                "error": f"请求超时: {source}({url})",
                 "timestamp": datetime.now().isoformat()
             }
         except httpx.HTTPStatusError as e:
             return {
                 "source": source,
                 "status": "http_error",
-                "error": f"HTTP错误: {e.response.status_code}",
+                "error": f"HTTP错误: {source}({url}) - {e.response.status_code}",
                 "timestamp": datetime.now().isoformat()
             }
         except Exception as e:
             return {
                 "source": source,
                 "status": "error",
-                "error": f"未知错误: {str(e)}",
+                "error": f"未知错误: {source}({url}) - {str(e)}",
                 "timestamp": datetime.now().isoformat()
             }
     
@@ -114,13 +124,13 @@ class NewsCollector:
         if sources is None:
             sources = list(SOURCE_NAMES.keys())
         
-        print(f"正在获取 {len(sources)} 个新闻源的最新内容...")
-        print("=" * 80)
+        logger.info(f"正在获取 {len(sources)} 个新闻源的最新内容...")
+        logger.info("=" * 80)
         
         results = []
         for source in sources:
             source_name = SOURCE_NAMES.get(source, source)
-            print(f"正在获取 {source_name} 的新闻...")
+            logger.info(f"正在获取 {source_name} 的新闻...")
             result = await self.fetch_news(source)
             results.append(result)
             
@@ -128,11 +138,11 @@ class NewsCollector:
                 data = result["data"]
                 if 'items' in data and isinstance(data['items'], list):
                     count = len(data['items'])
-                    print(f"✓ {source_name}: 获取成功，共 {count} 条新闻")
+                    logger.info(f"✓ {source_name}: 获取成功，共 {count} 条新闻")
                 else:
-                    print(f"✓ {source_name}: 获取成功")
+                    logger.info(f"✓ {source_name}: 获取成功")
             else:
-                print(f"✗ {source_name}: {result.get('error', '获取失败')}")
+                logger.error(f"✗ {source_name}: {result.get('error', '获取失败')}")
             
             # 避免请求过快
             await asyncio.sleep(0.5)
@@ -151,18 +161,21 @@ class NewsCollector:
         Returns:
             包含收集结果的字典
         """
-        print(f"开始收集每日热点新闻...")
-        print(f"时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        collection_summary_message = ""
+        collection_summary_message += "\n开始收集每日热点新闻...\n"
+        collection_summary_message += f"时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
         
         # 选择新闻源
         if sources is None:
             # 使用所有支持的新闻源
             sources = list(SOURCE_NAMES.keys())
         
-        print(f"将从 {len(sources)} 个新闻源收集数据:")
+        collection_summary_message += f"将从 {len(sources)} 个新闻源收集数据:\n"
         for source in sources:
             source_name = SOURCE_NAMES.get(source, source)
-            print(f"  - {source_name}")
+            collection_summary_message += f"  - {source_name}\n"
+        
+        logger.info(collection_summary_message)
         
         try:
             # 获取新闻数据
@@ -185,7 +198,7 @@ class NewsCollector:
             return processed_data
             
         except Exception as e:
-            print(f"收集新闻失败: {e}")
+            logger.exception(f"收集新闻失败: {e}")
             return {
                 'success': False,
                 'error': str(e),
@@ -255,35 +268,30 @@ class NewsCollector:
                 }
                 
         except Exception as e:
-            print(f"处理新闻项失败: {e}")
+            logger.exception(f"处理新闻项失败: {e}")
             return None
     
     def _print_collection_summary(self, data: Dict):
         """打印收集摘要"""
-        print("\n" + "=" * 50)
-        print("新闻收集摘要")
-        print("=" * 50)
-        
-        print(f"总新闻源: {data['total_sources']}")
-        print(f"成功源数: {data['successful_sources']}")
-        print(f"总新闻数: {data['total_news']}")
-        
+        collection_summary_message = ""
+        collection_summary_message += f"\n总新闻源: {data['total_sources']}\n"
+        collection_summary_message += f"成功源数: {data['successful_sources']}\n"
+        collection_summary_message += f"总新闻数: {data['total_news']}\n"
         if 'saved_count' in data:
-            print(f"已保存数: {data['saved_count']}")
-        
-        print("=" * 50)
+            collection_summary_message += f"已保存数: {data['saved_count']}\n"
+        logger.info(collection_summary_message)
     
     def get_today_news(self) -> List[Dict]:
         """获取今天的新闻"""
         try:
             return self.db_manager.get_daily_news(date.today())
         except Exception as e:
-            print(f"获取今日新闻失败: {e}")
+            logger.exception(f"获取今日新闻失败: {e}")
             return []
 
 async def main():
     """测试新闻收集器"""
-    print("测试新闻收集器...")
+    logger.info("测试新闻收集器...")
     
     async with NewsCollector() as collector:
         # 收集新闻
@@ -292,9 +300,9 @@ async def main():
         )
         
         if result['success']:
-            print(f"收集成功！共获取 {result['total_news']} 条新闻")
+            logger.info(f"收集成功！共获取 {result['total_news']} 条新闻")
         else:
-            print(f"收集失败: {result.get('error', '未知错误')}")
+            logger.error(f"收集失败: {result.get('error', '未知错误')}")
 
 if __name__ == "__main__":
     asyncio.run(main())
