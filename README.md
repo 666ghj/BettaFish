@@ -307,7 +307,7 @@ streamlit run SingleEngineApp/insight_engine_streamlit_app.py --server.port 8501
 
 #### 5.3 爬虫系统单独使用
 
-这部分有详细的配置文档：[MindeSpider使用说明](./MindSpider/README.md)
+这部分有详细的配置文档：[MindSpider使用说明](./MindSpider/README.md)
 
 <div align="center">
 <img src="MindSpider\img\example.png" alt="banner" width="600">
