@@ -295,6 +295,7 @@ secrets.json
 *.key
 *.pem
 *.crt
+config.py
 
 # API 密钥
 api_keys.txt

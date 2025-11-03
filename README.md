@@ -223,6 +223,8 @@ playwright install chromium
 
 #### 4.1 配置API密钥
 
+复制一份 `config.py.example` 文件，命名为 `config.py`
+
 编辑 `config.py` 文件，填入您的API密钥（您也可以选择自己的模型、搜索代理，详情见config文件内）：
 
 ```python
