@@ -4,6 +4,7 @@ Unified OpenAI-compatible LLM client for the Insight Engine, with retry support.
 
 import os
 import sys
+from datetime import datetime
 from typing import Any, Dict, Optional
 
 from openai import OpenAI
@@ -54,6 +55,12 @@ class LLMClient:
 
     @with_retry(LLM_RETRY_CONFIG)
     def invoke(self, system_prompt: str, user_prompt: str, **kwargs) -> str:
+        current_time = datetime.now().strftime("%Y年%m月%d日%H时%M分")
+        time_prefix = f"今天的实际时间是{current_time}"
+        if user_prompt:
+            user_prompt = f"{time_prefix}\n{user_prompt}"
+        else:
+            user_prompt = time_prefix
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
