@@ -246,7 +246,7 @@ INSIGHT_ENGINE_MODEL_NAME = "kimi-k2-0711-preview"
 
 **Option 1: Use Local Database**
 
-You can refer to `MindSpider\config.py\config.py.example` for the configuration template, and you can copy this file and rename it to `config.py`.
+You can refer to `MindSpider\config.py.example` for the configuration template, copy this file and rename it to `config.py`.
 
 ```bash
 # Local MySQL database initialization

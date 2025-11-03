@@ -251,9 +251,7 @@ INSIGHT_ENGINE_MODEL_NAME = "kimi-k2-0711-preview"
 
 **选择1：使用本地数据库**
 
-> MindSpider爬虫系统跟舆情系统是各自独立的，所以需要再去`MindSpider\config.py`配置一下
-
-配置模板可以参考`MindSpider\config.py\config.py.example`，可以复制该文件并命名为`config.py`
+> MindSpider爬虫系统跟舆情系统是各自独立的，所以需要再去`MindSpider\config.py`配置一下，复制`MindSpider`文件夹下的 `config.py.example` 文件，命名为 `config.py`
 
 ```bash
 # 本地MySQL数据库初始化
