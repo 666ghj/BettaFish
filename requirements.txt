@@ -8,7 +8,7 @@ flask==2.3.3
 flask-socketio==5.3.6
 streamlit==1.28.1
 python-socketio==5.8.0
-eventlet==0.33.3
+eventlet>=0.40.0
 
 # ===== HTTP请求和异步 =====
 requests==2.31.0

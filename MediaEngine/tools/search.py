@@ -38,7 +38,7 @@ utils_dir = os.path.join(root_dir, 'utils')
 if utils_dir not in sys.path:
     sys.path.append(utils_dir)
 
-from retry_helper import with_graceful_retry, SEARCH_API_RETRY_CONFIG
+from utils.retry_helper import with_graceful_retry, SEARCH_API_RETRY_CONFIG
 
 # --- 1. 数据结构定义 ---
 from dataclasses import dataclass, field
@@ -91,7 +91,7 @@ class BochaMultimodalSearch:
     每个公共方法都设计为供 AI Agent 独立调用的工具。
     """
     
-    BASE_URL = "https://api.bochaai.com/v1/ai-search"
+    BASE_URL = "https://api.bochaai.com/v1/web-search"
 
     def __init__(self, api_key: Optional[str] = None):
         """

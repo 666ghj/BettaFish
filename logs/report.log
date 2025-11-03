@@ -1,27 +1,185 @@
-2025-08-27 13:11:54,943 - ReportEngine - INFO - 已加载 query 报告: 7075 字符
-2025-08-27 13:11:54,943 - ReportEngine - INFO - 已加载 media 报告: 897 字符
-2025-08-27 13:11:54,943 - ReportEngine - INFO - 已加载 insight 报告: 5447 字符
-2025-08-27 13:11:54,944 - ReportEngine - INFO - 已加载论坛日志: 111327 字符
-2025-08-27 13:11:54,944 - ReportEngine - INFO - 开始生成报告: 武汉大学舆情
-2025-08-27 13:11:54,945 - ReportEngine - INFO - 输入数据 - 报告数量: 3, 论坛日志长度: 111327
-2025-08-27 13:11:54,945 - ReportEngine - INFO - 选择报告模板...
-2025-08-27 13:11:54,945 - ReportEngine - INFO - [TemplateSelectionNode] 开始模板选择...
-2025-08-27 13:11:54,946 - ReportEngine - INFO - [TemplateSelectionNode] 尝试使用LLM进行模板选择...
-2025-08-27 13:12:18,379 - ReportEngine - INFO - [TemplateSelectionNode] LLM原始响应: ```json
-{
+2025-11-05 18:49:27,871 - ReportEngine - INFO - 已加载 query 报告: 4560 字符
+2025-11-05 18:49:27,872 - ReportEngine - INFO - 已加载 media 报告: 7689 字符
+2025-11-05 18:49:27,873 - ReportEngine - INFO - 已加载 insight 报告: 17271 字符
+2025-11-05 18:49:27,875 - ReportEngine - INFO - 已加载论坛日志: 118645 字符
+2025-11-05 18:49:27,875 - ReportEngine - INFO - 开始生成报告: 智能舆情分析报告
+2025-11-05 18:49:27,876 - ReportEngine - INFO - 输入数据 - 报告数量: 3, 论坛日志长度: 118645
+2025-11-05 18:49:27,876 - ReportEngine - INFO - 选择报告模板...
+2025-11-05 18:49:27,877 - ReportEngine - INFO - [TemplateSelectionNode] 开始模板选择...
+2025-11-05 18:49:27,878 - ReportEngine - INFO - [TemplateSelectionNode] 尝试使用LLM进行模板选择...
+2025-11-05 18:49:35,374 - ReportEngine - INFO - [TemplateSelectionNode] LLM原始响应: {
   "template_name": "企业品牌声誉分析报告模板",
-  "selection_reason": "查询内容和分析报告聚焦于武汉大学这一特定主体在特定周期内（如2023-2024年度）的整体网络形象、声誉健康度和多起重大舆情事件的综合影响。报告内容并非针对单一突发事件的即时响应，而是进行了全面、深度、战略性的评估与复盘，旨在分析其“品牌”声誉的构成与受损情况，完全符合企业品牌声誉分析报告的核心任务。"
+  "selection_reason": "查询内容聚焦于知乎平台新产品在高知用户群体中的讨论、口碑形成机制及品牌声誉影响，三份分析引擎报告均围绕新产品在知乎社区的舆情表现、用户反馈、评分指标、危机响应窗口等与品牌形象和声誉直接相关的要素展开。报告不仅分析了用户分层、算法机制对声誉传播的影响，还提出了针对性的商业建议，符合企业品牌声誉分析报告模板的战略性、全局性评估定位。"
 }
-```
-2025-08-27 13:12:18,381 - ReportEngine - INFO - [TemplateSelectionNode] LLM选择模板: 企业品牌声誉分析报告模板
-2025-08-27 13:12:18,381 - ReportEngine - INFO - 选择模板: 企业品牌声誉分析报告模板
-2025-08-27 13:12:18,381 - ReportEngine - INFO - 选择理由: 查询内容和分析报告聚焦于武汉大学这一特定主体在特定周期内（如2023-2024年度）的整体网络形象、声誉健康度和多起重大舆情事件的综合影响。报告内容并非针对单一突发事件的即时响应，而是进行了全面、深度、战略性的评估与复盘，旨在分析其“品牌”声誉的构成与受损情况，完全符合企业品牌声誉分析报告的核心任务。
-2025-08-27 13:12:18,381 - ReportEngine - INFO - 多轮生成HTML报告...
-2025-08-27 13:12:18,381 - ReportEngine - INFO - [HTMLGenerationNode] 开始生成HTML报告...
-2025-08-27 13:16:30,962 - ReportEngine - INFO - [HTMLGenerationNode] 处理LLM原始输出，长度: 57880 字符
-2025-08-27 13:16:30,962 - ReportEngine - INFO - [HTMLGenerationNode] HTML处理完成，最终长度: 57868 字符
-2025-08-27 13:16:30,962 - ReportEngine - INFO - [HTMLGenerationNode] HTML报告生成完成
-2025-08-27 13:16:30,962 - ReportEngine - INFO - HTML报告生成完成
-2025-08-27 13:16:30,963 - ReportEngine - INFO - 报告已保存到: final_reports\final_report__20250827_131630.html
-2025-08-27 13:16:30,964 - ReportEngine - INFO - 状态已保存到: final_reports\report_state__20250827_131630.json
-2025-08-27 13:16:30,964 - ReportEngine - INFO - 报告生成完成，耗时: 276.02 秒
+2025-11-05 18:49:35,374 - ReportEngine - INFO - [TemplateSelectionNode] LLM选择模板: 企业品牌声誉分析报告模板
+2025-11-05 18:49:35,374 - ReportEngine - INFO - 选择模板: 企业品牌声誉分析报告模板
+2025-11-05 18:49:35,374 - ReportEngine - INFO - 选择理由: 查询内容聚焦于知乎平台新产品在高知用户群体中的讨论、口碑形成机制及品牌声誉影响，三份分析引擎报告均围绕新产品在知乎社区的舆情表现、用户反馈、评分指标、危机响应窗口等与品牌形象和声誉直接相关的要素展开。报告不仅分析了用户分层、算法机制对声誉传播的影响，还提出了针对性的商业建议，符合企业品牌声誉分析报告模板的战略性、全局性评估定位。
+2025-11-05 18:49:35,374 - ReportEngine - INFO - 多轮生成HTML报告...
+2025-11-05 18:49:35,374 - ReportEngine - INFO - [HTMLGenerationNode] 开始生成HTML报告...
+2025-11-05 19:39:27,614 - ReportEngine - ERROR - [HTMLGenerationNode] HTML生成失败: <!DOCTYPE html>
+<!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 7]>    <html class="no-js ie7 oldie" lang="en-US"> <![endif]-->
+<!--[if IE 8]>    <html class="no-js ie8 oldie" lang="en-US"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en-US"> <!--<![endif]-->
+<head>
+
+<title>anannas.ai | 524: A timeout occurred</title>
+<meta charset="UTF-8" />
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+<meta name="robots" content="noindex, nofollow" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<link rel="stylesheet" id="cf_styles-css" href="/cdn-cgi/styles/main.css" />
+</head>
+<body>
+<div id="cf-wrapper">
+    <div id="cf-error-details" class="p-0">
+        <header class="mx-auto pt-10 lg:pt-6 lg:px-8 w-240 lg:w-full mb-8">
+            <h1 class="inline-block sm:block sm:mb-2 font-light text-60 lg:text-4xl text-black-dark leading-tight mr-2">
+                <span class="inline-block">A timeout occurred</span>
+                <span class="code-label">Error code 524</span>
+            </h1>
+            <div>
+                Visit <a href="https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_524&utm_campaign=api.anannas.ai" target="_blank" rel="noopener noreferrer">cloudflare.com</a> for more information.
+            </div>
+            <div class="mt-3">2025-11-05 11:39:27 UTC</div>
+        </header>
+        <div class="my-8 bg-gradient-gray">
+            <div class="w-240 lg:w-full mx-auto">
+                <div class="clearfix md:px-8">
+                    <div id="cf-browser-status" class=" relative w-1/3 md:w-full py-15 md:p-0 md:py-8 md:text-left md:border-solid md:border-0 md:border-b md:border-gray-400 overflow-hidden float-left md:float-none text-center">
+  <div class="relative mb-10 md:m-0">
+    
+    <span class="cf-icon-browser block md:hidden h-20 bg-center bg-no-repeat"></span>
+    <span class="cf-icon-ok w-12 h-12 absolute left-1/2 md:left-auto md:right-0 md:top-0 -ml-6 -bottom-4"></span>
+    
+  </div>
+  <span class="md:block w-full truncate">You</span>
+  <h3 class="md:inline-block mt-3 md:mt-0 text-2xl text-gray-600 font-light leading-1.3">
+  
+    Browser
+  
+  </h3>
+  
+  <span class="leading-1.3 text-2xl text-green-success">Working</span>
+  
+</div>
+                    <div id="cf-cloudflare-status" class=" relative w-1/3 md:w-full py-15 md:p-0 md:py-8 md:text-left md:border-solid md:border-0 md:border-b md:border-gray-400 overflow-hidden float-left md:float-none text-center">
+  <div class="relative mb-10 md:m-0">
+    <a href="https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_524&#38;utm_campaign=api.anannas.ai" target="_blank" rel="noopener noreferrer">
+    <span class="cf-icon-cloud block md:hidden h-20 bg-center bg-no-repeat"></span>
+    <span class="cf-icon-ok w-12 h-12 absolute left-1/2 md:left-auto md:right-0 md:top-0 -ml-6 -bottom-4"></span>
+    </a>
+  </div>
+  <span class="md:block w-full truncate">San Jose</span>
+  <h3 class="md:inline-block mt-3 md:mt-0 text-2xl text-gray-600 font-light leading-1.3">
+  <a href="https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_524&utm_campaign=api.anannas.ai" target="_blank" rel="noopener noreferrer">
+    Cloudflare
+  </a>
+  </h3>
+  
+  <span class="leading-1.3 text-2xl text-green-success">Working</span>
+  
+</div>
+                    <div id="cf-host-status" class="cf-error-source relative w-1/3 md:w-full py-15 md:p-0 md:py-8 md:text-left md:border-solid md:border-0 md:border-b md:border-gray-400 overflow-hidden float-left md:float-none text-center">
+  <div class="relative mb-10 md:m-0">
+    
+    <span class="cf-icon-server block md:hidden h-20 bg-center bg-no-repeat"></span>
+    <span class="cf-icon-error w-12 h-12 absolute left-1/2 md:left-auto md:right-0 md:top-0 -ml-6 -bottom-4"></span>
+    
+  </div>
+  <span class="md:block w-full truncate">api.anannas.ai</span>
+  <h3 class="md:inline-block mt-3 md:mt-0 text-2xl text-gray-600 font-light leading-1.3">
+  
+    Host
+  
+  </h3>
+  
+  <span class="leading-1.3 text-2xl text-red-error">Error</span>
+  
+</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="w-240 lg:w-full mx-auto mb-8 lg:px-8">
+            <div class="clearfix">
+                <div class="w-1/2 md:w-full float-left pr-6 md:pb-10 md:pr-0 leading-relaxed">
+                    <h2 class="text-3xl font-normal leading-1.3 mb-4">What happened?</h2>
+                    <p class="mb-2">The origin web server timed out responding to this request.</p><p>The likely cause is an overloaded background task, database or application, stressing the resources on the host web server.</p>
+                </div>
+                <div class="w-1/2 md:w-full float-left leading-relaxed">
+                    <h2 class="text-3xl font-normal leading-1.3 mb-4">What can I do?</h2>
+                    
+              <h3 class="text-15 font-semibold mb-2">If you're a visitor of this website:</h3>
+              <p class="mb-6">Please try again in a few minutes.</p>
+
+              <h3 class="text-15 font-semibold mb-2">If you're the owner of this website:</h3>
+              <p>Please refer to the <a rel="noopener noreferrer" href="https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-5xx-errors/error-524/">Error 524</a> article:</p>
+              <ul class="ml-4">
+                <li>Contact your hosting provider; check for long-running processes or an overloaded web server.</li>
+                <li>Use status polling of large HTTP processes to avoid this error.</li>
+                <li>Run the long-running scripts on a <a rel="noopener noreferrer" href="https://developers.cloudflare.com/dns/proxy-status/#dns-only-records">grey-clouded subdomain</a>.</li>
+                <li>Enterprise customers can <a rel="noopener noreferrer" href="https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-5xx-errors/error-524/#resolution-on-cloudflare">increase the timeout setting</a> globally or for specific requests using Cache Rules.</li>
+              </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="cf-error-footer cf-wrapper w-240 lg:w-full py-10 sm:py-4 sm:px-8 mx-auto text-center sm:text-left border-solid border-0 border-t border-gray-300">
+    <p class="text-13">
+      <span class="cf-footer-item sm:block sm:mb-1">Cloudflare Ray ID: <strong class="font-semibold">999c0f012b9167a7</strong></span>
+      <span class="cf-footer-separator sm:hidden">&bull;</span>
+      <span id="cf-footer-item-ip" class="cf-footer-item hidden sm:block sm:mb-1">
+        Your IP:
+        <button type="button" id="cf-footer-ip-reveal" class="cf-footer-ip-reveal-btn">Click to reveal</button>
+        <span class="hidden" id="cf-footer-ip">120.199.34.118</span>
+        <span class="cf-footer-separator sm:hidden">&bull;</span>
+      </span>
+      <span class="cf-footer-item sm:block sm:mb-1"><span>Performance &amp; security by</span> <a rel="noopener noreferrer" href="https://www.cloudflare.com/5xx-error-landing?utm_source=errorcode_524&#38;utm_campaign=api.anannas.ai" id="brand_link" target="_blank">Cloudflare</a></span>
+      
+    </p>
+    <script>(function(){function d(){var b=a.getElementById("cf-footer-item-ip"),c=a.getElementById("cf-footer-ip-reveal");b&&"classList"in b&&(b.classList.remove("hidden"),c.addEventListener("click",function(){c.classList.add("hidden");a.getElementById("cf-footer-ip").classList.remove("hidden")}))}var a=document;document.addEventListener&&a.addEventListener("DOMContentLoaded",d)})();</script>
+  </div><!-- /.error-footer -->
+
+    </div>
+</div>
+</body>
+</html>
+2025-11-05 19:39:27,624 - ReportEngine - INFO - [HTMLGenerationNode] 使用备用HTML生成方法
+2025-11-05 19:39:27,632 - ReportEngine - INFO - HTML报告生成完成
+2025-11-05 19:39:27,643 - ReportEngine - INFO - 报告已保存到: final_reports\final_report__20251105_193927.html
+2025-11-05 19:39:27,651 - ReportEngine - INFO - 状态已保存到: final_reports\report_state__20251105_193927.json
+2025-11-05 19:39:27,652 - ReportEngine - INFO - 报告生成完成，耗时: 2999.78 秒
+2025-11-06 10:06:17,902 - ReportEngine - INFO - Report Agent已初始化
+2025-11-06 10:06:17,902 - ReportEngine - INFO - 使用LLM: {'provider': 'claude-4.5-sonnet-think', 'model': 'claude-4.5-sonnet-think', 'api_base': 'https://b4u.qzz.io/v1'}
+2025-11-06 10:11:59,946 - ReportEngine - INFO - Report Agent已初始化
+2025-11-06 10:11:59,946 - ReportEngine - INFO - 使用LLM: {'provider': 'claude-4.5-sonnet-think', 'model': 'claude-4.5-sonnet-think', 'api_base': 'https://b4u.qzz.io/v1'}
+2025-11-06 12:21:31,065 - ReportEngine - INFO - Report Agent已初始化
+2025-11-06 12:21:31,066 - ReportEngine - INFO - 使用LLM: {'provider': 'claude-4.5-sonnet-think', 'model': 'claude-4.5-sonnet-think', 'api_base': 'https://b4u.qzz.io/v1'}
+2025-11-06 12:24:56,421 - ReportEngine - INFO - Report Agent已初始化
+2025-11-06 12:24:56,421 - ReportEngine - INFO - 使用LLM: {'provider': 'claude-4.5-sonnet-think', 'model': 'claude-4.5-sonnet-think', 'api_base': 'https://b4u.qzz.io/v1'}
+2025-11-06 12:27:47,073 - ReportEngine - INFO - Report Agent已初始化
+2025-11-06 12:27:47,073 - ReportEngine - INFO - 使用LLM: {'provider': 'claude-4.5-sonnet-think', 'model': 'claude-4.5-sonnet-think', 'api_base': 'https://b4u.qzz.io/v1'}
+2025-11-06 12:35:03,794 - ReportEngine - INFO - Report Agent已初始化
+2025-11-06 12:35:03,794 - ReportEngine - INFO - 使用LLM: {'provider': 'claude-4.5-sonnet-think', 'model': 'claude-4.5-sonnet-think', 'api_base': 'https://b4u.qzz.io/v1'}
+2025-11-06 14:43:56,878 - ReportEngine - INFO - Report Agent已初始化
+2025-11-06 14:43:56,879 - ReportEngine - INFO - 使用LLM: {'provider': 'claude-4.5-sonnet-think', 'model': 'claude-4.5-sonnet-think', 'api_base': 'https://b4u.qzz.io/v1'}
+2025-11-06 14:58:04,520 - ReportEngine - INFO - Report Agent已初始化
+2025-11-06 14:58:04,521 - ReportEngine - INFO - 使用LLM: {'provider': 'claude-4.5-sonnet-think', 'model': 'claude-4.5-sonnet-think', 'api_base': 'https://b4u.qzz.io/v1'}
+2025-11-06 15:05:29,549 - ReportEngine - INFO - Report Agent已初始化
+2025-11-06 15:05:29,550 - ReportEngine - INFO - 使用LLM: {'provider': 'claude-4.5-sonnet-think', 'model': 'claude-4.5-sonnet-think', 'api_base': 'https://b4u.qzz.io/v1'}
+2025-11-06 15:08:12,107 - ReportEngine - INFO - Report Agent已初始化
+2025-11-06 15:08:12,108 - ReportEngine - INFO - 使用LLM: {'provider': 'claude-4.5-sonnet-think', 'model': 'claude-4.5-sonnet-think', 'api_base': 'https://b4u.qzz.io/v1'}
+2025-11-06 15:26:25,635 - ReportEngine - INFO - Report Agent已初始化
+2025-11-06 15:26:25,635 - ReportEngine - INFO - 使用LLM: {'provider': 'claude-4.5-sonnet-think', 'model': 'claude-4.5-sonnet-think', 'api_base': 'https://b4u.qzz.io/v1'}
+2025-11-06 15:31:52,464 - ReportEngine - INFO - Report Agent已初始化
+2025-11-06 15:31:52,466 - ReportEngine - INFO - 使用LLM: {'provider': 'claude-4.5-sonnet-think', 'model': 'claude-4.5-sonnet-think', 'api_base': 'https://b4u.qzz.io/v1'}
+2025-11-06 15:50:01,656 - ReportEngine - INFO - Report Agent已初始化
+2025-11-06 15:50:01,656 - ReportEngine - INFO - 使用LLM: {'provider': 'claude-4.5-sonnet-think', 'model': 'claude-4.5-sonnet-think', 'api_base': 'https://b4u.qzz.io/v1'}
+2025-11-06 16:47:11,076 - ReportEngine - INFO - Report Agent已初始化
+2025-11-06 16:47:11,077 - ReportEngine - INFO - 使用LLM: {'provider': 'claude-4.5-sonnet-think', 'model': 'claude-4.5-sonnet-think', 'api_base': 'https://b4u.qzz.io/v1'}
+2025-11-06 17:00:22,485 - ReportEngine - INFO - Report Agent已初始化
+2025-11-06 17:00:22,485 - ReportEngine - INFO - 使用LLM: {'provider': 'claude-4.5-sonnet-think', 'model': 'claude-4.5-sonnet-think', 'api_base': 'https://b4u.qzz.io/v1'}
+2025-11-06 17:05:38,077 - ReportEngine - INFO - Report Agent已初始化
+2025-11-06 17:05:38,078 - ReportEngine - INFO - 使用LLM: {'provider': 'claude-4.5-sonnet-think', 'model': 'claude-4.5-sonnet-think', 'api_base': 'https://b4u.qzz.io/v1'}

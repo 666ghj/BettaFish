@@ -16,7 +16,7 @@ if utils_dir not in sys.path:
     sys.path.append(utils_dir)
 
 try:
-    from retry_helper import with_retry, LLM_RETRY_CONFIG
+    from utils.retry_helper import with_retry, LLM_RETRY_CONFIG
 except ImportError:
     def with_retry(config=None):
         def decorator(func):

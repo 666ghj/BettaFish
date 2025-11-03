@@ -1,0 +1,9 @@
+# NextJSAdapter 额外依赖
+# 这些是 NextJSAdapter 需要的额外依赖，在 BettaFish 原项目依赖基础上添加
+
+flask>=2.3.0
+flask-cors>=4.0.0
+colorama>=0.4.6
+requests>=2.31.0
+
+# 注意：BettaFish 原项目的其他依赖请参考项目根目录的 requirements.txt
