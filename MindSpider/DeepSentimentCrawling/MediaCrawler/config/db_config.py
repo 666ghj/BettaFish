@@ -12,11 +12,19 @@
 import os
 
 # mysql config - 使用MindSpider的数据库配置
-MYSQL_DB_PWD = "mneDccc7sHHANtFk"
-MYSQL_DB_USER = "root"
-MYSQL_DB_HOST = "rm-2zeib6b13f6tt9kncoo.mysql.rds.aliyuncs.com"
-MYSQL_DB_PORT = 3306
-MYSQL_DB_NAME = "mindspider"
+MYSQL_DB_PWD = "bettafish"
+MYSQL_DB_USER = "bettafish"
+MYSQL_DB_HOST = "127.0.0.1"
+MYSQL_DB_PORT = 5444
+MYSQL_DB_NAME = "bettafish"
+
+mysql_db_config = {
+    "user": MYSQL_DB_USER,
+    "password": MYSQL_DB_PWD,
+    "host": MYSQL_DB_HOST,
+    "port": MYSQL_DB_PORT,
+    "db_name": MYSQL_DB_NAME,
+}
 
 
 # redis config
@@ -30,4 +38,24 @@ CACHE_TYPE_REDIS = "redis"
 CACHE_TYPE_MEMORY = "memory"
 
 # sqlite config
-SQLITE_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "schema", "sqlite_tables.db")
+SQLITE_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "database", "sqlite_tables.db")
+
+sqlite_db_config = {
+    "db_path": SQLITE_DB_PATH
+}
+
+# postgresql config - 使用MindSpider的数据库配置（如果DB_DIALECT是postgresql）或环境变量
+POSTGRESQL_DB_PWD = os.getenv("POSTGRESQL_DB_PWD", "bettafish")
+POSTGRESQL_DB_USER = os.getenv("POSTGRESQL_DB_USER", "bettafish")
+POSTGRESQL_DB_HOST = os.getenv("POSTGRESQL_DB_HOST", "127.0.0.1")
+POSTGRESQL_DB_PORT = os.getenv("POSTGRESQL_DB_PORT", "5444")
+POSTGRESQL_DB_NAME = os.getenv("POSTGRESQL_DB_NAME", "bettafish")
+
+postgresql_db_config = {
+    "user": POSTGRESQL_DB_USER,
+    "password": POSTGRESQL_DB_PWD,
+    "host": POSTGRESQL_DB_HOST,
+    "port": POSTGRESQL_DB_PORT,
+    "db_name": POSTGRESQL_DB_NAME,
+}
+

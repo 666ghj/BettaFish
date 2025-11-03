@@ -11,8 +11,8 @@ from datetime import date, timedelta, datetime
 from pathlib import Path
 from typing import List, Dict, Optional
 import random
-import pymysql
-from pymysql.cursors import DictCursor
+from sqlalchemy import create_engine, text
+from sqlalchemy.engine import Engine
 
 # 添加项目根目录到路径
 project_root = Path(__file__).parent.parent
@@ -23,30 +23,38 @@ try:
 except ImportError:
     raise ImportError("无法导入config.py配置文件")
 
+from config import settings
+from loguru import logger
+
 class KeywordManager:
     """关键词管理器"""
     
     def __init__(self):
         """初始化关键词管理器"""
-        self.connection = None
+        self.engine: Engine = None
         self.connect()
     
     def connect(self):
         """连接数据库"""
         try:
-            self.connection = pymysql.connect(
-                host=config.DB_HOST,
-                port=config.DB_PORT,
-                user=config.DB_USER,
-                password=config.DB_PASSWORD,
-                database=config.DB_NAME,
-                charset=config.DB_CHARSET,
-                autocommit=True,
-                cursorclass=DictCursor
-            )
-            print(f"关键词管理器成功连接到数据库: {config.DB_NAME}")
+            dialect = (settings.DB_DIALECT or "mysql").lower()
+            if dialect in ("postgresql", "postgres"):
+                url = f"postgresql+psycopg://{settings.DB_USER}:{settings.DB_PASSWORD}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
+            else:
+                url = f"mysql+pymysql://{settings.DB_USER}:{settings.DB_PASSWORD}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}?charset={settings.DB_CHARSET}"
+            self.engine = create_engine(url, future=True)
+            logger.info(f"关键词管理器成功连接到数据库: {settings.DB_NAME}")
+        except ModuleNotFoundError as e:
+            missing: str = str(e)
+            if "psycopg" in missing:
+                logger.error("数据库连接失败: 未安装PostgreSQL驱动 psycopg。请安装: psycopg[binary]。参考指令：uv pip install psycopg[binary]")
+            elif "pymysql" in missing:
+                logger.error("数据库连接失败: 未安装MySQL驱动 pymysql。请安装: pymysql。参考指令：uv pip install pymysql")
+            else:
+                logger.error(f"数据库连接失败(缺少驱动): {e}")
+            raise
         except Exception as e:
-            print(f"关键词管理器数据库连接失败: {e}")
+            logger.exception(f"关键词管理器数据库连接失败: {e}")
             raise
     
     def get_latest_keywords(self, target_date: date = None, max_keywords: int = 100) -> List[str]:
@@ -63,24 +71,24 @@ class KeywordManager:
         if not target_date:
             target_date = date.today()
         
-        print(f"正在获取 {target_date} 的关键词...")
+        logger.info(f"正在获取 {target_date} 的关键词...")
         
         # 首先尝试获取指定日期的关键词
         topics_data = self.get_daily_topics(target_date)
         
         if topics_data and topics_data.get('keywords'):
             keywords = topics_data['keywords']
-            print(f"成功获取 {target_date} 的 {len(keywords)} 个关键词")
+            logger.info(f"成功获取 {target_date} 的 {len(keywords)} 个关键词")
             
             # 如果关键词太多，随机选择指定数量
             if len(keywords) > max_keywords:
                 keywords = random.sample(keywords, max_keywords)
-                print(f"随机选择了 {max_keywords} 个关键词")
+                logger.info(f"随机选择了 {max_keywords} 个关键词")
             
             return keywords
         
         # 如果没有当天的关键词，尝试获取最近几天的
-        print(f"{target_date} 没有关键词数据，尝试获取最近的关键词...")
+        logger.info(f"{target_date} 没有关键词数据，尝试获取最近的关键词...")
         recent_topics = self.get_recent_topics(days=7)
         
         if recent_topics:
@@ -95,11 +103,11 @@ class KeywordManager:
             if len(unique_keywords) > max_keywords:
                 unique_keywords = random.sample(unique_keywords, max_keywords)
             
-            print(f"从最近7天的数据中获取到 {len(unique_keywords)} 个关键词")
+            logger.info(f"从最近7天的数据中获取到 {len(unique_keywords)} 个关键词")
             return unique_keywords
         
         # 如果都没有，返回默认关键词
-        print("没有找到任何关键词数据，使用默认关键词")
+        logger.info("没有找到任何关键词数据，使用默认关键词")
         return self._get_default_keywords()
     
     def get_daily_topics(self, extract_date: date = None) -> Optional[Dict]:
@@ -116,20 +124,22 @@ class KeywordManager:
             extract_date = date.today()
         
         try:
-            cursor = self.connection.cursor()
-            query = "SELECT * FROM daily_topics WHERE extract_date = %s"
-            cursor.execute(query, (extract_date,))
-            result = cursor.fetchone()
+            with self.engine.connect() as conn:
+                result = conn.execute(
+                    text("SELECT * FROM daily_topics WHERE extract_date = :d"),
+                    {"d": extract_date},
+                ).mappings().first()
             
             if result:
-                # 解析关键词JSON
-                result['keywords'] = json.loads(result['keywords'])
+                # 转为可变dict再赋值
+                result = dict(result)
+                result['keywords'] = json.loads(result['keywords']) if result.get('keywords') else []
                 return result
             else:
                 return None
                 
         except Exception as e:
-            print(f"获取话题分析失败: {e}")
+            logger.exception(f"获取话题分析失败: {e}")
             return None
     
     def get_recent_topics(self, days: int = 7) -> List[Dict]:
@@ -143,23 +153,28 @@ class KeywordManager:
             话题分析列表
         """
         try:
-            cursor = self.connection.cursor()
-            query = """
-                SELECT * FROM daily_topics 
-                WHERE extract_date >= DATE_SUB(CURDATE(), INTERVAL %s DAY)
-                ORDER BY extract_date DESC
-            """
-            cursor.execute(query, (days,))
-            results = cursor.fetchall()
+            start_date = date.today() - timedelta(days=days)
+            with self.engine.connect() as conn:
+                results = conn.execute(
+                    text(
+                        """
+                        SELECT * FROM daily_topics 
+                        WHERE extract_date >= :start_date
+                        ORDER BY extract_date DESC
+                        """
+                    ),
+                    {"start_date": start_date},
+                ).mappings().all()
             
-            # 解析每个结果的关键词JSON
+            # 转为可变dict列表再处理
+            results = [dict(r) for r in results]
             for result in results:
-                result['keywords'] = json.loads(result['keywords'])
+                result['keywords'] = json.loads(result['keywords']) if result.get('keywords') else []
             
             return results
             
         except Exception as e:
-            print(f"获取最近话题分析失败: {e}")
+            logger.exception(f"获取最近话题分析失败: {e}")
             return []
     
     def _get_default_keywords(self) -> List[str]:
@@ -190,8 +205,8 @@ class KeywordManager:
         keywords = self.get_latest_keywords(target_date, max_keywords)
         
         if keywords:
-            print(f"为 {len(platforms)} 个平台准备了相同的 {len(keywords)} 个关键词")
-            print(f"每个关键词将在所有平台上进行爬取")
+            logger.info(f"为 {len(platforms)} 个平台准备了相同的 {len(keywords)} 个关键词")
+            logger.info(f"每个关键词将在所有平台上进行爬取")
         
         return keywords
     
@@ -210,7 +225,7 @@ class KeywordManager:
         """
         keywords = self.get_latest_keywords(target_date, max_keywords)
         
-        print(f"为平台 {platform} 准备了 {len(keywords)} 个关键词（与其他平台相同）")
+        logger.info(f"为平台 {platform} 准备了 {len(keywords)} 个关键词（与其他平台相同）")
         return keywords
     
     def _filter_keywords_by_platform(self, keywords: List[str], platform: str) -> List[str]:
@@ -290,9 +305,9 @@ class KeywordManager:
     
     def close(self):
         """关闭数据库连接"""
-        if self.connection:
-            self.connection.close()
-            print("关键词管理器数据库连接已关闭")
+        if self.engine:
+            self.engine.dispose()
+            logger.info("关键词管理器数据库连接已关闭")
     
     def __enter__(self):
         return self
@@ -305,16 +320,16 @@ if __name__ == "__main__":
     with KeywordManager() as km:
         # 测试获取关键词
         keywords = km.get_latest_keywords(max_keywords=20)
-        print(f"获取到的关键词: {keywords}")
+        logger.info(f"获取到的关键词: {keywords}")
         
         # 测试平台分配
         platforms = ['xhs', 'dy', 'bili']
         distribution = km.distribute_keywords_by_platform(keywords, platforms)
         for platform, kws in distribution.items():
-            print(f"{platform}: {kws}")
+            logger.info(f"{platform}: {kws}")
         
         # 测试爬取摘要
         summary = km.get_crawling_summary()
-        print(f"爬取摘要: {summary}")
+        logger.info(f"爬取摘要: {summary}")
         
-        print("关键词管理器测试完成！")
+        logger.info("关键词管理器测试完成！")

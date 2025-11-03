@@ -15,8 +15,7 @@ from typing import List
 from model.m_baidu_tieba import TiebaComment, TiebaCreator, TiebaNote
 from var import source_keyword_var
 
-from . import tieba_store_impl
-from .tieba_store_impl import *
+from ._store_impl import *
 
 
 class TieBaStoreFactory:
@@ -24,7 +23,8 @@ class TieBaStoreFactory:
         "csv": TieBaCsvStoreImplement,
         "db": TieBaDbStoreImplement,
         "json": TieBaJsonStoreImplement,
-        "sqlite": TieBaSqliteStoreImplement
+        "sqlite": TieBaSqliteStoreImplement,
+        "postgresql": TieBaDbStoreImplement,
     }
 
     @staticmethod
@@ -32,7 +32,7 @@ class TieBaStoreFactory:
         store_class = TieBaStoreFactory.STORES.get(config.SAVE_DATA_OPTION)
         if not store_class:
             raise ValueError(
-                "[TieBaStoreFactory.create_store] Invalid save option only supported csv or db or json ...")
+                "[TieBaStoreFactory.create_store] Invalid save option only supported csv or db or json or sqlite or postgresql ...")
         return store_class()
 
 

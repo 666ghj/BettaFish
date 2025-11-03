@@ -18,19 +18,20 @@ sys.path.append(str(project_root))
 
 try:
     import config
+    from config import settings
 except ImportError:
-    raise ImportError("无法导入config.py配置文件")
+    raise ImportError("无法导入settings.py配置文件")
 
 class TopicExtractor:
     """话题提取器"""
-    
+
     def __init__(self):
         """初始化话题提取器"""
         self.client = OpenAI(
-            api_key=config.DEEPSEEK_API_KEY,
-            base_url="https://api.deepseek.com"
+            api_key=settings.MINDSPIDER_API_KEY,
+            base_url=settings.MINDSPIDER_BASE_URL
         )
-        self.model = "deepseek-chat"
+        self.model = settings.MINDSPIDER_MODEL_NAME
     
     def extract_keywords_and_summary(self, news_list: List[Dict], max_keywords: int = 100) -> Tuple[List[str], str]:
         """

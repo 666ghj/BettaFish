@@ -11,9 +11,8 @@
 import asyncio
 import os
 import random
-import time
 from asyncio import Task
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from playwright.async_api import (
     BrowserContext,
@@ -27,7 +26,7 @@ from tenacity import RetryError
 import config
 from base.base_crawler import AbstractCrawler
 from config import CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES
-from model.m_xiaohongshu import NoteUrlInfo
+from model.m_xiaohongshu import NoteUrlInfo, CreatorUrlInfo
 from proxy.proxy_ip_pool import IpInfoModel, create_ip_pool
 from store import xhs as xhs_store
 from tools import utils
@@ -37,7 +36,7 @@ from var import crawler_type_var, source_keyword_var
 from .client import XiaoHongShuClient
 from .exception import DataFetchError
 from .field import SearchSortType
-from .help import parse_note_info_from_note_url, get_search_id
+from .help import parse_note_info_from_note_url, parse_creator_info_from_url, get_search_id
 from .login import XiaoHongShuLogin
 
 
@@ -80,8 +79,9 @@ class XiaoHongShuCrawler(AbstractCrawler):
                     self.user_agent,
                     headless=config.HEADLESS,
                 )
-            # stealth.min.js is a js script to prevent the website from detecting the crawler.
-            await self.browser_context.add_init_script(path="libs/stealth.min.js")
+                # stealth.min.js is a js script to prevent the website from detecting the crawler.
+                await self.browser_context.add_init_script(path="libs/stealth.min.js")
+
             self.context_page = await self.browser_context.new_page()
             await self.context_page.goto(self.index_url)
 
@@ -164,6 +164,10 @@ class XiaoHongShuCrawler(AbstractCrawler):
                     page += 1
                     utils.logger.info(f"[XiaoHongShuCrawler.search] Note details: {note_details}")
                     await self.batch_get_note_comments(note_ids, xsec_tokens)
+                    
+                    # Sleep after each page navigation
+                    await asyncio.sleep(config.CRAWLER_MAX_SLEEP_SEC)
+                    utils.logger.info(f"[XiaoHongShuCrawler.search] Sleeping for {config.CRAWLER_MAX_SLEEP_SEC} seconds after page {page-1}")
                 except DataFetchError:
                     utils.logger.error("[XiaoHongShuCrawler.search] Get note detail error")
                     break
@@ -171,17 +175,27 @@ class XiaoHongShuCrawler(AbstractCrawler):
     async def get_creators_and_notes(self) -> None:
         """Get creator's notes and retrieve their comment information."""
         utils.logger.info("[XiaoHongShuCrawler.get_creators_and_notes] Begin get xiaohongshu creators")
-        for user_id in config.XHS_CREATOR_ID_LIST:
-            # get creator detail info from web html content
-            createor_info: Dict = await self.xhs_client.get_creator_info(user_id=user_id)
-            if createor_info:
-                await xhs_store.save_creator(user_id, creator=createor_info)
+        for creator_url in config.XHS_CREATOR_ID_LIST:
+            try:
+                # Parse creator URL to get user_id and security tokens
+                creator_info: CreatorUrlInfo = parse_creator_info_from_url(creator_url)
+                utils.logger.info(f"[XiaoHongShuCrawler.get_creators_and_notes] Parse creator URL info: {creator_info}")
+                user_id = creator_info.user_id
 
-            # When proxy is not enabled, increase the crawling interval
-            if config.ENABLE_IP_PROXY:
-                crawl_interval = random.random()
-            else:
-                crawl_interval = random.uniform(1, config.CRAWLER_MAX_SLEEP_SEC)
+                # get creator detail info from web html content
+                createor_info: Dict = await self.xhs_client.get_creator_info(
+                    user_id=user_id,
+                    xsec_token=creator_info.xsec_token,
+                    xsec_source=creator_info.xsec_source
+                )
+                if createor_info:
+                    await xhs_store.save_creator(user_id, creator=createor_info)
+            except ValueError as e:
+                utils.logger.error(f"[XiaoHongShuCrawler.get_creators_and_notes] Failed to parse creator URL: {e}")
+                continue
+
+            # Use fixed crawling interval
+            crawl_interval = config.CRAWLER_MAX_SLEEP_SEC
             # Get all note information of the creator
             all_notes_list = await self.xhs_client.get_all_notes_by_creator(
                 user_id=user_id,
@@ -268,18 +282,16 @@ class XiaoHongShuCrawler(AbstractCrawler):
         async with semaphore:
             try:
                 utils.logger.info(f"[get_note_detail_async_task] Begin get note detail, note_id: {note_id}")
-
-                try:
-                    note_detail = await self.xhs_client.get_note_by_id(note_id, xsec_source, xsec_token)
-                except RetryError as e:
-                    pass
-
+                note_detail = await self.xhs_client.get_note_by_id_from_html(note_id, xsec_source, xsec_token, enable_cookie=True)
                 if not note_detail:
-                    note_detail = await self.xhs_client.get_note_by_id_from_html(note_id, xsec_source, xsec_token, enable_cookie=True)
-                    if not note_detail:
-                        raise Exception(f"[get_note_detail_async_task] Failed to get note detail, Id: {note_id}")
+                    raise Exception(f"[get_note_detail_async_task] Failed to get note detail, Id: {note_id}")
 
                 note_detail.update({"xsec_token": xsec_token, "xsec_source": xsec_source})
+                
+                # Sleep after fetching note detail
+                await asyncio.sleep(config.CRAWLER_MAX_SLEEP_SEC)
+                utils.logger.info(f"[get_note_detail_async_task] Sleeping for {config.CRAWLER_MAX_SLEEP_SEC} seconds after fetching note {note_id}")
+                
                 return note_detail
 
             except DataFetchError as ex:
@@ -310,11 +322,8 @@ class XiaoHongShuCrawler(AbstractCrawler):
         """Get note comments with keyword filtering and quantity limitation"""
         async with semaphore:
             utils.logger.info(f"[XiaoHongShuCrawler.get_comments] Begin get note id comments {note_id}")
-            # When proxy is not enabled, increase the crawling interval
-            if config.ENABLE_IP_PROXY:
-                crawl_interval = random.random()
-            else:
-                crawl_interval = random.uniform(1, config.CRAWLER_MAX_SLEEP_SEC)
+            # Use fixed crawling interval
+            crawl_interval = config.CRAWLER_MAX_SLEEP_SEC
             await self.xhs_client.get_note_all_comments(
                 note_id=note_id,
                 xsec_token=xsec_token,
@@ -322,6 +331,10 @@ class XiaoHongShuCrawler(AbstractCrawler):
                 callback=xhs_store.batch_update_xhs_note_comments,
                 max_count=CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES,
             )
+            
+            # Sleep after fetching comments
+            await asyncio.sleep(crawl_interval)
+            utils.logger.info(f"[XiaoHongShuCrawler.get_comments] Sleeping for {crawl_interval} seconds after fetching comments for note {note_id}")
 
     async def create_xhs_client(self, httpx_proxy: Optional[str]) -> XiaoHongShuClient:
         """Create xhs client"""

@@ -33,6 +33,7 @@ from var import crawler_type_var, source_keyword_var
 from .client import DouYinClient
 from .exception import DataFetchError
 from .field import PublishTimeType
+from .help import parse_video_info_from_url, parse_creator_info_from_url
 from .login import DouYinLogin
 
 
@@ -73,8 +74,9 @@ class DouYinCrawler(AbstractCrawler):
                     user_agent=None,
                     headless=config.HEADLESS,
                 )
-            # stealth.min.js is a js script to prevent the website from detecting the crawler.
-            await self.browser_context.add_init_script(path="libs/stealth.min.js")
+                # stealth.min.js is a js script to prevent the website from detecting the crawler.
+                await self.browser_context.add_init_script(path="libs/stealth.min.js")
+
             self.context_page = await self.browser_context.new_page()
             await self.context_page.goto(self.index_url)
 
@@ -147,25 +149,56 @@ class DouYinCrawler(AbstractCrawler):
                     aweme_list.append(aweme_info.get("aweme_id", ""))
                     await douyin_store.update_douyin_aweme(aweme_item=aweme_info)
                     await self.get_aweme_media(aweme_item=aweme_info)
+                # Sleep after each page navigation
+                await asyncio.sleep(config.CRAWLER_MAX_SLEEP_SEC)
+                utils.logger.info(f"[DouYinCrawler.search] Sleeping for {config.CRAWLER_MAX_SLEEP_SEC} seconds after page {page-1}")
             utils.logger.info(f"[DouYinCrawler.search] keyword:{keyword}, aweme_list:{aweme_list}")
             await self.batch_get_note_comments(aweme_list)
 
     async def get_specified_awemes(self):
-        """Get the information and comments of the specified post"""
+        """Get the information and comments of the specified post from URLs or IDs"""
+        utils.logger.info("[DouYinCrawler.get_specified_awemes] Parsing video URLs...")
+        aweme_id_list = []
+        for video_url in config.DY_SPECIFIED_ID_LIST:
+            try:
+                video_info = parse_video_info_from_url(video_url)
+
+                # 处理短链接
+                if video_info.url_type == "short":
+                    utils.logger.info(f"[DouYinCrawler.get_specified_awemes] Resolving short link: {video_url}")
+                    resolved_url = await self.dy_client.resolve_short_url(video_url)
+                    if resolved_url:
+                        # 从解析后的URL中提取视频ID
+                        video_info = parse_video_info_from_url(resolved_url)
+                        utils.logger.info(f"[DouYinCrawler.get_specified_awemes] Short link resolved to aweme ID: {video_info.aweme_id}")
+                    else:
+                        utils.logger.error(f"[DouYinCrawler.get_specified_awemes] Failed to resolve short link: {video_url}")
+                        continue
+
+                aweme_id_list.append(video_info.aweme_id)
+                utils.logger.info(f"[DouYinCrawler.get_specified_awemes] Parsed aweme ID: {video_info.aweme_id} from {video_url}")
+            except ValueError as e:
+                utils.logger.error(f"[DouYinCrawler.get_specified_awemes] Failed to parse video URL: {e}")
+                continue
+
         semaphore = asyncio.Semaphore(config.MAX_CONCURRENCY_NUM)
-        task_list = [self.get_aweme_detail(aweme_id=aweme_id, semaphore=semaphore) for aweme_id in config.DY_SPECIFIED_ID_LIST]
+        task_list = [self.get_aweme_detail(aweme_id=aweme_id, semaphore=semaphore) for aweme_id in aweme_id_list]
         aweme_details = await asyncio.gather(*task_list)
         for aweme_detail in aweme_details:
             if aweme_detail is not None:
                 await douyin_store.update_douyin_aweme(aweme_item=aweme_detail)
                 await self.get_aweme_media(aweme_item=aweme_detail)
-        await self.batch_get_note_comments(config.DY_SPECIFIED_ID_LIST)
+        await self.batch_get_note_comments(aweme_id_list)
 
     async def get_aweme_detail(self, aweme_id: str, semaphore: asyncio.Semaphore) -> Any:
         """Get note detail"""
         async with semaphore:
             try:
-                return await self.dy_client.get_video_by_id(aweme_id)
+                result = await self.dy_client.get_video_by_id(aweme_id)
+                # Sleep after fetching aweme detail
+                await asyncio.sleep(config.CRAWLER_MAX_SLEEP_SEC)
+                utils.logger.info(f"[DouYinCrawler.get_aweme_detail] Sleeping for {config.CRAWLER_MAX_SLEEP_SEC} seconds after fetching aweme {aweme_id}")
+                return result
             except DataFetchError as ex:
                 utils.logger.error(f"[DouYinCrawler.get_aweme_detail] Get aweme detail error: {ex}")
                 return None
@@ -193,23 +226,38 @@ class DouYinCrawler(AbstractCrawler):
         async with semaphore:
             try:
                 # 将关键词列表传递给 get_aweme_all_comments 方法
+                # Use fixed crawling interval
+                crawl_interval = config.CRAWLER_MAX_SLEEP_SEC
                 await self.dy_client.get_aweme_all_comments(
                     aweme_id=aweme_id,
-                    crawl_interval=random.random(),
+                    crawl_interval=crawl_interval,
                     is_fetch_sub_comments=config.ENABLE_GET_SUB_COMMENTS,
                     callback=douyin_store.batch_update_dy_aweme_comments,
                     max_count=config.CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES,
                 )
+                # Sleep after fetching comments
+                await asyncio.sleep(crawl_interval)
+                utils.logger.info(f"[DouYinCrawler.get_comments] Sleeping for {crawl_interval} seconds after fetching comments for aweme {aweme_id}")
                 utils.logger.info(f"[DouYinCrawler.get_comments] aweme_id: {aweme_id} comments have all been obtained and filtered ...")
             except DataFetchError as e:
                 utils.logger.error(f"[DouYinCrawler.get_comments] aweme_id: {aweme_id} get comments failed, error: {e}")
 
     async def get_creators_and_videos(self) -> None:
         """
-        Get the information and videos of the specified creator
+        Get the information and videos of the specified creator from URLs or IDs
         """
         utils.logger.info("[DouYinCrawler.get_creators_and_videos] Begin get douyin creators")
-        for user_id in config.DY_CREATOR_ID_LIST:
+        utils.logger.info("[DouYinCrawler.get_creators_and_videos] Parsing creator URLs...")
+
+        for creator_url in config.DY_CREATOR_ID_LIST:
+            try:
+                creator_info_parsed = parse_creator_info_from_url(creator_url)
+                user_id = creator_info_parsed.sec_user_id
+                utils.logger.info(f"[DouYinCrawler.get_creators_and_videos] Parsed sec_user_id: {user_id} from {creator_url}")
+            except ValueError as e:
+                utils.logger.error(f"[DouYinCrawler.get_creators_and_videos] Failed to parse creator URL: {e}")
+                continue
+
             creator_info: Dict = await self.dy_client.get_user_info(user_id)
             if creator_info:
                 await douyin_store.save_creator(user_id, creator=creator_info)
