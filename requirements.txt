@@ -49,11 +49,12 @@ plotly>=5.17.0
 matplotlib==3.9.0
 wordcloud==1.9.3
 
-# ===== 机器学习（可选，用于情感分析） =====
-torch>=2.0.0  # 需要单独安装CUDA版本
+# ===== 机器学习（可选，用于情感分析，不安装也没事写了容错程序） =====
+torch>=2.0.0 # CPU版本
 transformers>=4.30.0
 scikit-learn>=1.3.0
 xgboost>=2.0.0
+# NOTE：如果要安装GPU版本的torch，指令为pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu126
 
 # ===== 工具库 =====
 python-dotenv>=1.0.0

@@ -22,7 +22,7 @@
 </div>
 
 > [!IMPORTANT]
-> 周一（11.3）会上**在线一键部署体验**，欢迎持续关注！
+> 抱歉出了点状况，周二（11.4）会上**在线一键部署体验**，欢迎持续关注！
 
 ## ⚡ 项目概述
 
@@ -223,6 +223,8 @@ playwright install chromium
 
 #### 4.1 配置API密钥
 
+复制一份 `config.py.example` 文件，命名为 `config.py`
+
 编辑 `config.py` 文件，填入您的API密钥（您也可以选择自己的模型、搜索代理，详情见config文件内）：
 
 ```python
@@ -249,7 +251,7 @@ INSIGHT_ENGINE_MODEL_NAME = "kimi-k2-0711-preview"
 
 **选择1：使用本地数据库**
 
-> MindSpider爬虫系统跟舆情系统是各自独立的，所以需要再去`MindSpider\config.py`配置一下
+> MindSpider爬虫系统跟舆情系统是各自独立的，所以需要再去`MindSpider\config.py`配置一下，复制`MindSpider`文件夹下的 `config.py.example` 文件，命名为 `config.py`
 
 ```bash
 # 本地MySQL数据库初始化
