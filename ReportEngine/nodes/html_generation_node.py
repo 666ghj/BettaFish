@@ -29,16 +29,14 @@ class HTMLGenerationNode(StateMutationNode):
     def run(self, input_data: Dict[str, Any], **kwargs) -> str:
         """
         执行HTML生成
-        
+
         Args:
             input_data: 包含报告数据的字典
                 - query: 原始查询
-                - query_engine_report: QueryEngine报告内容
-                - media_engine_report: MediaEngine报告内容  
                 - insight_engine_report: InsightEngine报告内容
                 - forum_logs: 论坛日志内容
                 - selected_template: 选择的模板内容
-                
+
         Returns:
             生成的HTML内容
         """
@@ -48,8 +46,6 @@ class HTMLGenerationNode(StateMutationNode):
             # 准备LLM输入数据
             llm_input = {
                 "query": input_data.get('query', ''),
-                "query_engine_report": input_data.get('query_engine_report', ''),
-                "media_engine_report": input_data.get('media_engine_report', ''),
                 "insight_engine_report": input_data.get('insight_engine_report', ''),
                 "forum_logs": input_data.get('forum_logs', ''),
                 "selected_template": input_data.get('selected_template', '')
@@ -141,10 +137,8 @@ class HTMLGenerationNode(StateMutationNode):
             备用HTML内容
         """
         self.log_info("使用备用HTML生成方法")
-        
-        query = input_data.get('query', '智能舆情分析报告')
-        query_report = input_data.get('query_engine_report', '')
-        media_report = input_data.get('media_engine_report', '')
+
+        query = input_data.get('query', '智能城市数据分析报告')
         insight_report = input_data.get('insight_engine_report', '')
         forum_logs = input_data.get('forum_logs', '')
         
@@ -155,7 +149,7 @@ class HTMLGenerationNode(StateMutationNode):
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{query} - 智能舆情分析报告</title>
+    <title>{query} - 智能城市数据分析报告</title>
     <style>
         body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -213,23 +207,19 @@ class HTMLGenerationNode(StateMutationNode):
 <body>
     <div class="container">
         <h1>{query}</h1>
-        
+
         <div class="meta">
             <strong>报告生成时间:</strong> {generation_time}<br>
-            <strong>数据来源:</strong> QueryEngine、MediaEngine、InsightEngine、ForumEngine<br>
-            <strong>报告类型:</strong> 综合舆情分析报告
+            <strong>数据来源:</strong> InsightEngine、ForumEngine<br>
+            <strong>报告类型:</strong> 综合城市数据分析报告
         </div>
-        
+
         <h2>执行摘要</h2>
         <div class="section">
-            本报告整合了多个分析引擎的研究结果，为您提供全面的舆情分析洞察。
+            本报告整合了InsightEngine的研究结果，为您提供全面的城市数据分析洞察。
             通过对查询主题"{query}"的深度分析，我们从多个维度展现了当前的舆情态势。
         </div>
-        
-        {f'<h2>QueryEngine分析结果</h2><div class="section"><pre>{query_report}</pre></div>' if query_report else ''}
-        
-        {f'<h2>MediaEngine分析结果</h2><div class="section"><pre>{media_report}</pre></div>' if media_report else ''}
-        
+
         {f'<h2>InsightEngine分析结果</h2><div class="section"><pre>{insight_report}</pre></div>' if insight_report else ''}
         
         {f'<h2>论坛监控数据</h2><div class="section"><pre>{forum_logs}</pre></div>' if forum_logs else ''}

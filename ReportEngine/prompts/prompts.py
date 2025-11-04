@@ -1,6 +1,6 @@
 """
 Report Engine 的所有提示词定义
-参考MediaEngine的结构，专门用于报告生成
+专门用于报告生成
 """
 
 import json
@@ -22,8 +22,6 @@ input_schema_html_generation = {
     "type": "object",
     "properties": {
         "query": {"type": "string"},
-        "query_engine_report": {"type": "string"},
-        "media_engine_report": {"type": "string"},
         "insight_engine_report": {"type": "string"},
         "forum_logs": {"type": "string"},
         "selected_template": {"type": "string"}

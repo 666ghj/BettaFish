@@ -62,11 +62,7 @@
 
 ### 整体架构图
 
-**Insight Agent** 私有数据库挖掘：私有舆情数据库深度分析AI代理
-
-**Media Agent** 多模态内容分析：具备强大多模态能力的AI代理
-
-**Query Agent** 精准信息搜索：具备国内外网页搜索能力的AI代理
+**Insight Agent** 私有数据库挖掘：私有舆情数据库深度分析AI代理，支持多平台数据表选择
 
 **Report Agent** 智能报告生成：内置模板的多轮报告生成AI代理
 
@@ -79,35 +75,21 @@
 | 步骤 | 阶段名称 | 主要操作 | 参与组件 | 循环特性 |
 |------|----------|----------|----------|----------|
 | 1 | 用户提问 | Flask主应用接收查询 | Flask主应用 | - |
-| 2 | 并行启动 | 三个Agent同时开始工作 | Query Agent、Media Agent、Insight Agent | - |
-| 3 | 初步分析 | 各Agent使用专属工具进行概览搜索 | 各Agent + 专属工具集 | - |
-| 4 | 策略制定 | 基于初步结果制定分块研究策略 | 各Agent内部决策模块 | - |
-| 5-N | **循环阶段** | **论坛协作 + 深度研究** | **ForumEngine + 所有Agent** | **多轮循环** |
-| 5.1 | 深度研究 | 各Agent基于论坛主持人引导进行专项搜索 | 各Agent + 反思机制 + 论坛引导 | 每轮循环 |
-| 5.2 | 论坛协作 | ForumEngine监控Agent发言并生成主持人总结 | ForumEngine + LLM主持人 | 每轮循环 |
-| 5.3 | 交流融合 | 各Agent根据讨论调整研究方向 | 各Agent + forum_reader工具 | 每轮循环 |
-| N+1 | 结果整合 | Report Agent收集所有分析结果和论坛内容 | Report Agent | - |
+| 2 | 启动分析 | Insight Agent开始工作 | Insight Agent | - |
+| 3 | 初步分析 | Agent使用专属工具进行概览搜索 | Insight Agent + 数据库工具集 | - |
+| 4 | 策略制定 | 基于初步结果制定分块研究策略 | Insight Agent内部决策模块 | - |
+| 5-N | **循环阶段** | **深度研究与数据挖掘** | **Insight Agent + 反思机制** | **多轮循环** |
+| 5.1 | 深度研究 | Agent基于数据表选择进行专项搜索 | Insight Agent + 多平台表选择 | 每轮循环 |
+| 5.2 | 数据分析 | 对选定平台数据进行深度分析 | Insight Agent + 情感分析 | 每轮循环 |
+| 5.3 | 结果整合 | 整合多轮搜索结果 | Insight Agent + 数据去重 | 每轮循环 |
+| N+1 | 结果整合 | Report Agent收集分析结果 | Report Agent | - |
 | N+2 | 报告生成 | 动态选择模板和样式，多轮生成最终报告 | Report Agent + 模板引擎 | - |
 
 ### 项目代码结构树
 
 ```
 Weibo_PublicOpinion_AnalysisSystem/
-├── QueryEngine/                   # 国内外新闻广度搜索Agent
-│   ├── agent.py                   # Agent主逻辑
-│   ├── llms/                      # LLM接口封装
-│   ├── nodes/                     # 处理节点
-│   ├── tools/                     # 搜索工具
-│   ├── utils/                     # 工具函数
-│   └── ...                        # 其他模块
-├── MediaEngine/                   # 强大的多模态理解Agent
-│   ├── agent.py                   # Agent主逻辑
-│   ├── nodes/                     # 处理节点
-│   ├── llms/                      # LLM接口
-│   ├── tools/                     # 搜索工具
-│   ├── utils/                     # 工具函数
-│   └── ...                        # 其他模块
-├── InsightEngine/                 # 私有数据库挖掘Agent
+├── InsightEngine/                 # 私有数据库挖掘Agent (支持多平台表选择)
 │   ├── agent.py                   # Agent主逻辑
 │   ├── llms/                      # LLM接口封装
 │   │   └── base.py                # 统一的 OpenAI 兼容客户端
@@ -168,8 +150,6 @@ Weibo_PublicOpinion_AnalysisSystem/
 │   ├── WeiboSentiment_SmallQwen/  # 小参数Qwen3微调
 │   └── WeiboSentiment_MachineLearning/ # 传统机器学习方法
 ├── SingleEngineApp/               # 单独Agent的Streamlit应用
-│   ├── query_engine_streamlit_app.py
-│   ├── media_engine_streamlit_app.py
 │   └── insight_engine_streamlit_app.py
 ├── templates/                     # Flask模板
 │   └── index.html                 # 主界面前端
@@ -292,15 +272,9 @@ python app.py
 
 访问 http://localhost:5000 即可使用完整系统
 
-#### 5.2 单独启动某个Agent
+#### 5.2 单独启动Insight Agent
 
 ```bash
-# 启动QueryEngine
-streamlit run SingleEngineApp/query_engine_streamlit_app.py --server.port 8503
-
-# 启动MediaEngine  
-streamlit run SingleEngineApp/media_engine_streamlit_app.py --server.port 8502
-
 # 启动InsightEngine
 streamlit run SingleEngineApp/insight_engine_streamlit_app.py --server.port 8501
 ```

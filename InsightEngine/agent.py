@@ -522,7 +522,13 @@ class DeepSearchAgent:
             else:  # search_topic_on_platform
                 limit = self.config.default_search_topic_on_platform_limit
             search_kwargs["limit"] = limit
-        
+
+        # 处理平台选择参数
+        platforms = search_output.get("platforms")
+        if platforms and search_tool in ["search_topic_globally", "search_topic_by_date"]:
+            search_kwargs["platforms"] = platforms
+            print(f"  - 选择的平台: {', '.join(platforms)}")
+
         search_response = self.execute_search_tool(search_tool, search_query, **search_kwargs)
         
         # 转换为兼容格式

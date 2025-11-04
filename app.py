@@ -105,8 +105,8 @@ def parse_forum_log_line(line):
         if source == 'SYSTEM' or not content.strip():
             return None
         
-        # 只处理三个Engine的消息
-        if source not in ['QUERY', 'INSIGHT', 'MEDIA']:
+        # 只处理Insight Engine的消息
+        if source not in ['INSIGHT']:
             return None
         
         # 根据来源确定消息类型和发送者
@@ -193,16 +193,12 @@ forum_monitor_thread.start()
 # 全局变量存储进程信息
 processes = {
     'insight': {'process': None, 'port': 8501, 'status': 'stopped', 'output': [], 'log_file': None},
-    'media': {'process': None, 'port': 8502, 'status': 'stopped', 'output': [], 'log_file': None},
-    'query': {'process': None, 'port': 8503, 'status': 'stopped', 'output': [], 'log_file': None},
     'forum': {'process': None, 'port': None, 'status': 'running', 'output': [], 'log_file': None}  # Forum始终运行
 }
 
 # 输出队列
 output_queues = {
     'insight': Queue(),
-    'media': Queue(),
-    'query': Queue(),
     'forum': Queue()
 }
 
@@ -478,11 +474,9 @@ def start_app(app_name):
     """启动指定应用"""
     if app_name not in processes:
         return jsonify({'success': False, 'message': '未知应用'})
-    
+
     script_paths = {
-        'insight': 'SingleEngineApp/insight_engine_streamlit_app.py',
-        'media': 'SingleEngineApp/media_engine_streamlit_app.py',
-        'query': 'SingleEngineApp/query_engine_streamlit_app.py'
+        'insight': 'SingleEngineApp/insight_engine_streamlit_app.py'
     }
     
     success, message = start_streamlit_app(
@@ -633,7 +627,7 @@ def search():
     
     # 向运行中的应用发送搜索请求
     results = {}
-    api_ports = {'insight': 8601, 'media': 8602, 'query': 8603}
+    api_ports = {'insight': 8601}
     
     for app_name in running_apps:
         try:
@@ -686,11 +680,9 @@ if __name__ == '__main__':
     stop_forum_engine()
     
     script_paths = {
-        'insight': 'SingleEngineApp/insight_engine_streamlit_app.py',
-        'media': 'SingleEngineApp/media_engine_streamlit_app.py',
-        'query': 'SingleEngineApp/query_engine_streamlit_app.py'
+        'insight': 'SingleEngineApp/insight_engine_streamlit_app.py'
     }
-    
+
     for app_name, script_path in script_paths.items():
         print(f"检查文件: {script_path}")
         if os.path.exists(script_path):

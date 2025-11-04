@@ -38,6 +38,7 @@ output_schema_first_search = {
         "start_date": {"type": "string", "description": "开始日期，格式YYYY-MM-DD，search_topic_by_date和search_topic_on_platform工具可能需要"},
         "end_date": {"type": "string", "description": "结束日期，格式YYYY-MM-DD，search_topic_by_date和search_topic_on_platform工具可能需要"},
         "platform": {"type": "string", "description": "平台名称，search_topic_on_platform工具必需，可选值：bilibili, weibo, douyin, kuaishou, xhs, zhihu, tieba"},
+        "platforms": {"type": "array", "items": {"type": "string"}, "description": "要搜索的平台列表，仅用于search_topic_globally和search_topic_by_date工具，可选值：bilibili, weibo, douyin, kuaishou, xhs, zhihu, tieba, daily_news。如不指定则搜索所有平台"},
         "time_period": {"type": "string", "description": "时间周期，search_hot_content工具可选，可选值：24h, week, year"},
         "enable_sentiment": {"type": "boolean", "description": "是否启用自动情感分析，默认为true，适用于除analyze_sentiment外的所有搜索工具"},
         "texts": {"type": "array", "items": {"type": "string"}, "description": "文本列表，仅用于analyze_sentiment工具"}

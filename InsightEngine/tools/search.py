@@ -190,23 +190,34 @@ class MediaCrawlerDB:
         formatted_results = [QueryResult(platform=r['p'], content_type=r['t'], title_or_content=r['title'], author_nickname=r.get('author'), url=r['url'], publish_time=self._to_datetime(r['ts']), engagement=self._extract_engagement(r), hotness_score=r.get('hotness_score', 0.0), source_keyword=r.get('source_keyword'), source_table=r['tbl']) for r in raw_results]
         return DBResponse("search_hot_content", params_for_log, results=formatted_results, results_count=len(formatted_results))    
 
-    def search_topic_globally(self, topic: str, limit_per_table: int = 100) -> DBResponse:
+    def search_topic_globally(self, topic: str, limit_per_table: int = 100, platforms: Optional[List[str]] = None) -> DBResponse:
         """
         【工具】全局话题搜索: 在数据库中（内容、评论、标签、来源关键字）全面搜索指定话题。
 
         Args:
             topic (str): 要搜索的话题关键词。
             limit_per_table (int): 从每个相关表中返回的最大记录数，默认为 100。
+            platforms (Optional[List[str]]): 要搜索的平台列表，可选值: ['bilibili', 'douyin', 'kuaishou', 'weibo', 'xhs', 'zhihu', 'tieba', 'daily_news']
+                                           如果为None，则搜索所有平台。
 
         Returns:
             DBResponse: 包含所有匹配结果的聚合列表。
         """
-        params_for_log = {'topic': topic, 'limit_per_table': limit_per_table}
+        params_for_log = {'topic': topic, 'limit_per_table': limit_per_table, 'platforms': platforms}
         print(f"--- TOOL: 全局话题搜索 (params: {params_for_log}) ---")
         
         search_term, all_results = f"%{topic}%", []
         search_configs = { 'bilibili_video': {'fields': ['title', 'desc', 'source_keyword'], 'type': 'video'}, 'bilibili_video_comment': {'fields': ['content'], 'type': 'comment'}, 'douyin_aweme': {'fields': ['title', 'desc', 'source_keyword'], 'type': 'video'}, 'douyin_aweme_comment': {'fields': ['content'], 'type': 'comment'}, 'kuaishou_video': {'fields': ['title', 'desc', 'source_keyword'], 'type': 'video'}, 'kuaishou_video_comment': {'fields': ['content'], 'type': 'comment'}, 'weibo_note': {'fields': ['content', 'source_keyword'], 'type': 'note'}, 'weibo_note_comment': {'fields': ['content'], 'type': 'comment'}, 'xhs_note': {'fields': ['title', 'desc', 'tag_list', 'source_keyword'], 'type': 'note'}, 'xhs_note_comment': {'fields': ['content'], 'type': 'comment'}, 'zhihu_content': {'fields': ['title', 'desc', 'content_text', 'source_keyword'], 'type': 'content'}, 'zhihu_comment': {'fields': ['content'], 'type': 'comment'}, 'tieba_note': {'fields': ['title', 'desc', 'source_keyword'], 'type': 'note'}, 'tieba_comment': {'fields': ['content'], 'type': 'comment'}, 'daily_news': {'fields': ['title'], 'type': 'news'}, }
-        
+
+        # 如果指定了平台，则过滤表
+        if platforms:
+            filtered_configs = {}
+            for table, config in search_configs.items():
+                platform = table.split('_')[0]
+                if platform in platforms or table in platforms:
+                    filtered_configs[table] = config
+            search_configs = filtered_configs
+
         for table, config in search_configs.items():
             where_clause = " OR ".join([f"`{field}` LIKE %s" for field in config['fields']])
             query = f"SELECT * FROM `{table}` WHERE {where_clause} ORDER BY id DESC LIMIT %s"
@@ -227,7 +238,7 @@ class MediaCrawlerDB:
                 ))
         return DBResponse("search_topic_globally", params_for_log, results=all_results, results_count=len(all_results))
 
-    def search_topic_by_date(self, topic: str, start_date: str, end_date: str, limit_per_table: int = 100) -> DBResponse:
+    def search_topic_by_date(self, topic: str, start_date: str, end_date: str, limit_per_table: int = 100, platforms: Optional[List[str]] = None) -> DBResponse:
         """
         【工具】按日期搜索话题: 在明确的历史时间段内，搜索与特定话题相关的内容。
 
@@ -236,11 +247,13 @@ class MediaCrawlerDB:
             start_date (str): 开始日期，格式 'YYYY-MM-DD'。
             end_date (str): 结束日期，格式 'YYYY-MM-DD'。
             limit_per_table (int): 从每个相关表中返回的最大记录数，默认为 100。
+            platforms (Optional[List[str]]): 要搜索的平台列表，可选值: ['bilibili', 'douyin', 'kuaishou', 'weibo', 'xhs', 'zhihu', 'tieba', 'daily_news']
+                                           如果为None，则搜索所有平台。
 
         Returns:
             DBResponse: 包含在指定日期范围内找到的结果的聚合列表。
         """
-        params_for_log = {'topic': topic, 'start_date': start_date, 'end_date': end_date, 'limit_per_table': limit_per_table}
+        params_for_log = {'topic': topic, 'start_date': start_date, 'end_date': end_date, 'limit_per_table': limit_per_table, 'platforms': platforms}
         print(f"--- TOOL: 按日期搜索话题 (params: {params_for_log}) ---")
         
         try:
@@ -255,6 +268,15 @@ class MediaCrawlerDB:
             'xhs_note': {'fields': ['title', 'desc', 'tag_list', 'source_keyword'], 'type': 'note', 'time_col': 'time', 'time_type': 'ms'}, 'zhihu_content': {'fields': ['title', 'desc', 'content_text', 'source_keyword'], 'type': 'content', 'time_col': 'created_time', 'time_type': 'sec_str'},
             'tieba_note': {'fields': ['title', 'desc', 'source_keyword'], 'type': 'note', 'time_col': 'publish_time', 'time_type': 'str'}, 'daily_news': {'fields': ['title'], 'type': 'news', 'time_col': 'crawl_date', 'time_type': 'date_str'},
         }
+
+        # 如果指定了平台，则过滤表
+        if platforms:
+            filtered_configs = {}
+            for table, config in search_configs.items():
+                platform = table.split('_')[0]
+                if platform in platforms or table in platforms:
+                    filtered_configs[table] = config
+            search_configs = filtered_configs
 
         for table, config in search_configs.items():
             topic_clause = " OR ".join([f"`{field}` LIKE %s" for field in config['fields']])

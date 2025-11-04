@@ -76,11 +76,9 @@ class ReportTask:
 
 
 def check_engines_ready() -> Dict[str, Any]:
-    """检查三个子引擎是否都有新文件"""
+    """检查InsightEngine是否有新文件"""
     directories = {
-        'insight': 'insight_engine_streamlit_reports',
-        'media': 'media_engine_streamlit_reports', 
-        'query': 'query_engine_streamlit_reports'
+        'insight': 'insight_engine_streamlit_reports'
     }
     
     forum_log_path = 'logs/forum.log'

@@ -36,8 +36,6 @@ class ReportState:
     status: str = "pending"              # 状态: pending, processing, completed, failed
     
     # 输入数据
-    query_engine_report: str = ""        # QueryEngine报告
-    media_engine_report: str = ""        # MediaEngine报告  
     insight_engine_report: str = ""      # InsightEngine报告
     forum_logs: str = ""                 # 论坛日志
     

@@ -180,9 +180,7 @@ class ReportAgent:
     def _initialize_file_baseline(self):
         """初始化文件数量基准"""
         directories = {
-            'insight': 'insight_engine_streamlit_reports',
-            'media': 'media_engine_streamlit_reports',
-            'query': 'query_engine_streamlit_reports'
+            'insight': 'insight_engine_streamlit_reports'
         }
         self.file_baseline.initialize_baseline(directories)
     
@@ -202,18 +200,18 @@ class ReportAgent:
         )
         self.html_generation_node = HTMLGenerationNode(self.llm_client)
     
-    def generate_report(self, query: str, reports: List[Any], forum_logs: str = "", 
+    def generate_report(self, query: str, reports: List[Any], forum_logs: str = "",
                        custom_template: str = "", save_report: bool = True) -> str:
         """
         生成综合报告
-        
+
         Args:
             query: 原始查询
-            reports: 三个子agent的报告列表（按顺序：QueryEngine, MediaEngine, InsightEngine）
+            reports: InsightEngine的报告列表
             forum_logs: 论坛日志内容
             custom_template: 用户自定义模板（可选）
             save_report: 是否保存报告到文件
-            
+
         Returns:
             最终HTML报告内容
         """
