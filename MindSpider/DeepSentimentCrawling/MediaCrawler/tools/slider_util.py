@@ -55,7 +55,7 @@ class Slide:
                 "Host": urlparse(img).hostname,
                 "Upgrade-Insecure-Requests": "1",
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
-                              "Chrome/91.0.4472.164 Safari/537.36",
+                              "Chrome/91.0.4472.164 Safari/537.36 Edg/142.0.0.0",
             }
             img_res = httpx.get(img, headers=headers)
             if img_res.status_code == 200:
