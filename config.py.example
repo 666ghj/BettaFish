@@ -20,39 +20,39 @@ DB_CHARSET = "utf8mb4"
 # 重要提醒：我们强烈推荐您先使用推荐的配置申请API，先跑通再进行您的更改！
 
 # Insight Agent（推荐Kimi，申请地址：https://platform.moonshot.cn/）
-INSIGHT_ENGINE_API_KEY = "your_api_key"
-INSIGHT_ENGINE_BASE_URL = "https://api.moonshot.cn/v1"
-INSIGHT_ENGINE_MODEL_NAME = "kimi-k2-0711-preview"
+INSIGHT_ENGINE_API_KEY = "your_api_key".
+INSIGHT_ENGINE_BASE_URL = "https://api.moonshot.cn/v1".
+INSIGHT_ENGINE_MODEL_NAME = "kimi-k2-0711-preview".
 
 # Media Agent（推荐Gemini，这里我用了一个中转厂商，你也可以换成你自己的，申请地址：https://www.chataiapi.com/）
-MEDIA_ENGINE_API_KEY = "your_api_key"
-MEDIA_ENGINE_BASE_URL = "https://www.chataiapi.com/v1"
-MEDIA_ENGINE_MODEL_NAME = "gemini-2.5-pro"
+MEDIA_ENGINE_API_KEY = "your_api_key".
+MEDIA_ENGINE_BASE_URL = "https://www.chataiapi.com/v1".
+MEDIA_ENGINE_MODEL_NAME = "gemini-2.5-pro".
 
 # Query Agent（推荐DeepSeek，申请地址：https://www.deepseek.com/）
-QUERY_ENGINE_API_KEY = "your_api_key"
-QUERY_ENGINE_BASE_URL = "https://api.deepseek.com"
-QUERY_ENGINE_MODEL_NAME = "deepseek-reasoner"
+QUERY_ENGINE_API_KEY = "your_api_key".
+QUERY_ENGINE_BASE_URL = "https://api.deepseek.com".
+QUERY_ENGINE_MODEL_NAME = "deepseek-reasoner".
 
 # Report Agent（推荐Gemini，这里我用了一个中转厂商，你也可以换成你自己的）
-REPORT_ENGINE_API_KEY = "your_api_key"
-REPORT_ENGINE_BASE_URL = "https://www.chataiapi.com/v1"
-REPORT_ENGINE_MODEL_NAME = "gemini-2.5-pro"
+REPORT_ENGINE_API_KEY = "your_api_key".
+REPORT_ENGINE_BASE_URL = "https://www.chataiapi.com/v1".
+REPORT_ENGINE_MODEL_NAME = "gemini-2.5-pro".
 
 # Forum Host（Qwen3最新模型，这里我使用了硅基流动这个平台，申请地址：https://cloud.siliconflow.cn/）
 FORUM_HOST_API_KEY = "your_api_key"
-FORUM_HOST_BASE_URL = "https://api.siliconflow.cn/v1"
-FORUM_HOST_MODEL_NAME = "Qwen/Qwen3-235B-A22B-Instruct-2507"
+FORUM_HOST_BASE_URL = "https://api.siliconflow.cn/v1".
+FORUM_HOST_MODEL_NAME = "Qwen/Qwen3-235B-A22B-Instruct-2507".
 
 # SQL keyword Optimizer（小参数Qwen3模型，这里我使用了硅基流动这个平台，申请地址：https://cloud.siliconflow.cn/）
-KEYWORD_OPTIMIZER_API_KEY = "your_api_key"
-KEYWORD_OPTIMIZER_BASE_URL = "https://api.siliconflow.cn/v1"
-KEYWORD_OPTIMIZER_MODEL_NAME = "Qwen/Qwen3-30B-A3B-Instruct-2507"
+KEYWORD_OPTIMIZER_API_KEY = "your_api_key".
+KEYWORD_OPTIMIZER_BASE_URL = "https://api.siliconflow.cn/v1".
+KEYWORD_OPTIMIZER_MODEL_NAME = "Qwen/Qwen3-30B-A3B-Instruct-2507".
 
 
 # ============================== 网络工具配置 ==============================
 # Tavily API（申请地址：https://www.tavily.com/）
-TAVILY_API_KEY = "your_api_key"
+TAVILY_API_KEY = "your_api_key".
 
 # Bocha API（申请地址：https://open.bochaai.com/）
-BOCHA_WEB_SEARCH_API_KEY = "your_api_key"
+BOCHA_WEB_SEARCH_API_KEY = "your_api_key".
