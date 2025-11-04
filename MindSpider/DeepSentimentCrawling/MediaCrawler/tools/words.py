@@ -35,8 +35,12 @@ class AsyncWordCloudGenerator:
             jieba.add_word(word)
 
     def load_stop_words(self):
-        with open(self.stop_words_file, 'r', encoding='utf-8') as f:
-            return set(f.read().strip().split('\n'))
+        try:
+            with open(self.stop_words_file, 'r', encoding='utf-8') as f:
+                return set(f.read().strip().split('\n'))
+        except Exception as e:
+            logging.error(f"加载停用词失败: {e}")
+            return None
 
     async def generate_word_frequency_and_cloud(self, data, save_words_prefix):
         all_text = ' '.join(item['content'] for item in data)

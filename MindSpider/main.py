@@ -186,7 +186,7 @@ class MindSpider:
         try:
             cmd = [
                 sys.executable, "main.py",
-                "--date", extract_date.strftime("%Y-%m-%d"),
+                # "--date", extract_date.strftime("%Y-%m-%d"),
                 "--keywords", str(keywords_count)
             ]
             

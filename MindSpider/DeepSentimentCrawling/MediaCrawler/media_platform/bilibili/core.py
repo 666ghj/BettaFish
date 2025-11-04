@@ -460,12 +460,11 @@ class BilibiliCrawler(AbstractCrawler):
                     "height": 1080
                 },
                 user_agent=user_agent,
-                channel="msedge",
             )
             return browser_context
         else:
             # type: ignore
-            browser = await chromium.launch(headless=headless, proxy=playwright_proxy, channel="msedge")
+            browser = await chromium.launch(headless=headless, proxy=playwright_proxy)
             browser_context = await browser.new_context(viewport={"width": 1920, "height": 1080}, user_agent=user_agent)
             return browser_context
 
@@ -486,6 +485,7 @@ class BilibiliCrawler(AbstractCrawler):
                 playwright_proxy=playwright_proxy,
                 user_agent=user_agent,
                 headless=headless,
+                channel="msedge",
             )
 
             # 显示浏览器信息
@@ -498,7 +498,7 @@ class BilibiliCrawler(AbstractCrawler):
             utils.logger.error(f"[BilibiliCrawler] CDP模式启动失败，回退到标准模式: {e}")
             # 回退到标准模式
             chromium = playwright.chromium
-            return await self.launch_browser(chromium, playwright_proxy, user_agent, headless)
+            return await self.launch_browser(chromium, playwright_proxy, user_agent, headless, channel="msedge")
 
     async def close(self):
         """Close browser context"""

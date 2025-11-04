@@ -303,11 +303,10 @@ class KuaishouCrawler(AbstractCrawler):
                 proxy=playwright_proxy,  # type: ignore
                 viewport={"width": 1920, "height": 1080},
                 user_agent=user_agent,
-                channel="msedge",
             )
             return browser_context
         else:
-            browser = await chromium.launch(headless=headless, proxy=playwright_proxy, channel="msedge")  # type: ignore
+            browser = await chromium.launch(headless=headless, proxy=playwright_proxy)  # type: ignore
             browser_context = await browser.new_context(
                 viewport={"width": 1920, "height": 1080}, user_agent=user_agent
             )
@@ -330,6 +329,7 @@ class KuaishouCrawler(AbstractCrawler):
                 playwright_proxy=playwright_proxy,
                 user_agent=user_agent,
                 headless=headless,
+                channel="msedge",
             )
 
             # 显示浏览器信息
@@ -345,7 +345,7 @@ class KuaishouCrawler(AbstractCrawler):
             # 回退到标准模式
             chromium = playwright.chromium
             return await self.launch_browser(
-                chromium, playwright_proxy, user_agent, headless
+                chromium, playwright_proxy, user_agent, headless, channel="msedge"
             )
 
     async def get_creators_and_videos(self) -> None:
