@@ -16,6 +16,8 @@ import signal
 import atexit
 import requests
 import logging
+import importlib
+import re
 from pathlib import Path
 
 # 导入ReportEngine
@@ -44,6 +46,217 @@ os.environ['PYTHONUTF8'] = '1'
 # 创建日志目录
 LOG_DIR = Path('logs')
 LOG_DIR.mkdir(exist_ok=True)
+
+CONFIG_MODULE_NAME = 'config'
+CONFIG_FILE_PATH = Path(__file__).resolve().parent / 'config.py'
+CONFIG_KEYS = [
+    'DB_HOST',
+    'DB_PORT',
+    'DB_USER',
+    'DB_PASSWORD',
+    'DB_NAME',
+    'DB_CHARSET',
+    'INSIGHT_ENGINE_API_KEY',
+    'INSIGHT_ENGINE_BASE_URL',
+    'INSIGHT_ENGINE_MODEL_NAME',
+    'MEDIA_ENGINE_API_KEY',
+    'MEDIA_ENGINE_BASE_URL',
+    'MEDIA_ENGINE_MODEL_NAME',
+    'QUERY_ENGINE_API_KEY',
+    'QUERY_ENGINE_BASE_URL',
+    'QUERY_ENGINE_MODEL_NAME',
+    'REPORT_ENGINE_API_KEY',
+    'REPORT_ENGINE_BASE_URL',
+    'REPORT_ENGINE_MODEL_NAME',
+    'FORUM_HOST_API_KEY',
+    'FORUM_HOST_BASE_URL',
+    'FORUM_HOST_MODEL_NAME',
+    'KEYWORD_OPTIMIZER_API_KEY',
+    'KEYWORD_OPTIMIZER_BASE_URL',
+    'KEYWORD_OPTIMIZER_MODEL_NAME',
+    'TAVILY_API_KEY',
+    'BOCHA_WEB_SEARCH_API_KEY'
+]
+
+
+def _load_config_module():
+    """Load or reload the config module to ensure latest values are available."""
+    importlib.invalidate_caches()
+    module = sys.modules.get(CONFIG_MODULE_NAME)
+    try:
+        if module is None:
+            module = importlib.import_module(CONFIG_MODULE_NAME)
+        else:
+            module = importlib.reload(module)
+    except ModuleNotFoundError:
+        return None
+    return module
+
+
+def read_config_values():
+    """Return the current configuration values that are exposed to the frontend."""
+    module = _load_config_module()
+    if not module:
+        return {}
+
+    values = {}
+    for key in CONFIG_KEYS:
+        value = getattr(module, key, '')
+        # Convert to string for uniform handling on the frontend.
+        if value is None:
+            values[key] = ''
+        else:
+            values[key] = str(value)
+    return values
+
+
+def _serialize_config_value(value):
+    """Serialize Python values back to a config.py assignment-friendly string."""
+    if isinstance(value, bool):
+        return 'True' if value else 'False'
+    if isinstance(value, (int, float)):
+        return str(value)
+    if value is None:
+        return 'None'
+
+    value_str = str(value)
+    escaped = value_str.replace('\\', '\\\\').replace('"', '\\"')
+    return f'"{escaped}"'
+
+
+def write_config_values(updates):
+    """Persist configuration updates into config.py."""
+    if not CONFIG_FILE_PATH.exists():
+        raise FileNotFoundError("配置文件 config.py 不存在")
+
+    content = CONFIG_FILE_PATH.read_text(encoding='utf-8')
+
+    for key, raw_value in updates.items():
+        formatted_value = _serialize_config_value(raw_value)
+        pattern = re.compile(
+            rf'^(\s*{key}\s*=\s*)(["\'].*?["\']|None|True|False|[0-9\.-]+)(.*)$',
+            re.MULTILINE
+        )
+
+        def replace(match):
+            prefix, _, suffix = match.groups()
+            return f"{prefix}{formatted_value}{suffix}"
+
+        new_content, count = pattern.subn(replace, content, count=1)
+
+        if count == 0:
+            # Append the new key if it was not present.
+            if not new_content.endswith('\n'):
+                new_content += '\n'
+            new_content += f'{key} = {formatted_value}\n'
+
+        content = new_content
+
+    CONFIG_FILE_PATH.write_text(content, encoding='utf-8')
+    # Reload the module so the rest of the app observes the new values when possible.
+    _load_config_module()
+
+
+system_state_lock = threading.Lock()
+system_state = {
+    'started': False,
+    'starting': False
+}
+
+
+def _set_system_state(*, started=None, starting=None):
+    """Safely update the cached system state flags."""
+    with system_state_lock:
+        if started is not None:
+            system_state['started'] = started
+        if starting is not None:
+            system_state['starting'] = starting
+
+
+def _get_system_state():
+    """Return a shallow copy of the system state flags."""
+    with system_state_lock:
+        return system_state.copy()
+
+
+def _prepare_system_start():
+    """Mark the system as starting if it is not already running or starting."""
+    with system_state_lock:
+        if system_state['started']:
+            return False, '系统已启动'
+        if system_state['starting']:
+            return False, '系统正在启动'
+        system_state['starting'] = True
+        return True, None
+
+
+def initialize_system_components():
+    """启动所有依赖组件（Streamlit 子应用、ForumEngine、ReportEngine）。"""
+    logs = []
+    errors = []
+
+    try:
+        stop_forum_engine()
+        logs.append("已停止 ForumEngine 监控器以避免文件冲突")
+    except Exception as exc:  # pragma: no cover - 安全捕获
+        message = f"停止 ForumEngine 时发生异常: {exc}"
+        logs.append(message)
+        logging.exception(message)
+
+    processes['forum']['status'] = 'stopped'
+
+    for app_name, script_path in STREAMLIT_SCRIPTS.items():
+        logs.append(f"检查文件: {script_path}")
+        if os.path.exists(script_path):
+            success, message = start_streamlit_app(app_name, script_path, processes[app_name]['port'])
+            logs.append(f"{app_name}: {message}")
+            if success:
+                startup_success, startup_message = wait_for_app_startup(app_name, 30)
+                logs.append(f"{app_name} 启动检查: {startup_message}")
+                if not startup_success:
+                    errors.append(f"{app_name} 启动失败: {startup_message}")
+            else:
+                errors.append(f"{app_name} 启动失败: {message}")
+        else:
+            msg = f"文件不存在: {script_path}"
+            logs.append(f"错误: {msg}")
+            errors.append(f"{app_name}: {msg}")
+
+    forum_started = False
+    try:
+        start_forum_engine()
+        processes['forum']['status'] = 'running'
+        logs.append("ForumEngine 启动完成")
+        forum_started = True
+    except Exception as exc:  # pragma: no cover - 保底捕获
+        error_msg = f"ForumEngine 启动失败: {exc}"
+        logs.append(error_msg)
+        errors.append(error_msg)
+
+    if REPORT_ENGINE_AVAILABLE:
+        try:
+            if initialize_report_engine():
+                logs.append("ReportEngine 初始化成功")
+            else:
+                msg = "ReportEngine 初始化失败"
+                logs.append(msg)
+                errors.append(msg)
+        except Exception as exc:  # pragma: no cover
+            msg = f"ReportEngine 初始化异常: {exc}"
+            logs.append(msg)
+            errors.append(msg)
+
+    if errors:
+        cleanup_processes()
+        processes['forum']['status'] = 'stopped'
+        if forum_started:
+            try:
+                stop_forum_engine()
+            except Exception:  # pragma: no cover
+                logging.exception("停止ForumEngine失败")
+        return False, logs, errors
+
+    return True, logs, []
 
 # 初始化ForumEngine的forum.log文件
 def init_forum_log():
@@ -195,7 +408,13 @@ processes = {
     'insight': {'process': None, 'port': 8501, 'status': 'stopped', 'output': [], 'log_file': None},
     'media': {'process': None, 'port': 8502, 'status': 'stopped', 'output': [], 'log_file': None},
     'query': {'process': None, 'port': 8503, 'status': 'stopped', 'output': [], 'log_file': None},
-    'forum': {'process': None, 'port': None, 'status': 'running', 'output': [], 'log_file': None}  # Forum始终运行
+    'forum': {'process': None, 'port': None, 'status': 'stopped', 'output': [], 'log_file': None}  # 启动后标记为 running
+}
+
+STREAMLIT_SCRIPTS = {
+    'insight': 'SingleEngineApp/insight_engine_streamlit_app.py',
+    'media': 'SingleEngineApp/media_engine_streamlit_app.py',
+    'query': 'SingleEngineApp/query_engine_streamlit_app.py'
 }
 
 # 输出队列
@@ -449,8 +668,15 @@ def wait_for_app_startup(app_name, max_wait_time=30):
 
 def cleanup_processes():
     """清理所有进程"""
-    for app_name in processes:
+    for app_name in STREAMLIT_SCRIPTS:
         stop_streamlit_app(app_name)
+    
+    processes['forum']['status'] = 'stopped'
+    try:
+        stop_forum_engine()
+    except Exception:  # pragma: no cover
+        logging.exception("停止ForumEngine失败")
+    _set_system_state(started=False, starting=False)
 
 # 注册清理函数
 atexit.register(cleanup_processes)
@@ -478,20 +704,26 @@ def start_app(app_name):
     """启动指定应用"""
     if app_name not in processes:
         return jsonify({'success': False, 'message': '未知应用'})
-    
-    script_paths = {
-        'insight': 'SingleEngineApp/insight_engine_streamlit_app.py',
-        'media': 'SingleEngineApp/media_engine_streamlit_app.py',
-        'query': 'SingleEngineApp/query_engine_streamlit_app.py'
-    }
-    
+
+    if app_name == 'forum':
+        try:
+            start_forum_engine()
+            processes['forum']['status'] = 'running'
+            return jsonify({'success': True, 'message': 'ForumEngine已启动'})
+        except Exception as exc:  # pragma: no cover
+            logging.exception("手动启动ForumEngine失败")
+            return jsonify({'success': False, 'message': f'ForumEngine启动失败: {exc}'})
+
+    script_path = STREAMLIT_SCRIPTS.get(app_name)
+    if not script_path:
+        return jsonify({'success': False, 'message': '该应用不支持启动操作'})
+
     success, message = start_streamlit_app(
-        app_name, 
-        script_paths[app_name], 
+        app_name,
+        script_path,
         processes[app_name]['port']
     )
-    
-    
+
     if success:
         # 等待应用启动
         startup_success, startup_message = wait_for_app_startup(app_name, 15)
@@ -505,7 +737,16 @@ def stop_app(app_name):
     """停止指定应用"""
     if app_name not in processes:
         return jsonify({'success': False, 'message': '未知应用'})
-    
+
+    if app_name == 'forum':
+        try:
+            stop_forum_engine()
+            processes['forum']['status'] = 'stopped'
+            return jsonify({'success': True, 'message': 'ForumEngine已停止'})
+        except Exception as exc:  # pragma: no cover
+            logging.exception("手动停止ForumEngine失败")
+            return jsonify({'success': False, 'message': f'ForumEngine停止失败: {exc}'})
+
     success, message = stop_streamlit_app(app_name)
     return jsonify({'success': success, 'message': message})
 
@@ -660,6 +901,80 @@ def search():
         'results': results
     })
 
+
+@app.route('/api/config', methods=['GET'])
+def get_config():
+    """Expose selected configuration values to the frontend."""
+    try:
+        config_values = read_config_values()
+        return jsonify({'success': True, 'config': config_values})
+    except Exception as exc:
+        logging.exception("读取配置失败")
+        return jsonify({'success': False, 'message': f'读取配置失败: {exc}'}), 500
+
+
+@app.route('/api/config', methods=['POST'])
+def update_config():
+    """Update configuration values and persist them to config.py."""
+    payload = request.get_json(silent=True) or {}
+    if not isinstance(payload, dict) or not payload:
+        return jsonify({'success': False, 'message': '请求体不能为空'}), 400
+
+    updates = {}
+    for key, value in payload.items():
+        if key in CONFIG_KEYS:
+            updates[key] = value if value is not None else ''
+
+    if not updates:
+        return jsonify({'success': False, 'message': '没有可更新的配置项'}), 400
+
+    try:
+        write_config_values(updates)
+        updated_config = read_config_values()
+        return jsonify({'success': True, 'config': updated_config})
+    except Exception as exc:
+        logging.exception("更新配置失败")
+        return jsonify({'success': False, 'message': f'更新配置失败: {exc}'}), 500
+
+
+@app.route('/api/system/status')
+def get_system_status():
+    """返回系统启动状态。"""
+    state = _get_system_state()
+    return jsonify({
+        'success': True,
+        'started': state['started'],
+        'starting': state['starting']
+    })
+
+
+@app.route('/api/system/start', methods=['POST'])
+def start_system():
+    """在接收到请求后启动完整系统。"""
+    allowed, message = _prepare_system_start()
+    if not allowed:
+        return jsonify({'success': False, 'message': message}), 400
+
+    try:
+        success, logs, errors = initialize_system_components()
+        if success:
+            _set_system_state(started=True)
+            return jsonify({'success': True, 'message': '系统启动成功', 'logs': logs})
+
+        _set_system_state(started=False)
+        return jsonify({
+            'success': False,
+            'message': '系统启动失败',
+            'logs': logs,
+            'errors': errors
+        }), 500
+    except Exception as exc:  # pragma: no cover - 保底捕获
+        logging.exception("系统启动过程中出现异常")
+        _set_system_state(started=False)
+        return jsonify({'success': False, 'message': f'系统启动异常: {exc}'}), 500
+    finally:
+        _set_system_state(starting=False)
+
 @socketio.on('connect')
 def handle_connect():
     """客户端连接"""
@@ -678,51 +993,12 @@ def handle_status_request():
     })
 
 if __name__ == '__main__':
-    # 启动时自动启动所有Streamlit应用
-    print("正在启动Streamlit应用...")
-    
-    # 先停止ForumEngine监控器，避免文件占用冲突
-    print("停止ForumEngine监控器以避免文件冲突...")
-    stop_forum_engine()
-    
-    script_paths = {
-        'insight': 'SingleEngineApp/insight_engine_streamlit_app.py',
-        'media': 'SingleEngineApp/media_engine_streamlit_app.py',
-        'query': 'SingleEngineApp/query_engine_streamlit_app.py'
-    }
-    
-    for app_name, script_path in script_paths.items():
-        print(f"检查文件: {script_path}")
-        if os.path.exists(script_path):
-            print(f"启动 {app_name}...")
-            success, message = start_streamlit_app(app_name, script_path, processes[app_name]['port'])
-            print(f"{app_name}: {message}")
-            
-            if success:
-                print(f"等待 {app_name} 启动完成...")
-                startup_success, startup_message = wait_for_app_startup(app_name, 30)
-                print(f"{app_name} 启动检查: {startup_message}")
-        else:
-            print(f"错误: {script_path} 不存在")
-    
-    start_forum_engine()
-    
-    # 初始化ReportEngine
-    if REPORT_ENGINE_AVAILABLE:
-        print("初始化ReportEngine...")
-        if initialize_report_engine():
-            print("ReportEngine初始化成功")
-            print("ReportEngine文件基准已建立，开始监控文件变化")
-        else:
-            print("ReportEngine初始化失败")
-    
+    print("等待配置确认，系统将在前端指令后启动组件...")
     print("启动Flask服务器...")
-    
+
     try:
-        # 启动Flask应用
         socketio.run(app, host='0.0.0.0', port=5000, debug=False)
     except KeyboardInterrupt:
         print("\n正在关闭应用...")
         cleanup_processes()
-        
     

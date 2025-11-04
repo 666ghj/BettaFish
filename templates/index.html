@@ -44,10 +44,63 @@
             letter-spacing: 1px;
         }
 
+        .search-row {
+            display: flex;
+            align-items: stretch;
+            gap: 12px;
+            max-width: 950px;
+            margin: 0 auto 10px;
+        }
+
+        .config-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 24px;
+            border: 2px solid #000000;
+            background-color: #ffffff;
+            color: #000000;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            min-width: 120px;
+        }
+
+        .config-button:hover {
+            background-color: #000000;
+            color: #ffffff;
+        }
+
+        .config-password-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .config-password-wrapper .config-field-input {
+            flex: 1;
+        }
+
+        .config-password-toggle {
+            padding: 8px 14px;
+            border: 2px solid #000000;
+            background-color: #ffffff;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .config-password-toggle:hover,
+        .config-password-toggle.revealed {
+            background-color: #000000;
+            color: #ffffff;
+        }
+
         .search-box {
             display: flex;
-            max-width: 800px;
-            margin: 0 auto;
+            flex: 1;
             border: 2px solid #000000;
         }
 
@@ -111,9 +164,10 @@
 
         .upload-status {
             font-size: 12px;
-            margin-top: 10px;
+            margin: 10px auto 0;
             text-align: center;
             color: #666666;
+            max-width: 950px;
         }
 
         .upload-status.success {
@@ -266,6 +320,207 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+        }
+
+        .config-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.35);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+            padding: 20px;
+        }
+
+        .config-modal-overlay.visible {
+            display: flex;
+        }
+
+        .config-modal {
+            background-color: #ffffff;
+            border: 2px solid #000000;
+            width: 720px;
+            max-width: 90vw;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 6px 6px 0 #000000;
+        }
+
+        .config-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-bottom: 2px solid #000000;
+            background-color: #ffffff;
+        }
+
+        .config-modal-title {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .config-modal-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .config-close-button {
+            width: 32px;
+            height: 32px;
+            border: 2px solid #000000;
+            background-color: #ffffff;
+            font-size: 18px;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .config-close-button:hover {
+            background-color: #000000;
+            color: #ffffff;
+        }
+
+        .config-close-button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            background-color: #f0f0f0;
+            color: #666666;
+        }
+
+        .config-secondary-button {
+            padding: 8px 18px;
+            border: 2px solid #000000;
+            background-color: #ffffff;
+            color: #000000;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .config-secondary-button:hover {
+            background-color: #f0f0f0;
+        }
+
+        .config-modal-body {
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .config-group {
+            border: 2px solid #000000;
+            padding: 16px;
+            margin-bottom: 16px;
+            background-color: #ffffff;
+        }
+
+        .config-group-title {
+            font-size: 15px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .config-group-subtitle {
+            font-size: 12px;
+            color: #555555;
+            margin-bottom: 12px;
+        }
+
+        .config-field {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 12px;
+        }
+
+        .config-field-label {
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 6px;
+        }
+
+        .config-field-input {
+            padding: 10px 12px;
+            border: 2px solid #000000;
+            font-size: 14px;
+            background-color: #ffffff;
+        }
+
+        .config-field-input:focus {
+            outline: none;
+            border-color: #333333;
+        }
+
+        .config-modal-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            border-top: 2px solid #000000;
+            background-color: #ffffff;
+        }
+
+        .config-modal-footer-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .config-status-message {
+            font-size: 12px;
+            color: #555555;
+        }
+
+        .config-status-message.error {
+            color: #8b4513;
+        }
+
+        .config-status-message.success {
+            color: #4a6741;
+        }
+
+        .config-save-button {
+            padding: 10px 24px;
+            border: none;
+            background-color: #000000;
+            color: #ffffff;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .config-save-button:hover {
+            background-color: #333333;
+        }
+
+        .config-save-button:disabled {
+            background-color: #666666;
+            cursor: not-allowed;
+        }
+
+        .config-start-button {
+            padding: 10px 24px;
+            border: none;
+            background-color: #000000;
+            color: #ffffff;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .config-start-button:hover {
+            background-color: #333333;
+        }
+
+        .config-start-button:disabled {
+            background-color: #666666;
+            cursor: not-allowed;
         }
 
         .loading {
@@ -752,13 +1007,16 @@
         <!-- 搜索框区域 -->
         <div class="search-section">
             <div class="search-title">微舆 - 致力于打造简洁通用的舆情分析平台</div>
-            <div class="search-box">
-                <input type="text" class="search-input" id="searchInput" placeholder="请输入要分析的内容...">
-                <button class="search-button" id="searchButton">开始</button>
-                <button class="upload-button" id="uploadButton">
-                    上传模板
-                    <input type="file" id="templateFileInput" accept=".md,.txt" title="上传自定义报告模板(支持 .md 和 .txt 文件)">
-                </button>
+            <div class="search-row">
+                <button class="config-button" id="openConfigButton">LLM 配置</button>
+                <div class="search-box">
+                    <input type="text" class="search-input" id="searchInput" placeholder="请输入要分析的内容...">
+                    <button class="search-button" id="searchButton">开始</button>
+                    <button class="upload-button" id="uploadButton">
+                        上传模板
+                        <input type="file" id="templateFileInput" accept=".md,.txt" title="上传自定义报告模板(支持 .md 和 .txt 文件)">
+                    </button>
+                </div>
             </div>
             <div class="upload-status" id="uploadStatus"></div>
         </div>
@@ -829,6 +1087,28 @@
         </div>
     </div>
 
+    <div class="config-modal-overlay" id="configModal">
+        <div class="config-modal">
+            <div class="config-modal-header">
+                <div class="config-modal-title">LLM 配置 - 与Config文件双向同步</div>
+                <div class="config-modal-actions">
+                    <button class="config-secondary-button" id="refreshConfigButton">刷新</button>
+                    <button class="config-close-button" id="closeConfigModal" aria-label="关闭配置窗口">×</button>
+                </div>
+            </div>
+            <div class="config-modal-body" id="configFormContainer">
+                <!-- 由脚本填充 -->
+            </div>
+            <div class="config-modal-footer">
+                <div class="config-status-message" id="configStatusMessage"></div>
+                <div class="config-modal-footer-actions">
+                    <button class="config-save-button" id="saveConfigButton">保存</button>
+                    <button class="config-start-button" id="startSystemButton">保存并启动系统</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 消息提示 -->
     <div class="message" id="message"></div>
 
@@ -840,10 +1120,98 @@
             insight: 'stopped',
             media: 'stopped',
             query: 'stopped',
-            forum: 'running',  // Forum Engine 默认运行
+            forum: 'stopped',  // 前端启动后再标记为 running
             report: 'stopped'  // Report Engine
         };
         let customTemplate = ''; // 存储用户上传的自定义模板内容
+        let configValues = {};
+        let configDirty = false;
+        let configAutoRefreshTimer = null;
+        let systemStarted = false;
+        let systemStarting = false;
+        let configModalLocked = false;
+
+        const CONFIG_ENDPOINT = '/api/config';
+        const SYSTEM_STATUS_ENDPOINT = '/api/system/status';
+        const SYSTEM_START_ENDPOINT = '/api/system/start';
+        const START_BUTTON_DEFAULT_TEXT = '保存并启动系统';
+
+        const configFieldGroups = [
+            {
+                title: '数据库连接',
+                subtitle: '用于连接业务数据库的基本配置',
+                fields: [
+                    { key: 'DB_HOST', label: '主机地址' },
+                    { key: 'DB_PORT', label: '端口' },
+                    { key: 'DB_USER', label: '用户名' },
+                    { key: 'DB_PASSWORD', label: '密码', type: 'password' },
+                    { key: 'DB_NAME', label: '数据库名称' },
+                    { key: 'DB_CHARSET', label: '字符集' }
+                ]
+            },
+            {
+                title: 'Insight Agent',
+                subtitle: '负责洞察分析的模型配置',
+                fields: [
+                    { key: 'INSIGHT_ENGINE_API_KEY', label: 'API Key' },
+                    { key: 'INSIGHT_ENGINE_BASE_URL', label: 'Base URL' },
+                    { key: 'INSIGHT_ENGINE_MODEL_NAME', label: '模型名称' }
+                ]
+            },
+            {
+                title: 'Media Agent',
+                subtitle: '媒体内容理解与生成模型',
+                fields: [
+                    { key: 'MEDIA_ENGINE_API_KEY', label: 'API Key' },
+                    { key: 'MEDIA_ENGINE_BASE_URL', label: 'Base URL' },
+                    { key: 'MEDIA_ENGINE_MODEL_NAME', label: '模型名称' }
+                ]
+            },
+            {
+                title: 'Query Agent',
+                subtitle: '负责搜索与信息汇总的模型配置',
+                fields: [
+                    { key: 'QUERY_ENGINE_API_KEY', label: 'API Key' },
+                    { key: 'QUERY_ENGINE_BASE_URL', label: 'Base URL' },
+                    { key: 'QUERY_ENGINE_MODEL_NAME', label: '模型名称' }
+                ]
+            },
+            {
+                title: 'Report Agent',
+                subtitle: '报告生成使用的模型配置',
+                fields: [
+                    { key: 'REPORT_ENGINE_API_KEY', label: 'API Key' },
+                    { key: 'REPORT_ENGINE_BASE_URL', label: 'Base URL' },
+                    { key: 'REPORT_ENGINE_MODEL_NAME', label: '模型名称' }
+                ]
+            },
+            {
+                title: 'Forum Host',
+                subtitle: '多智能体协同使用的模型配置',
+                fields: [
+                    { key: 'FORUM_HOST_API_KEY', label: 'API Key' },
+                    { key: 'FORUM_HOST_BASE_URL', label: 'Base URL' },
+                    { key: 'FORUM_HOST_MODEL_NAME', label: '模型名称' }
+                ]
+            },
+            {
+                title: 'Keyword Optimizer',
+                subtitle: 'SQL / 关键词优化模型配置',
+                fields: [
+                    { key: 'KEYWORD_OPTIMIZER_API_KEY', label: 'API Key' },
+                    { key: 'KEYWORD_OPTIMIZER_BASE_URL', label: 'Base URL' },
+                    { key: 'KEYWORD_OPTIMIZER_MODEL_NAME', label: '模型名称' }
+                ]
+            },
+            {
+                title: '外部检索工具',
+                subtitle: '联动搜索引擎、网站抓取等在线服务',
+                fields: [
+                    { key: 'TAVILY_API_KEY', label: 'Tavily API Key' },
+                    { key: 'BOCHA_WEB_SEARCH_API_KEY', label: 'Bocha API Key' }
+                ]
+            }
+        ];
 
         // 应用名称映射
         const appNames = {
@@ -867,6 +1235,7 @@
         document.addEventListener('DOMContentLoaded', function() {
             initializeSocket();
             initializeEventListeners();
+            ensureSystemReadyOnLoad();
             updateTime();
             setInterval(updateTime, 1000);
             checkStatus();
@@ -952,6 +1321,445 @@
                     switchToApp(app);
                 });
             });
+
+            // LLM 配置弹窗
+            const openConfigButton = document.getElementById('openConfigButton');
+            if (openConfigButton) {
+                openConfigButton.addEventListener('click', () => openConfigModal({ lock: !systemStarted }));
+            }
+
+            const closeConfigButton = document.getElementById('closeConfigModal');
+            if (closeConfigButton) {
+                closeConfigButton.addEventListener('click', () => closeConfigModal());
+            }
+
+            const refreshConfigButton = document.getElementById('refreshConfigButton');
+            if (refreshConfigButton) {
+                refreshConfigButton.addEventListener('click', () => refreshConfigFromServer(true));
+            }
+
+            const saveConfigButton = document.getElementById('saveConfigButton');
+            if (saveConfigButton) {
+                saveConfigButton.addEventListener('click', () => saveConfigUpdates());
+            }
+
+            const startSystemButton = document.getElementById('startSystemButton');
+            if (startSystemButton) {
+                startSystemButton.addEventListener('click', () => startSystem());
+            }
+
+            const configModal = document.getElementById('configModal');
+            if (configModal) {
+                configModal.addEventListener('click', (event) => {
+                    if (event.target === configModal) {
+                        closeConfigModal();
+                    }
+                });
+            }
+
+            const configFormContainer = document.getElementById('configFormContainer');
+            if (configFormContainer) {
+                configFormContainer.addEventListener('input', () => {
+                    configDirty = true;
+                    setConfigStatus('已修改，尚未保存');
+                });
+            }
+
+            document.addEventListener('keydown', function(event) {
+                if (event.key === 'Escape' && isConfigModalVisible()) {
+                    closeConfigModal();
+                }
+            });
+        }
+
+        function isConfigModalVisible() {
+            const modal = document.getElementById('configModal');
+            return modal ? modal.classList.contains('visible') : false;
+        }
+
+        function openConfigModal(options = {}) {
+            const { lock = false, message = '' } = options;
+            const modal = document.getElementById('configModal');
+            if (!modal) {
+                return;
+            }
+
+            configModalLocked = lock;
+            modal.classList.add('visible');
+            configDirty = false;
+
+            const initialMessage = message || '正在读取配置...';
+            setConfigStatus(initialMessage, '');
+
+            const messageAfterLoad = message || '';
+
+            refreshConfigFromServer(true, messageAfterLoad);
+
+            if (configAutoRefreshTimer) {
+                clearInterval(configAutoRefreshTimer);
+            }
+            configAutoRefreshTimer = setInterval(() => {
+                if (!configDirty) {
+                    refreshConfigFromServer(false, messageAfterLoad);
+                }
+            }, 10000);
+
+            updateStartButtonState();
+            updateConfigCloseButton();
+        }
+
+        function closeConfigModal(force = false) {
+            if (!force && configModalLocked && !systemStarted) {
+                setConfigStatus('请先完成配置并启动系统', 'error');
+                showMessage('请先完成配置并启动系统', 'error');
+                return;
+            }
+
+            const modal = document.getElementById('configModal');
+            if (modal) {
+                modal.classList.remove('visible');
+            }
+            if (configAutoRefreshTimer) {
+                clearInterval(configAutoRefreshTimer);
+                configAutoRefreshTimer = null;
+            }
+            configDirty = false;
+            configModalLocked = false;
+            setConfigStatus('', '');
+            updateStartButtonState();
+            updateConfigCloseButton();
+        }
+
+        function refreshConfigFromServer(showFeedback = false, messageOverride = '') {
+            if (showFeedback && configDirty) {
+                const proceed = window.confirm('当前修改尚未保存，确定要刷新并放弃更改吗？');
+                if (!proceed) {
+                    return;
+                }
+            }
+            fetch(CONFIG_ENDPOINT)
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success) {
+                        throw new Error(data.message || '读取配置失败');
+                    }
+                    configValues = data.config || {};
+                    renderConfigForm(configValues);
+                    configDirty = false;
+                    if (messageOverride) {
+                        setConfigStatus(messageOverride);
+                    } else if (showFeedback) {
+                        setConfigStatus('已加载最新配置');
+                    } else {
+                        setConfigStatus('已同步最新配置');
+                    }
+                })
+                .catch(error => {
+                    console.error(error);
+                    setConfigStatus(`读取配置失败: ${error.message}`, 'error');
+                });
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, '&amp;')
+                      .replace(/</g, '&lt;')
+                      .replace(/>/g, '&gt;')
+                      .replace(/"/g, '&quot;')
+                      .replace(/'/g, '&#39;');
+        }
+
+        function renderConfigForm(values) {
+            const container = document.getElementById('configFormContainer');
+            if (!container) {
+                return;
+            }
+
+            const sections = configFieldGroups.map(group => {
+                const fieldsHtml = group.fields.map(field => {
+                    const value = values[field.key] !== undefined ? values[field.key] : '';
+                    const safeValue = escapeHtml(String(value || ''));
+                    const inputType = field.type === 'password' ? 'password' : (field.type || 'text');
+                    const inputElement = `
+                        <input
+                            type="${inputType}"
+                            class="config-field-input"
+                            data-config-key="${field.key}"
+                            data-field-type="${field.type || 'text'}"
+                            value="${safeValue}"
+                            placeholder="填写${field.label}"
+                            autocomplete="${field.type === 'password' ? 'off' : 'on'}"
+                        >
+                    `;
+
+                    const control = field.type === 'password'
+                        ? `
+                            <div class="config-password-wrapper">
+                                ${inputElement}
+                                <button type="button" class="config-password-toggle" data-target="${field.key}">显示</button>
+                            </div>
+                        `
+                        : inputElement;
+
+                    return `
+                        <label class="config-field">
+                            <span class="config-field-label">${field.label}</span>
+                            ${control}
+                        </label>
+                    `;
+                }).join('');
+
+                const subtitle = group.subtitle ? `<div class="config-group-subtitle">${group.subtitle}</div>` : '';
+
+                return `
+                    <section class="config-group">
+                        <div class="config-group-title">${group.title}</div>
+                        ${subtitle}
+                        ${fieldsHtml}
+                    </section>
+                `;
+            }).join('');
+
+            container.innerHTML = sections;
+            attachConfigPasswordToggles();
+        }
+
+        function attachConfigPasswordToggles() {
+            const toggles = document.querySelectorAll('.config-password-toggle');
+            toggles.forEach(toggle => {
+                const key = toggle.dataset.target;
+                const input = document.querySelector(`.config-field-input[data-config-key="${key}"]`);
+                if (!input) {
+                    return;
+                }
+                toggle.addEventListener('click', () => {
+                    const reveal = input.getAttribute('type') === 'password';
+                    input.setAttribute('type', reveal ? 'text' : 'password');
+                    toggle.textContent = reveal ? '隐藏' : '显示';
+                    toggle.classList.toggle('revealed', reveal);
+                });
+            });
+        }
+
+        function collectConfigUpdates() {
+            const inputs = document.querySelectorAll('#configFormContainer [data-config-key]');
+            const updates = {};
+            inputs.forEach(input => {
+                const key = input.dataset.configKey;
+                if (!key) {
+                    return;
+                }
+                const fieldType = input.dataset.fieldType || 'text';
+                let value = input.value;
+                if (fieldType !== 'password' && typeof value === 'string') {
+                    value = value.trim();
+                }
+
+                if (value !== '' && /PORT$/i.test(key)) {
+                    const numeric = Number(value);
+                    if (!Number.isNaN(numeric)) {
+                        updates[key] = numeric;
+                        return;
+                    }
+                }
+
+                updates[key] = value;
+            });
+            return updates;
+        }
+
+        function setConfigStatus(message, type = '') {
+            const status = document.getElementById('configStatusMessage');
+            if (!status) {
+                return;
+            }
+            status.textContent = message || '';
+            status.classList.remove('error', 'success');
+            if (type) {
+                status.classList.add(type);
+            }
+        }
+
+        async function saveConfigUpdates(options = {}) {
+            const { silent = false } = options;
+            const saveButton = document.getElementById('saveConfigButton');
+
+            if (!silent && saveButton) {
+                saveButton.disabled = true;
+                saveButton.textContent = '保存中...';
+            }
+            if (!silent) {
+                setConfigStatus('正在保存配置...', '');
+            }
+
+            const updates = collectConfigUpdates();
+
+            try {
+                const response = await fetch(CONFIG_ENDPOINT, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updates)
+                });
+                const data = await response.json();
+                if (!data.success) {
+                    throw new Error(data.message || '保存失败');
+                }
+                configValues = data.config || {};
+                renderConfigForm(configValues);
+                configDirty = false;
+                if (silent) {
+                    setConfigStatus('配置已保存', 'success');
+                } else {
+                    setConfigStatus('配置已保存', 'success');
+                    showMessage('配置已保存', 'success');
+                }
+                return true;
+            } catch (error) {
+                console.error(error);
+                setConfigStatus(`保存失败: ${error.message}`, 'error');
+                if (!silent) {
+                    showMessage(`保存失败: ${error.message}`, 'error');
+                }
+                return false;
+            } finally {
+                if (!silent && saveButton) {
+                    saveButton.disabled = false;
+                    saveButton.textContent = '保存';
+                }
+            }
+        }
+
+        function updateStartButtonState() {
+            const startButton = document.getElementById('startSystemButton');
+            if (!startButton) {
+                return;
+            }
+
+            if (systemStarting) {
+                startButton.disabled = true;
+                startButton.textContent = '启动中...';
+            } else if (systemStarted) {
+                startButton.disabled = true;
+                startButton.textContent = '系统已启动';
+            } else {
+                startButton.disabled = false;
+                startButton.textContent = START_BUTTON_DEFAULT_TEXT;
+            }
+        }
+
+        function updateConfigCloseButton() {
+            const closeButton = document.getElementById('closeConfigModal');
+            if (!closeButton) {
+                return;
+            }
+            if (configModalLocked && !systemStarted) {
+                closeButton.setAttribute('disabled', 'disabled');
+            } else {
+                closeButton.removeAttribute('disabled');
+            }
+        }
+
+        function applySystemState(state) {
+            if (!state) {
+                return;
+            }
+            if (Object.prototype.hasOwnProperty.call(state, 'started')) {
+                systemStarted = !!state.started;
+            }
+            if (Object.prototype.hasOwnProperty.call(state, 'starting')) {
+                systemStarting = !!state.starting;
+            }
+            updateStartButtonState();
+            updateConfigCloseButton();
+        }
+
+        async function fetchSystemStatus() {
+            try {
+                const response = await fetch(SYSTEM_STATUS_ENDPOINT);
+                const data = await response.json();
+                if (data && data.success) {
+                    applySystemState(data);
+                }
+                return data;
+            } catch (error) {
+                console.error('获取系统状态失败', error);
+                return null;
+            }
+        }
+
+        async function ensureSystemReadyOnLoad() {
+            const status = await fetchSystemStatus();
+            if (!status || !status.success) {
+                openConfigModal({
+                    lock: true,
+                    message: '无法获取系统状态，请检查配置后重试。'
+                });
+                return;
+            }
+
+            if (!status.started) {
+                openConfigModal({
+                    lock: true,
+                    message: '请先确认配置，然后点击“保存并启动系统”'
+                });
+            } else {
+                applySystemState(status);
+                configModalLocked = false;
+            }
+        }
+
+        async function startSystem() {
+            if (systemStarting) {
+                setConfigStatus('系统正在启动，请稍候...', '');
+                return;
+            }
+
+            systemStarting = true;
+            updateStartButtonState();
+
+            try {
+                if (configDirty) {
+                    setConfigStatus('检测到未保存的修改，正在保存配置...', '');
+                    const saved = await saveConfigUpdates({ silent: true });
+                    if (!saved) {
+                        systemStarting = false;
+                        updateStartButtonState();
+                        return;
+                    }
+                }
+
+                setConfigStatus('正在启动系统...', '');
+                const response = await fetch(SYSTEM_START_ENDPOINT, { method: 'POST' });
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    const message = data && data.message ? data.message : '系统启动失败';
+                    throw new Error(message);
+                }
+
+                showMessage('系统启动成功', 'success');
+                setConfigStatus('系统启动成功', 'success');
+                applySystemState({ started: true, starting: false });
+                configModalLocked = false;
+
+                setTimeout(() => {
+                    closeConfigModal();
+                }, 800);
+
+                setTimeout(() => {
+                    checkStatus();
+                }, 1000);
+
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1200);
+            } catch (error) {
+                setConfigStatus(`系统启动失败: ${error.message}`, 'error');
+                showMessage(`系统启动失败: ${error.message}`, 'error');
+                applySystemState({ started: false, starting: false });
+            } finally {
+                systemStarting = false;
+                updateStartButtonState();
+                await fetchSystemStatus();
+            }
         }
 
         // 执行搜索
