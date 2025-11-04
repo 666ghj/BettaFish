@@ -274,7 +274,7 @@ docs/.vitepress/cache
 # ==== 日志和临时文件 ====
 # 日志文件
 # *.log
-# logs/
+logs/
 # */logs/
 
 # 临时文件
@@ -339,3 +339,8 @@ test_results/
 
 # Ai操作指引文件
 OperationGuidance/
+
+insight_engine_streamlit_reports/
+media_engine_streamlit_reports/
+query_engine_streamlit_reports/
+final_reports/
