@@ -417,6 +417,7 @@ class ZhihuCrawler(AbstractCrawler):
         playwright_proxy: Optional[Dict],
         user_agent: Optional[str],
         headless: bool = True,
+        channel: Optional[str] = "msedge"
     ) -> BrowserContext:
         """
         使用CDP模式启动浏览器
@@ -428,7 +429,7 @@ class ZhihuCrawler(AbstractCrawler):
                 playwright_proxy=playwright_proxy,
                 user_agent=user_agent,
                 headless=headless,
-                channel="msedge",
+                channel=channel,
             )
 
             # 显示浏览器信息
@@ -442,7 +443,7 @@ class ZhihuCrawler(AbstractCrawler):
             # 回退到标准模式
             chromium = playwright.chromium
             return await self.launch_browser(
-                chromium, playwright_proxy, user_agent, headless, channel="msedge"
+                chromium, playwright_proxy, user_agent, headless, channel=channel
             )
 
     async def close(self):
