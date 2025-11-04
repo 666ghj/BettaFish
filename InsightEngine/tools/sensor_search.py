@@ -73,7 +73,8 @@ class SensorDataDB:
         - DB_CHARSET (可选, 默认 utf8mb4)
 
         Args:
-            table_name: 传感器数据表名，默认为 "sensor_data"
+            table_name: 传感器数据表名，默认为 "sensor_data"。
+                       建议从 config.py 的 SENSOR_TABLE_NAME 配置项获取。
         """
         self.table_name = table_name
         self.db_config = {
@@ -429,7 +430,8 @@ def create_sensor_db_client(table_name: str = "sensor_data") -> SensorDataDB:
     创建传感器数据库客户端的工厂函数
 
     Args:
-        table_name: 传感器数据表名
+        table_name: 传感器数据表名，默认为 "sensor_data"。
+                   建议从 config.py 的 SENSOR_TABLE_NAME 配置项获取。
 
     Returns:
         SensorDataDB: 传感器数据库客户端实例

@@ -41,6 +41,9 @@ class Config:
     db_port: int = 3306
     db_charset: str = "utf8mb4"
 
+    # Sensor data configuration
+    sensor_table_name: str = "sensor_data"
+
     # Model behaviour configuration
     max_reflections: int = 3
     max_paragraphs: int = 6
@@ -101,6 +104,7 @@ class Config:
                 db_name=_get_value(config_module, "DB_NAME"),
                 db_port=int(_get_value(config_module, "DB_PORT", 3306)),
                 db_charset=_get_value(config_module, "DB_CHARSET", "utf8mb4"),
+                sensor_table_name=_get_value(config_module, "SENSOR_TABLE_NAME", "sensor_data"),
                 max_reflections=int(_get_value(config_module, "MAX_REFLECTIONS", 3)),
                 max_paragraphs=int(_get_value(config_module, "MAX_PARAGRAPHS", 6)),
                 search_timeout=int(_get_value(config_module, "SEARCH_TIMEOUT", 240)),
@@ -151,6 +155,7 @@ class Config:
             db_name=_get_value(config_dict, "DB_NAME"),
             db_port=int(_get_value(config_dict, "DB_PORT", 3306)),
             db_charset=_get_value(config_dict, "DB_CHARSET", "utf8mb4"),
+            sensor_table_name=_get_value(config_dict, "SENSOR_TABLE_NAME", "sensor_data"),
             max_reflections=int(_get_value(config_dict, "MAX_REFLECTIONS", 3)),
             max_paragraphs=int(_get_value(config_dict, "MAX_PARAGRAPHS", 6)),
             search_timeout=int(_get_value(config_dict, "SEARCH_TIMEOUT", 240)),

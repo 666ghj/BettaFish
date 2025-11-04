@@ -84,44 +84,87 @@ CREATE TABLE sensor_data (
 
 ## 配置步骤
 
-### Step 1: 数据库设置
+### Step 1: 创建 config.py 配置文件
 
 ```bash
-# 在config.py中设置
+# 复制 config.py.example 文件
+cp config.py.example config.py
+
+# 编辑 config.py 文件，填入实际配置
+nano config.py  # 或使用其他编辑器
+```
+
+在 config.py 文件中设置：
+```python
+# 数据库配置
 DB_HOST = "localhost"
 DB_PORT = 3306
 DB_USER = "your_username"
 DB_PASSWORD = "your_password"
 DB_NAME = "sensor_database"
+DB_CHARSET = "utf8mb4"
+
+# 传感器数据表名配置
 SENSOR_TABLE_NAME = "sensor_data"
+
+# LLM API配置
+INSIGHT_ENGINE_API_KEY = "your_api_key"
+INSIGHT_ENGINE_BASE_URL = "https://api.openai.com/v1"
+INSIGHT_ENGINE_MODEL_NAME = "gpt-4"
 ```
 
-### Step 2: 更新配置文件
+**重要提示**：
+- `config.py` 文件包含敏感信息，已经在 `.gitignore` 中，不会被提交到版本控制
+- 请妥善保管 `config.py` 文件，不要分享给他人
 
-创建 `InsightEngine/utils/sensor_config.py`：
+### Step 2: 验证配置
+
+使用内置工具验证配置：
+
 ```python
-@dataclass
-class SensorConfig:
-    # 数据库配置
-    db_host: str = "localhost"
-    db_port: int = 3306
-    db_user: str = ""
-    db_password: str = ""
-    db_name: str = "sensor_database"
-    sensor_table_name: str = "sensor_data"
+from InsightEngine.utils.config import load_config
 
-    # 查询配置
-    default_query_limit: int = 1000
-    default_statistical_hours: int = 24
-    anomaly_threshold_std_dev: float = 2.0
+# 加载配置文件
+config = load_config()
 
-    # LLM配置
-    llm_api_key: str = ""
-    llm_model_name: str = "gpt-4"
-    llm_base_url: str = "https://api.openai.com/v1"
+# 验证配置（load_config 会自动验证）
+print(f"✅ 配置加载成功")
+print(f"数据库: {config.db_host}:{config.db_port}/{config.db_name}")
+print(f"传感器表名: {config.sensor_table_name}")
+print(f"LLM模型: {config.llm_model_name}")
 ```
 
-### Step 3: 更新Agent Prompts
+输出示例：
+```
+已找到配置文件: config.py
+✅ 配置加载成功
+数据库: localhost:3306/sensor_database
+传感器表名: sensor_data
+LLM模型: gpt-4
+```
+
+### Step 3: 初始化数据库
+
+执行SQL脚本创建传感器数据表：
+
+```sql
+-- 创建传感器数据表
+CREATE TABLE sensor_data (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    sensor_data JSON NOT NULL COMMENT '传感器JSON数据',
+    timestamp DATETIME NOT NULL COMMENT '数据时间戳',
+    INDEX idx_timestamp (timestamp)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 插入测试数据
+INSERT INTO sensor_data (sensor_data, timestamp) VALUES
+(
+    '{"temperature": 25.5, "humidity": 60.2, "pressure": 1013.25, "pm25": 35}',
+    NOW()
+);
+```
+
+### Step 4: 更新Agent Prompts
 
 传感器数据分析的system prompt应该包含：
 
@@ -146,7 +189,7 @@ class SensorConfig:
 - 其他自定义传感器...
 ```
 
-### Step 4: 图表生成
+### Step 5: 图表生成
 
 在 `ReportEngine/utils/chart_generator.py` 中实现：
 
@@ -255,27 +298,54 @@ def generate_anomaly_chart(data_points, anomalies):
 
 ```python
 # 测试传感器数据查询
+import os
+from InsightEngine.utils.config import load_config
 from InsightEngine.tools.sensor_search import SensorDataDB
 
-db = SensorDataDB()
+# 1. 加载配置文件
+config = load_config()
+
+# 2. 设置数据库环境变量（用于SensorDataDB的连接）
+os.environ["DB_HOST"] = config.db_host or ""
+os.environ["DB_USER"] = config.db_user or ""
+os.environ["DB_PASSWORD"] = config.db_password or ""
+os.environ["DB_NAME"] = config.db_name or ""
+os.environ["DB_PORT"] = str(config.db_port)
+os.environ["DB_CHARSET"] = config.db_charset
+
+# 3. 创建数据库客户端（从配置获取表名）
+db = SensorDataDB(table_name=config.sensor_table_name)
+
+# 或者手动指定表名
+# db = SensorDataDB(table_name="my_sensor_table")
 
 # 测试1：按时间范围查询
+print("\n测试1：按时间范围查询")
 response = db.query_by_time_range(
     start_time='2025-01-01 00:00:00',
     end_time='2025-01-02 00:00:00',
     sensor_types=['temperature', 'humidity']
 )
+print(f"查询结果: {response.results_count} 条数据")
+if response.results:
+    print(f"第一条数据: {response.results[0]}")
 
 # 测试2：统计摘要
+print("\n测试2：统计摘要")
 summary = db.query_statistical_summary(
     start_time='2025-01-01',
     end_time='2025-01-02',
     sensor_types=['pm25']
 )
+print(f"统计结果: {summary.results_count} 个传感器")
+for stat in summary.statistics:
+    print(f"  {stat.sensor_type}: 平均={stat.avg_value:.2f}, 最小={stat.min_value:.2f}, 最大={stat.max_value:.2f}")
 
 # 测试3：异常检测
+print("\n测试3：异常检测")
 anomalies = db.query_anomaly_detection(
     sensor_type='temperature',
     threshold_std_dev=2.0
 )
+print(f"异常数据: {anomalies.results_count} 条")
 ```
