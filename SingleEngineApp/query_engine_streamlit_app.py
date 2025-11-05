@@ -29,6 +29,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from QueryEngine import DeepSearchAgent, Settings
 from config import settings
+from utils.github_issues import error_with_issue_link
 
 
 def main():
@@ -174,7 +175,12 @@ def execute_research(query: str, config: Settings):
     except Exception as e:
         import traceback
         error_traceback = traceback.format_exc()
-        st.error(f"研究过程中发生错误: {str(e)} \n错误堆栈: {error_traceback}")
+        error_display = error_with_issue_link(
+            f"研究过程中发生错误: {str(e)}",
+            error_traceback,
+            app_name="Query Engine Streamlit App"
+        )
+        st.error(error_display)
         logger.exception(f"研究过程中发生错误: {str(e)}")
 
 
