@@ -5,9 +5,8 @@ Report Engine
 """
 
 from .agent import ReportAgent, create_agent
-from .utils.config import Config, load_config
 
 __version__ = "1.0.0"
 __author__ = "Report Engine Team"
 
-__all__ = ["ReportAgent", "create_agent", "Config", "load_config"]
+__all__ = ["ReportAgent", "create_agent"]

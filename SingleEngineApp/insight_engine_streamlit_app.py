@@ -9,6 +9,7 @@ import streamlit as st
 from datetime import datetime
 import json
 import locale
+from loguru import logger
 
 # 设置UTF-8编码环境
 os.environ['PYTHONIOENCODING'] = 'utf-8'
@@ -26,18 +27,8 @@ except locale.Error:
 # 添加src目录到Python路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from InsightEngine import DeepSearchAgent, Config
-from config import (
-    INSIGHT_ENGINE_API_KEY,
-    INSIGHT_ENGINE_BASE_URL,
-    INSIGHT_ENGINE_MODEL_NAME,
-    DB_HOST,
-    DB_USER,
-    DB_PASSWORD,
-    DB_NAME,
-    DB_PORT,
-    DB_CHARSET,
-)
+from InsightEngine import DeepSearchAgent, Settings
+from config import settings
 
 
 def main():
@@ -66,16 +57,16 @@ def main():
 
     # ----- 配置被硬编码 -----
     # 强制使用 Kimi
-    model_name = INSIGHT_ENGINE_MODEL_NAME or "kimi-k2-0711-preview"
+    model_name = settings.INSIGHT_ENGINE_MODEL_NAME or "kimi-k2-0711-preview"
     # 默认高级配置
     max_reflections = 2
     max_content_length = 500000  # Kimi支持长文本
 
     # 简化的研究查询展示区域
-    
+
     # 如果有自动查询，使用它作为默认值，否则显示占位符
     display_query = auto_query if auto_query else "等待从主页面接收分析内容..."
-    
+
     # 只读的查询展示区域
     st.text_area(
         "当前查询",
@@ -89,7 +80,7 @@ def main():
     # 自动搜索逻辑
     start_research = False
     query = auto_query
-    
+
     if auto_search and auto_query and 'auto_search_executed' not in st.session_state:
         st.session_state.auto_search_executed = True
         start_research = True
@@ -100,42 +91,45 @@ def main():
     if start_research:
         if not query.strip():
             st.error("请输入研究查询")
+            logger.error("请输入研究查询")
             return
 
         # 检查配置中的LLM密钥
-        if not INSIGHT_ENGINE_API_KEY:
-            st.error("请在您的配置文件(config.py)中设置INSIGHT_ENGINE_API_KEY")
+        if not settings.INSIGHT_ENGINE_API_KEY:
+            st.error("请在您的环境变量中设置INSIGHT_ENGINE_API_KEY")
+            logger.error("请在您的环境变量中设置INSIGHT_ENGINE_API_KEY")
             return
 
         # 自动使用配置文件中的API密钥和数据库配置
-        db_host = DB_HOST
-        db_user = DB_USER
-        db_password = DB_PASSWORD
-        db_name = DB_NAME
-        db_port = DB_PORT
-        db_charset = DB_CHARSET
+        db_host = settings.DB_HOST
+        db_user = settings.DB_USER
+        db_password = settings.DB_PASSWORD
+        db_name = settings.DB_NAME
+        db_port = settings.DB_PORT
+        db_charset = settings.DB_CHARSET
 
-        # 创建配置
-        config = Config(
-            llm_api_key=INSIGHT_ENGINE_API_KEY,
-            llm_base_url=INSIGHT_ENGINE_BASE_URL,
-            llm_model_name=model_name,
-            db_host=db_host,
-            db_user=db_user,
-            db_password=db_password,
-            db_name=db_name,
-            db_port=db_port,
-            db_charset=db_charset,
-            max_reflections=max_reflections,
-            max_content_length=max_content_length,
-            output_dir="insight_engine_streamlit_reports"
+        # 创建Settings配置（字段必须用大写，以适配Settings类）
+        config = Settings(
+            INSIGHT_ENGINE_API_KEY=settings.INSIGHT_ENGINE_API_KEY,
+            INSIGHT_ENGINE_BASE_URL=settings.INSIGHT_ENGINE_BASE_URL,
+            INSIGHT_ENGINE_MODEL_NAME=model_name,
+            DB_HOST=db_host,
+            DB_USER=db_user,
+            DB_PASSWORD=db_password,
+            DB_NAME=db_name,
+            DB_PORT=db_port,
+            DB_CHARSET=db_charset,
+            DB_DIALECT=settings.DB_DIALECT,
+            MAX_REFLECTIONS=max_reflections,
+            MAX_CONTENT_LENGTH=max_content_length,
+            OUTPUT_DIR="insight_engine_streamlit_reports"
         )
 
         # 执行研究
         execute_research(query, config)
 
 
-def execute_research(query: str, config: Config):
+def execute_research(query: str, config: Settings):
     """执行研究"""
     try:
         # 创建进度条
@@ -187,7 +181,10 @@ def execute_research(query: str, config: Config):
         display_results(agent, final_report)
 
     except Exception as e:
-        st.error(f"研究过程中发生错误: {str(e)}")
+        import traceback
+        error_traceback = traceback.format_exc()
+        st.error(f"研究过程中发生错误: {str(e)} \n错误堆栈: {error_traceback}")
+        logger.exception(f"研究过程中发生错误: {str(e)}")
 
 
 def display_results(agent: DeepSearchAgent, final_report: str):

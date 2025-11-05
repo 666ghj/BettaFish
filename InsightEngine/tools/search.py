@@ -25,10 +25,11 @@ V3.0 核心更新:
 
 import os
 import json
-import pymysql
-import pymysql.cursors
+from loguru import logger
+import asyncio
 from typing import List, Dict, Any, Optional, Literal
 from dataclasses import dataclass, field
+from ..utils.db import fetch_all
 from datetime import datetime, timedelta, date
 
 # --- 1. 数据结构定义 ---
@@ -69,36 +70,28 @@ class MediaCrawlerDB:
 
     def __init__(self):
         """
-        初始化客户端。连接信息从环境变量自动读取:
-        - DB_HOST, DB_USER, DB_PASSWORD, DB_NAME
-        - DB_PORT (可选, 默认 3306)
-        - DB_CHARSET (可选, 默认 utf8mb4)
+        初始化客户端。
         """
-        self.db_config = {
-            'host': os.getenv("DB_HOST"),
-            'user': os.getenv("DB_USER"),
-            'password': os.getenv("DB_PASSWORD"),
-            'db': os.getenv("DB_NAME"),
-            'port': int(os.getenv("DB_PORT", 3306)),
-            'charset': os.getenv("DB_CHARSET", "utf8mb4"),
-            'cursorclass': pymysql.cursors.DictCursor
-        }
-        required = ['host', 'user', 'password', 'db']
-        if missing := [k for k in required if not self.db_config[k]]:
-            raise ValueError(f"数据库配置缺失! 请设置环境变量或在代码中提供: {', '.join([f'DB_{k.upper()}' for k in missing])}")
-
+        pass
+        
     def _execute_query(self, query: str, params: tuple = None) -> List[Dict[str, Any]]:
-        conn = None
         try:
-            conn = pymysql.connect(**self.db_config)
-            with conn.cursor() as cursor:
-                cursor.execute(query, params or ())
-                return cursor.fetchall()
-        except pymysql.Error as e:
-            print(f"数据库查询时发生错误: {e}")
+            # 获取或创建event loop
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_closed():
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+            except RuntimeError:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
+            # 直接运行协程
+            return loop.run_until_complete(fetch_all(query, params))
+        
+        except Exception as e:
+            logger.exception(f"数据库查询时发生错误: {e}")
             return []
-        finally:
-            if conn: conn.close()
 
     @staticmethod
     def _to_datetime(ts: Any) -> Optional[datetime]:
@@ -149,7 +142,7 @@ class MediaCrawlerDB:
             DBResponse: 包含按综合热度排序后的内容列表。
         """
         params_for_log = {'time_period': time_period, 'limit': limit}
-        print(f"--- TOOL: 查找热点内容 (params: {params_for_log}) ---")
+        logger.info(f"--- TOOL: 查找热点内容 (params: {params_for_log}) ---")
         
         now = datetime.now()
         start_time = now - timedelta(days={'24h': 1, 'week': 7}.get(time_period, 365))
@@ -202,22 +195,28 @@ class MediaCrawlerDB:
             DBResponse: 包含所有匹配结果的聚合列表。
         """
         params_for_log = {'topic': topic, 'limit_per_table': limit_per_table}
-        print(f"--- TOOL: 全局话题搜索 (params: {params_for_log}) ---")
+        logger.info(f"--- TOOL: 全局话题搜索 (params: {params_for_log}) ---")
         
         search_term, all_results = f"%{topic}%", []
         search_configs = { 'bilibili_video': {'fields': ['title', 'desc', 'source_keyword'], 'type': 'video'}, 'bilibili_video_comment': {'fields': ['content'], 'type': 'comment'}, 'douyin_aweme': {'fields': ['title', 'desc', 'source_keyword'], 'type': 'video'}, 'douyin_aweme_comment': {'fields': ['content'], 'type': 'comment'}, 'kuaishou_video': {'fields': ['title', 'desc', 'source_keyword'], 'type': 'video'}, 'kuaishou_video_comment': {'fields': ['content'], 'type': 'comment'}, 'weibo_note': {'fields': ['content', 'source_keyword'], 'type': 'note'}, 'weibo_note_comment': {'fields': ['content'], 'type': 'comment'}, 'xhs_note': {'fields': ['title', 'desc', 'tag_list', 'source_keyword'], 'type': 'note'}, 'xhs_note_comment': {'fields': ['content'], 'type': 'comment'}, 'zhihu_content': {'fields': ['title', 'desc', 'content_text', 'source_keyword'], 'type': 'content'}, 'zhihu_comment': {'fields': ['content'], 'type': 'comment'}, 'tieba_note': {'fields': ['title', 'desc', 'source_keyword'], 'type': 'note'}, 'tieba_comment': {'fields': ['content'], 'type': 'comment'}, 'daily_news': {'fields': ['title'], 'type': 'news'}, }
         
         for table, config in search_configs.items():
-            where_clause = " OR ".join([f"`{field}` LIKE %s" for field in config['fields']])
-            query = f"SELECT * FROM `{table}` WHERE {where_clause} ORDER BY id DESC LIMIT %s"
-            params = (search_term,) * len(config['fields']) + (limit_per_table,)
-            raw_results = self._execute_query(query, params)
+            param_dict = {}
+            where_clauses = []
+            for idx, field in enumerate(config['fields']):
+                pname = f"term_{idx}"
+                where_clauses.append(f'"{field}" LIKE :{pname}')
+                param_dict[pname] = search_term
+            param_dict['limit'] = limit_per_table
+            where_clause = " OR ".join(where_clauses)
+            query = f'SELECT * FROM "{table}" WHERE {where_clause} ORDER BY id DESC LIMIT :limit'
+            raw_results = self._execute_query(query, param_dict)
             for row in raw_results:
                 content = (row.get('title') or row.get('content') or row.get('desc') or row.get('content_text', ''))
                 time_key = row.get('create_time') or row.get('time') or row.get('created_time') or row.get('publish_time') or row.get('crawl_date')
                 all_results.append(QueryResult(
                     platform=table.split('_')[0], content_type=config['type'],
-                    title_or_content=content[:500] if content else '',
+                    title_or_content=content if content else '',
                     author_nickname=row.get('nickname') or row.get('user_nickname') or row.get('user_name'),
                     url=row.get('video_url') or row.get('note_url') or row.get('content_url') or row.get('url') or row.get('aweme_url'),
                     publish_time=self._to_datetime(time_key),
@@ -241,7 +240,7 @@ class MediaCrawlerDB:
             DBResponse: 包含在指定日期范围内找到的结果的聚合列表。
         """
         params_for_log = {'topic': topic, 'start_date': start_date, 'end_date': end_date, 'limit_per_table': limit_per_table}
-        print(f"--- TOOL: 按日期搜索话题 (params: {params_for_log}) ---")
+        logger.info(f"--- TOOL: 按日期搜索话题 (params: {params_for_log}) ---")
         
         try:
             start_dt, end_dt = datetime.strptime(start_date, '%Y-%m-%d'), datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
@@ -257,25 +256,25 @@ class MediaCrawlerDB:
         }
 
         for table, config in search_configs.items():
-            topic_clause = " OR ".join([f"`{field}` LIKE %s" for field in config['fields']])
-            time_col, time_type = config['time_col'], config['time_type']
-            if time_type == 'sec': time_params = (int(start_dt.timestamp()), int(end_dt.timestamp()))
-            elif time_type == 'ms': time_params = (int(start_dt.timestamp() * 1000), int(end_dt.timestamp() * 1000))
-            elif time_type in ['str', 'date_str']: time_params = (start_dt.strftime('%Y-%m-%d'), end_dt.strftime('%Y-%m-%d'))
-            else: time_params = (str(int(start_dt.timestamp())), str(int(end_dt.timestamp())))
-            time_clause = f"`{time_col}` >= %s AND `{time_col}` < %s"
-            if table == 'zhihu_content': time_clause = f"CAST(`{time_col}` AS UNSIGNED) >= %s AND CAST(`{time_col}` AS UNSIGNED) < %s"
-            query = f"SELECT * FROM `{table}` WHERE ({topic_clause}) AND ({time_clause}) ORDER BY id DESC LIMIT %s"
-            params = (search_term,) * len(config['fields']) + time_params + (limit_per_table,)
-            raw_results = self._execute_query(query, params)
+            param_dict = {}
+            where_clauses = []
+            for idx, field in enumerate(config['fields']):
+                pname = f"term_{idx}"
+                where_clauses.append(f'"{field}" LIKE :{pname}')
+                param_dict[pname] = search_term
+            param_dict['limit'] = limit_per_table
+            where_clause = ' OR '.join(where_clauses)
+            query = f'SELECT * FROM "{table}" WHERE {where_clause} ORDER BY id DESC LIMIT :limit'
+            raw_results = self._execute_query(query, param_dict)
             for row in raw_results:
                 content = (row.get('title') or row.get('content') or row.get('desc') or row.get('content_text', ''))
+                time_key = row.get('create_time') or row.get('time') or row.get('created_time') or row.get('publish_time') or row.get('crawl_date')
                 all_results.append(QueryResult(
                     platform=table.split('_')[0], content_type=config['type'],
-                    title_or_content=content[:500] if content else '',
-                    author_nickname=row.get('nickname') or row.get('user_nickname'),
+                    title_or_content=content if content else '',
+                    author_nickname=row.get('nickname') or row.get('user_nickname') or row.get('user_name'),
                     url=row.get('video_url') or row.get('note_url') or row.get('content_url') or row.get('url') or row.get('aweme_url'),
-                    publish_time=self._to_datetime(row.get(config['time_col'])),
+                    publish_time=self._to_datetime(time_key),
                     engagement=self._extract_engagement(row),
                     source_keyword=row.get('source_keyword'),
                     source_table=table
@@ -294,7 +293,7 @@ class MediaCrawlerDB:
             DBResponse: 包含匹配的评论列表。
         """
         params_for_log = {'topic': topic, 'limit': limit}
-        print(f"--- TOOL: 获取话题评论 (params: {params_for_log}) ---")
+        logger.info(f"--- TOOL: 获取话题评论 (params: {params_for_log}) ---")
         
         search_term = f"%{topic}%"
         comment_tables = ['bilibili_video_comment', 'douyin_aweme_comment', 'kuaishou_video_comment', 'weibo_note_comment', 'xhs_note_comment', 'zhihu_comment', 'tieba_comment']
@@ -341,7 +340,7 @@ class MediaCrawlerDB:
             DBResponse: 包含在该平台找到的结果列表。
         """
         params_for_log = {'platform': platform, 'topic': topic, 'start_date': start_date, 'end_date': end_date, 'limit': limit}
-        print(f"--- TOOL: 平台定向搜索 (params: {params_for_log}) ---")
+        logger.info(f"--- TOOL: 平台定向搜索 (params: {params_for_log}) ---")
 
         all_configs = { 'bilibili': [{'table': 'bilibili_video', 'fields': ['title', 'desc', 'source_keyword'], 'type': 'video', 'time_col': 'create_time', 'time_type': 'sec'}, {'table': 'bilibili_video_comment', 'fields': ['content'], 'type': 'comment'}], 'douyin': [{'table': 'douyin_aweme', 'fields': ['title', 'desc', 'source_keyword'], 'type': 'video', 'time_col': 'create_time', 'time_type': 'ms'}, {'table': 'douyin_aweme_comment', 'fields': ['content'], 'type': 'comment'}], 'kuaishou': [{'table': 'kuaishou_video', 'fields': ['title', 'desc', 'source_keyword'], 'type': 'video', 'time_col': 'create_time', 'time_type': 'ms'}, {'table': 'kuaishou_video_comment', 'fields': ['content'], 'type': 'comment'}], 'weibo': [{'table': 'weibo_note', 'fields': ['content', 'source_keyword'], 'type': 'note', 'time_col': 'create_date_time', 'time_type': 'str'}, {'table': 'weibo_note_comment', 'fields': ['content'], 'type': 'comment'}], 'xhs': [{'table': 'xhs_note', 'fields': ['title', 'desc', 'tag_list', 'source_keyword'], 'type': 'note', 'time_col': 'time', 'time_type': 'ms'}, {'table': 'xhs_note_comment', 'fields': ['content'], 'type': 'comment'}], 'zhihu': [{'table': 'zhihu_content', 'fields': ['title', 'desc', 'content_text', 'source_keyword'], 'type': 'content', 'time_col': 'created_time', 'time_type': 'sec_str'}, {'table': 'zhihu_comment', 'fields': ['content'], 'type': 'comment'}], 'tieba': [{'table': 'tieba_note', 'fields': ['title', 'desc', 'source_keyword'], 'type': 'note', 'time_col': 'publish_time', 'time_type': 'str'}, {'table': 'tieba_comment', 'fields': ['content'], 'type': 'comment'}] }
         
@@ -386,7 +385,7 @@ class MediaCrawlerDB:
             for row in raw_results:
                 content = (row.get('title') or row.get('content') or row.get('desc') or row.get('content_text', ''))
                 time_key = config.get('time_col') and row.get(config.get('time_col'))
-                all_results.append(QueryResult(platform=platform, content_type=config['type'], title_or_content=content[:500] if content else '', author_nickname=row.get('nickname') or row.get('user_nickname'), url=row.get('video_url') or row.get('note_url') or row.get('content_url') or row.get('url') or row.get('aweme_url'), publish_time=self._to_datetime(time_key), engagement=self._extract_engagement(row), source_keyword=row.get('source_keyword'), source_table=table))
+                all_results.append(QueryResult(platform=platform, content_type=config['type'], title_or_content=content if content else '', author_nickname=row.get('nickname') or row.get('user_nickname'), url=row.get('video_url') or row.get('note_url') or row.get('content_url') or row.get('url') or row.get('aweme_url'), publish_time=self._to_datetime(time_key), engagement=self._extract_engagement(row), source_keyword=row.get('source_keyword'), source_table=table))
         
         return DBResponse("search_topic_on_platform", params_for_log, results=all_results, results_count=len(all_results))
 
@@ -394,33 +393,41 @@ class MediaCrawlerDB:
 def print_response_summary(response: DBResponse):
     """简化的打印函数，用于展示测试结果"""
     if response.error_message:
-        print(f"工具 '{response.tool_name}' 执行出错: {response.error_message}")
-        print("-" * 80)
+        logger.info(f"工具 '{response.tool_name}' 执行出错: {response.error_message}")
         return
 
     params_str = ", ".join(f"{k}='{v}'" for k, v in response.parameters.items())
-    print(f"查询: 工具='{response.tool_name}', 参数=[{params_str}]")
-    print(f"找到 {response.results_count} 条相关记录。")
+    logger.info(f"查询: 工具='{response.tool_name}', 参数=[{params_str}]")
+    logger.info(f"找到 {response.results_count} 条相关记录。")
     
-    if response.results:
-        print("--- 前5条结果示例 ---")
-        for i, res in enumerate(response.results[:5]):
-            engagement_str = ", ".join(f"{k}: {v}" for k, v in res.engagement.items() if v)
-            content_preview = (res.title_or_content.replace('\n', ' ')[:70] + '...') if res.title_or_content and len(res.title_or_content) > 70 else res.title_or_content
-            hotness_str = f", hotness: {res.hotness_score:.2f}" if res.hotness_score > 0 else ""
-            print(
-                f"{i+1}. [{res.platform.upper()}/{res.content_type}] {content_preview}\n"
-                f"   by: {res.author_nickname}, at: {res.publish_time.strftime('%Y-%m-%d %H:%M') if res.publish_time else 'N/A'}"
-                f", src_kw: '{res.source_keyword or 'N/A'}'{hotness_str}"
-                f", engagement: {{{engagement_str}}}"
+    # 统一为一个消息输出
+    output_lines = []
+    output_lines.append("==== 查询结果预览（最多前5条） ====")
+    if response.results and len(response.results) > 0:
+        for idx, res in enumerate(response.results[:5], 1):
+            content_preview = (res.title_or_content.replace('\n', ' ')[:70] + '...') if res.title_or_content and len(res.title_or_content) > 70 else (res.title_or_content or '')
+            author_str = res.author_nickname or "N/A"
+            publish_time_str = res.publish_time.strftime('%Y-%m-%d %H:%M') if res.publish_time else "N/A"
+            hotness_str = f", hotness: {res.hotness_score:.2f}" if getattr(res, "hotness_score", 0) > 0 else ""
+            engagement_dict = getattr(res, "engagement", {}) or {}
+            engagement_str = ", ".join(f"{k}: {v}" for k, v in engagement_dict.items() if v)
+            output_lines.append(
+                f"{idx}. [{res.platform.upper()}/{res.content_type}] {content_preview}\n"
+                f"   作者: {author_str} | 时间: {publish_time_str}"
+                f"{hotness_str} | 源关键词: '{res.source_keyword or 'N/A'}'\n"
+                f"   链接: {res.url or 'N/A'}\n"
+                f"   互动数据: {{{engagement_str}}}"
             )
-    print("-" * 80)
+    else:
+        output_lines.append("暂无相关内容。")
+    output_lines.append("=" * 60)
+    logger.info('\n'.join(output_lines))
 
 if __name__ == "__main__":
     
     try:
         db_agent_tools = MediaCrawlerDB()
-        print("数据库工具初始化成功，开始执行测试场景...\n")
+        logger.info("数据库工具初始化成功，开始执行测试场景...\n")
         
         # 场景1: (新) 查找过去一周综合热度最高的内容 (不再需要sort_by)
         response1 = db_agent_tools.search_hot_content(time_period='week', limit=5)
@@ -443,7 +450,7 @@ if __name__ == "__main__":
         print_response_summary(response5)
 
     except ValueError as e:
-        print(f"初始化失败: {e}")
-        print("请确保相关的数据库环境变量已正确设置, 或在代码中直接提供连接信息。")
+        logger.exception(f"初始化失败: {e}")
+        logger.exception("请确保相关的数据库环境变量已正确设置, 或在代码中直接提供连接信息。")
     except Exception as e:
-        print(f"测试过程中发生未知错误: {e}")
+        logger.exception(f"测试过程中发生未知错误: {e}")

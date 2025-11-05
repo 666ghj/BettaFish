@@ -5,7 +5,7 @@ Report Agent主类
 
 import json
 import os
-import logging
+from loguru import logger
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 
@@ -15,7 +15,7 @@ from .nodes import (
     HTMLGenerationNode
 )
 from .state import ReportState
-from .utils import Config, load_config
+from .utils.config import settings, Settings
 
 
 class FileCountBaseline:
@@ -32,7 +32,7 @@ class FileCountBaseline:
                 with open(self.baseline_file, 'r', encoding='utf-8') as f:
                     return json.load(f)
         except Exception as e:
-            print(f"加载基准数据失败: {e}")
+            logger.exception(f"加载基准数据失败: {e}")
         return {}
     
     def _save_baseline(self):
@@ -42,7 +42,7 @@ class FileCountBaseline:
             with open(self.baseline_file, 'w', encoding='utf-8') as f:
                 json.dump(self.baseline_data, f, ensure_ascii=False, indent=2)
         except Exception as e:
-            print(f"保存基准数据失败: {e}")
+            logger.exception(f"保存基准数据失败: {e}")
     
     def initialize_baseline(self, directories: Dict[str, str]) -> Dict[str, int]:
         """初始化文件数量基准"""
@@ -59,7 +59,7 @@ class FileCountBaseline:
         self.baseline_data = current_counts.copy()
         self._save_baseline()
         
-        print(f"文件数量基准已初始化: {current_counts}")
+        logger.info(f"文件数量基准已初始化: {current_counts}")
         return current_counts
     
     def check_new_files(self, directories: Dict[str, str]) -> Dict[str, Any]:
@@ -109,7 +109,7 @@ class FileCountBaseline:
 class ReportAgent:
     """Report Agent主类"""
     
-    def __init__(self, config: Optional[Config] = None):
+    def __init__(self, config: Optional[Settings] = None):
         """
         初始化Report Agent
         
@@ -117,7 +117,7 @@ class ReportAgent:
             config: 配置对象，如果不提供则自动加载
         """
         # 加载配置
-        self.config = config or load_config()
+        self.config = config or settings
         
         # 初始化文件基准管理器
         self.file_baseline = FileCountBaseline()
@@ -138,45 +138,20 @@ class ReportAgent:
         self.state = ReportState()
         
         # 确保输出目录存在
-        os.makedirs(self.config.output_dir, exist_ok=True)
+        os.makedirs(settings.OUTPUT_DIR, exist_ok=True)
         
-        self.logger.info("Report Agent已初始化")
-        self.logger.info(f"使用LLM: {self.llm_client.get_model_info()}")
+        logger.info("Report Agent已初始化")
+        logger.info(f"使用LLM: {self.llm_client.get_model_info()}")
         
     def _setup_logging(self):
         """设置日志"""
         # 确保日志目录存在
-        log_dir = os.path.dirname(self.config.log_file)
+        log_dir = os.path.dirname(settings.LOG_FILE)
         os.makedirs(log_dir, exist_ok=True)
         
         # 创建专用的logger，避免与其他模块冲突
-        self.logger = logging.getLogger('ReportEngine')
-        self.logger.setLevel(logging.INFO)
+        logger.add(settings.LOG_FILE, level="INFO")
         
-        # 清除已有的handlers
-        if self.logger.handlers:
-            self.logger.handlers.clear()
-        
-        # 创建文件handler
-        file_handler = logging.FileHandler(self.config.log_file, encoding='utf-8')
-        file_handler.setLevel(logging.INFO)
-        
-        # 创建控制台handler
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
-        
-        # 设置格式
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        file_handler.setFormatter(formatter)
-        console_handler.setFormatter(formatter)
-        
-        # 添加handlers
-        self.logger.addHandler(file_handler)
-        self.logger.addHandler(console_handler)
-        
-        # 防止日志向上传播
-        self.logger.propagate = False
-    
     def _initialize_file_baseline(self):
         """初始化文件数量基准"""
         directories = {
@@ -189,16 +164,16 @@ class ReportAgent:
     def _initialize_llm(self) -> LLMClient:
         """初始化LLM客户端"""
         return LLMClient(
-            api_key=self.config.llm_api_key,
-            model_name=self.config.llm_model_name,
-            base_url=self.config.llm_base_url,
+            api_key=settings.REPORT_ENGINE_API_KEY,
+            model_name=settings.REPORT_ENGINE_MODEL_NAME,
+            base_url=settings.REPORT_ENGINE_BASE_URL,
         )
     
     def _initialize_nodes(self):
         """初始化处理节点"""
         self.template_selection_node = TemplateSelectionNode(
-            self.llm_client, 
-            self.config.template_dir
+            self.llm_client,
+            self.config.TEMPLATE_DIR
         )
         self.html_generation_node = HTMLGenerationNode(self.llm_client)
     
@@ -219,7 +194,7 @@ class ReportAgent:
         """
         start_time = datetime.now()
         
-        self.logger.info(f"开始生成报告: {query}")
+        logger.info(f"开始生成报告: {query}")
         self.logger.info(f"输入数据 - 报告数量: {len(reports)}, 论坛日志长度: {len(forum_logs)}")
         
         try:
@@ -238,21 +213,21 @@ class ReportAgent:
             generation_time = (end_time - start_time).total_seconds()
             self.state.metadata.generation_time = generation_time
             
-            self.logger.info(f"报告生成完成，耗时: {generation_time:.2f} 秒")
+            logger.info(f"报告生成完成，耗时: {generation_time:.2f} 秒")
             
             return html_report
             
         except Exception as e:
-            self.logger.error(f"报告生成过程中发生错误: {str(e)}")
+            logger.exception(f"报告生成过程中发生错误: {str(e)}")
             raise e
     
     def _select_template(self, query: str, reports: List[Any], forum_logs: str, custom_template: str):
         """选择报告模板"""
-        self.logger.info("选择报告模板...")
+        logger.info("选择报告模板...")
         
         # 如果用户提供了自定义模板，直接使用
         if custom_template:
-            self.logger.info("使用用户自定义模板")
+            logger.info("使用用户自定义模板")
             return {
                 'template_name': 'custom',
                 'template_content': custom_template,
@@ -271,12 +246,12 @@ class ReportAgent:
             # 更新状态
             self.state.metadata.template_used = template_result['template_name']
             
-            self.logger.info(f"选择模板: {template_result['template_name']}")
-            self.logger.info(f"选择理由: {template_result['selection_reason']}")
+            logger.info(f"选择模板: {template_result['template_name']}")
+            logger.info(f"选择理由: {template_result['selection_reason']}")
             
             return template_result
         except Exception as e:
-            self.logger.error(f"模板选择失败，使用默认模板: {str(e)}")
+            logger.error(f"模板选择失败，使用默认模板: {str(e)}")
             # 直接使用备用模板
             fallback_template = {
                 'template_name': '社会公共热点事件分析报告模板',
@@ -288,7 +263,7 @@ class ReportAgent:
     
     def _generate_html_report(self, query: str, reports: List[Any], forum_logs: str, template_result: Dict[str, Any]) -> str:
         """生成HTML报告"""
-        self.logger.info("多轮生成HTML报告...")
+        logger.info("多轮生成HTML报告...")
         
         # 准备报告内容，确保有3个报告
         query_report = reports[0] if len(reports) > 0 else ""
@@ -316,7 +291,7 @@ class ReportAgent:
         self.state.html_content = html_content
         self.state.mark_completed()
         
-        self.logger.info("HTML报告生成完成")
+        logger.info("HTML报告生成完成")
         return html_content
     
     def _get_fallback_template_content(self) -> str:
@@ -376,19 +351,19 @@ class ReportAgent:
         query_safe = query_safe.replace(' ', '_')[:30]
         
         filename = f"final_report_{query_safe}_{timestamp}.html"
-        filepath = os.path.join(self.config.output_dir, filename)
+        filepath = os.path.join(settings.OUTPUT_DIR, filename)
         
         # 保存HTML报告
         with open(filepath, 'w', encoding='utf-8') as f:
             f.write(html_content)
         
-        self.logger.info(f"报告已保存到: {filepath}")
+        logger.info(f"报告已保存到: {filepath}")
         
         # 保存状态
         state_filename = f"report_state_{query_safe}_{timestamp}.json"
-        state_filepath = os.path.join(self.config.output_dir, state_filename)
+        state_filepath = os.path.join(settings.OUTPUT_DIR, state_filename)
         self.state.save_to_file(state_filepath)
-        self.logger.info(f"状态已保存到: {state_filepath}")
+        logger.info(f"状态已保存到: {state_filepath}")
     
     def get_progress_summary(self) -> Dict[str, Any]:
         """获取进度摘要"""
@@ -397,12 +372,12 @@ class ReportAgent:
     def load_state(self, filepath: str):
         """从文件加载状态"""
         self.state = ReportState.load_from_file(filepath)
-        self.logger.info(f"状态已从 {filepath} 加载")
+        logger.info(f"状态已从 {filepath} 加载")
     
     def save_state(self, filepath: str):
         """保存状态到文件"""
         self.state.save_to_file(filepath)
-        self.logger.info(f"状态已保存到 {filepath}")
+        logger.info(f"状态已保存到 {filepath}")
     
     def check_input_files(self, insight_dir: str, media_dir: str, query_dir: str, forum_log_path: str) -> Dict[str, Any]:
         """
@@ -488,9 +463,9 @@ class ReportAgent:
                     with open(file_paths[engine], 'r', encoding='utf-8') as f:
                         report_content = f.read()
                     content['reports'].append(report_content)
-                    self.logger.info(f"已加载 {engine} 报告: {len(report_content)} 字符")
+                    logger.info(f"已加载 {engine} 报告: {len(report_content)} 字符")
                 except Exception as e:
-                    self.logger.error(f"加载 {engine} 报告失败: {str(e)}")
+                    logger.exception(f"加载 {engine} 报告失败: {str(e)}")
                     content['reports'].append("")
         
         # 加载论坛日志
@@ -498,9 +473,9 @@ class ReportAgent:
             try:
                 with open(file_paths['forum'], 'r', encoding='utf-8') as f:
                     content['forum_logs'] = f.read()
-                self.logger.info(f"已加载论坛日志: {len(content['forum_logs'])} 字符")
+                logger.info(f"已加载论坛日志: {len(content['forum_logs'])} 字符")
             except Exception as e:
-                self.logger.error(f"加载论坛日志失败: {str(e)}")
+                logger.exception(f"加载论坛日志失败: {str(e)}")
         
         return content
 
@@ -515,5 +490,6 @@ def create_agent(config_file: Optional[str] = None) -> ReportAgent:
     Returns:
         ReportAgent实例
     """
-    config = load_config(config_file)
+    
+    config = Settings() # 以空配置初始化，而从从环境变量初始化
     return ReportAgent(config)

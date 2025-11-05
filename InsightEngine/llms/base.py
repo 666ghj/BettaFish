@@ -31,9 +31,9 @@ class LLMClient:
 
     def __init__(self, api_key: str, model_name: str, base_url: Optional[str] = None):
         if not api_key:
-            raise ValueError("Insight Engine LLM API key is required.")
+            raise ValueError("Insight Engine INSIGHT_ENGINE_API_KEY is required.")
         if not model_name:
-            raise ValueError("Insight Engine model name is required.")
+            raise ValueError("Insight Engine INSIGHT_ENGINE_MODEL_NAME is required.")
 
         self.api_key = api_key
         self.base_url = base_url

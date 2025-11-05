@@ -6,6 +6,7 @@ HTML生成节点
 import json
 from datetime import datetime
 from typing import Dict, Any
+from loguru import logger
 
 from .base_node import StateMutationNode
 from ..llms.base import LLMClient
@@ -42,7 +43,7 @@ class HTMLGenerationNode(StateMutationNode):
         Returns:
             生成的HTML内容
         """
-        self.log_info("开始生成HTML报告...")
+        logger.info("开始生成HTML报告...")
         
         try:
             # 准备LLM输入数据
@@ -64,11 +65,11 @@ class HTMLGenerationNode(StateMutationNode):
             # 处理响应（简化版）
             processed_response = self.process_output(response)
             
-            self.log_info("HTML报告生成完成")
+            logger.info("HTML报告生成完成")
             return processed_response
             
         except Exception as e:
-            self.log_error(f"HTML生成失败: {str(e)}")
+            logger.exception(f"HTML生成失败: {str(e)}")
             # 返回备用HTML
             return self._generate_fallback_html(input_data)
     
@@ -104,7 +105,7 @@ class HTMLGenerationNode(StateMutationNode):
             HTML内容
         """
         try:
-            self.log_info(f"处理LLM原始输出，长度: {len(output)} 字符")
+            logger.info(f"处理LLM原始输出，长度: {len(output)} 字符")
             
             html_content = output.strip()
             
@@ -120,14 +121,14 @@ class HTMLGenerationNode(StateMutationNode):
             
             # 如果内容为空，返回原始输出
             if not html_content:
-                self.log_info("处理后内容为空，返回原始输出")
+                logger.info("处理后内容为空，返回原始输出")
                 html_content = output
             
-            self.log_info(f"HTML处理完成，最终长度: {len(html_content)} 字符")
+            logger.info(f"HTML处理完成，最终长度: {len(html_content)} 字符")
             return html_content
             
         except Exception as e:
-            self.log_error(f"处理HTML输出失败: {str(e)}，返回原始输出")
+            logger.exception(f"处理HTML输出失败: {str(e)}，返回原始输出")
             return output
     
     def _generate_fallback_html(self, input_data: Dict[str, Any]) -> str:
@@ -140,7 +141,7 @@ class HTMLGenerationNode(StateMutationNode):
         Returns:
             备用HTML内容
         """
-        self.log_info("使用备用HTML生成方法")
+        logger.info("使用备用HTML生成方法")
         
         query = input_data.get('query', '智能舆情分析报告')
         query_report = input_data.get('query_engine_report', '')
