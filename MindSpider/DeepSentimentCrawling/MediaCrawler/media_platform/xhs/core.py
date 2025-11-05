@@ -357,7 +357,7 @@ class XiaoHongShuCrawler(AbstractCrawler):
                 "sec-fetch-dest": "empty",
                 "sec-fetch-mode": "cors",
                 "sec-fetch-site": "same-site",
-                "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/124.0.0.0",
+                "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
                 "Cookie": cookie_str,
             },
             playwright_page=self.context_page,
@@ -401,7 +401,6 @@ class XiaoHongShuCrawler(AbstractCrawler):
         playwright_proxy: Optional[Dict],
         user_agent: Optional[str],
         headless: bool = True,
-        channel: Optional[str] = "msedge",
     ) -> BrowserContext:
         """
         使用CDP模式启动浏览器
@@ -426,9 +425,7 @@ class XiaoHongShuCrawler(AbstractCrawler):
             utils.logger.error(f"[XiaoHongShuCrawler] CDP模式启动失败，回退到标准模式: {e}")
             # 回退到标准模式
             chromium = playwright.chromium
-            return await self.launch_browser(
-                chromium, playwright_proxy, user_agent, headless, channel=channel
-            )
+            return await self.launch_browser(chromium, playwright_proxy, user_agent, headless)
 
     async def close(self):
         """Close browser context"""

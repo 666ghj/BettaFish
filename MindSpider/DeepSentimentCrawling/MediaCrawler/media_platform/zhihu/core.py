@@ -444,7 +444,6 @@ class ZhihuCrawler(AbstractCrawler):
         playwright_proxy: Optional[Dict],
         user_agent: Optional[str],
         headless: bool = True,
-        channel: Optional[str] = "msedge",
     ) -> BrowserContext:
         """
         使用CDP模式启动浏览器
