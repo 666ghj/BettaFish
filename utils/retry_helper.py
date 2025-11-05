@@ -4,16 +4,12 @@
 """
 
 import time
-import logging
 from functools import wraps
-from typing import Callable, Any, Union, List, Type
+from typing import Callable, Any
 import requests
-from openai import OpenAI
+from loguru import logger
 
 # 配置日志
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
 class RetryConfig:
     """重试配置类"""
     
