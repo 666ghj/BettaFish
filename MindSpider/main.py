@@ -60,7 +60,7 @@ class MindSpider:
         
         if missing_configs:
             logger.error(f"配置缺失: {', '.join(missing_configs)}")
-            logger.error("请检查config.py文件中的配置信息")
+            logger.error("请检查.env文件中的环境变量配置信息")
             return False
         
         logger.info("基础配置检查通过")

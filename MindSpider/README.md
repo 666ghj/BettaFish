@@ -84,7 +84,7 @@ MindSpider/
 ```mermaid
 flowchart TB
     Start[开始] --> CheckConfig{检查配置}
-    CheckConfig -->|配置无效| ConfigError[配置错误<br/>请检查config.py]
+    CheckConfig -->|配置无效| ConfigError[配置错误<br/>请检查env中的环境变量]
     CheckConfig -->|配置有效| InitDB[初始化数据库]
     
     InitDB --> BroadTopic[BroadTopicExtraction<br/>话题提取模块]
