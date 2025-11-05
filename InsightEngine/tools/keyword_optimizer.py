@@ -12,7 +12,8 @@ from dataclasses import dataclass
 
 # 添加项目根目录到Python路径以导入config
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-from config import KEYWORD_OPTIMIZER_API_KEY, KEYWORD_OPTIMIZER_BASE_URL, KEYWORD_OPTIMIZER_MODEL_NAME
+from config import settings
+from loguru import logger
 
 # 添加utils目录到Python路径
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -46,18 +47,18 @@ class KeywordOptimizer:
             api_key: 硅基流动API密钥，如果不提供则从配置文件读取
             base_url: 接口基础地址，默认使用配置文件提供的SiliconFlow地址
         """
-        self.api_key = api_key or KEYWORD_OPTIMIZER_API_KEY
+        self.api_key = api_key or settings.KEYWORD_OPTIMIZER_API_KEY
 
         if not self.api_key:
             raise ValueError("未找到硅基流动API密钥，请在config.py中设置KEYWORD_OPTIMIZER_API_KEY")
 
-        self.base_url = base_url or KEYWORD_OPTIMIZER_BASE_URL
+        self.base_url = base_url or settings.KEYWORD_OPTIMIZER_BASE_URL
 
         self.client = OpenAI(
             api_key=self.api_key,
             base_url=self.base_url
         )
-        self.model = model_name or KEYWORD_OPTIMIZER_MODEL_NAME
+        self.model = model_name or settings.KEYWORD_OPTIMIZER_MODEL_NAME
     
     def optimize_keywords(self, original_query: str, context: str = "") -> KeywordOptimizationResponse:
         """
@@ -70,7 +71,7 @@ class KeywordOptimizer:
         Returns:
             KeywordOptimizationResponse: 优化后的关键词列表
         """
-        print(f"🔍 关键词优化中间件: 处理查询 '{original_query}'")
+        logger.info(f"🔍 关键词优化中间件: 处理查询 '{original_query}'")
         
         try:
             # 构建优化prompt
@@ -97,9 +98,13 @@ class KeywordOptimizer:
                     # 验证关键词质量
                     validated_keywords = self._validate_keywords(keywords)
                     
-                    print(f"✅ 优化成功: {len(validated_keywords)}个关键词")
-                    for i, keyword in enumerate(validated_keywords, 1):
-                        print(f"   {i}. '{keyword}'")
+                    logger.info(
+                        f"✅ 优化成功: {len(validated_keywords)}个关键词" +
+                        ("" if not validated_keywords else "\n" +
+                         "\n".join([f"   {i}. '{k}'" for i, k in enumerate(validated_keywords, 1)]))
+                    )
+                        
+                    
                     
                     return KeywordOptimizationResponse(
                         original_query=original_query,
@@ -109,7 +114,7 @@ class KeywordOptimizer:
                     )
                 
                 except Exception as e:
-                    print(f"⚠️ 解析响应失败，使用备用方案: {str(e)}")
+                    logger.exception(f"⚠️ 解析响应失败，使用备用方案: {str(e)}")
                     # 备用方案：从原始查询中提取关键词
                     fallback_keywords = self._fallback_keyword_extraction(original_query)
                     return KeywordOptimizationResponse(
@@ -119,7 +124,7 @@ class KeywordOptimizer:
                         success=True
                     )
             else:
-                print(f"❌ API调用失败: {response['error']}")
+                logger.error(f"❌ API调用失败: {response['error']}")
                 # 使用备用方案
                 fallback_keywords = self._fallback_keyword_extraction(original_query)
                 return KeywordOptimizationResponse(
@@ -131,7 +136,7 @@ class KeywordOptimizer:
                 )
                 
         except Exception as e:
-            print(f"❌ 关键词优化失败: {str(e)}")
+            logger.error(f"❌ 关键词优化失败: {str(e)}")
             # 最终备用方案
             fallback_keywords = self._fallback_keyword_extraction(original_query)
             return KeywordOptimizationResponse(

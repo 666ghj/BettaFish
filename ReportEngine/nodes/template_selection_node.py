@@ -6,6 +6,7 @@
 import os
 import json
 from typing import Dict, Any, List, Optional
+from loguru import logger
 
 from .base_node import BaseNode
 from ..prompts import SYSTEM_PROMPT_TEMPLATE_SELECTION
@@ -38,7 +39,7 @@ class TemplateSelectionNode(BaseNode):
         Returns:
             选择的模板信息
         """
-        self.log_info("开始模板选择...")
+        logger.info("开始模板选择...")
         
         query = input_data.get('query', '')
         reports = input_data.get('reports', [])
@@ -48,7 +49,7 @@ class TemplateSelectionNode(BaseNode):
         available_templates = self._get_available_templates()
         
         if not available_templates:
-            self.log_info("未找到预设模板，使用内置默认模板")
+            logger.info("未找到预设模板，使用内置默认模板")
             return self._get_fallback_template()
         
         # 使用LLM进行模板选择
@@ -57,7 +58,7 @@ class TemplateSelectionNode(BaseNode):
             if llm_result:
                 return llm_result
         except Exception as e:
-            self.log_error(f"LLM模板选择失败: {str(e)}")
+            logger.exception(f"LLM模板选择失败: {str(e)}")
         
         # 如果LLM选择失败，使用备选方案
         return self._get_fallback_template()
@@ -67,7 +68,7 @@ class TemplateSelectionNode(BaseNode):
     def _llm_template_selection(self, query: str, reports: List[Any], forum_logs: str, 
                               available_templates: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         """使用LLM进行模板选择"""
-        self.log_info("尝试使用LLM进行模板选择...")
+        logger.info("尝试使用LLM进行模板选择...")
         
         # 构建模板列表
         template_list = "\n".join([f"- {t['name']}: {t['description']}" for t in available_templates])
@@ -118,10 +119,10 @@ class TemplateSelectionNode(BaseNode):
         
         # 检查响应是否为空
         if not response or not response.strip():
-            self.log_error("LLM返回空响应")
+            logger.error("LLM返回空响应")
             return None
         
-        self.log_info(f"LLM原始响应: {response}")
+        logger.info(f"LLM原始响应: {response}")
         
         # 尝试解析JSON响应
         try:
@@ -133,18 +134,18 @@ class TemplateSelectionNode(BaseNode):
             selected_template_name = result.get('template_name', '')
             for template in available_templates:
                 if template['name'] == selected_template_name or selected_template_name in template['name']:
-                    self.log_info(f"LLM选择模板: {selected_template_name}")
+                    logger.info(f"LLM选择模板: {selected_template_name}")
                     return {
                         'template_name': template['name'],
                         'template_content': template['content'],
                         'selection_reason': result.get('selection_reason', 'LLM智能选择')
                     }
             
-            self.log_error(f"LLM选择的模板不存在: {selected_template_name}")
+            logger.error(f"LLM选择的模板不存在: {selected_template_name}")
             return None
             
         except json.JSONDecodeError as e:
-            self.log_error(f"JSON解析失败: {str(e)}")
+            logger.exception(f"JSON解析失败: {str(e)}")
             # 尝试从文本响应中提取模板信息
             return self._extract_template_from_text(response, available_templates)
     
@@ -163,7 +164,7 @@ class TemplateSelectionNode(BaseNode):
     
     def _extract_template_from_text(self, response: str, available_templates: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         """从文本响应中提取模板信息"""
-        self.log_info("尝试从文本响应中提取模板信息")
+        logger.info("尝试从文本响应中提取模板信息")
         
         # 查找响应中是否包含模板名称
         for template in available_templates:
@@ -175,7 +176,7 @@ class TemplateSelectionNode(BaseNode):
             
             for variant in template_name_variants:
                 if variant in response:
-                    self.log_info(f"在响应中找到模板: {template['name']}")
+                    logger.info(f"在响应中找到模板: {template['name']}")
                     return {
                         'template_name': template['name'],
                         'template_content': template['content'],
@@ -189,7 +190,7 @@ class TemplateSelectionNode(BaseNode):
         templates = []
         
         if not os.path.exists(self.template_dir):
-            self.log_error(f"模板目录不存在: {self.template_dir}")
+            logger.error(f"模板目录不存在: {self.template_dir}")
             return templates
         
         # 查找所有markdown模板文件
@@ -210,7 +211,7 @@ class TemplateSelectionNode(BaseNode):
                         'description': description
                     })
                 except Exception as e:
-                    self.log_error(f"读取模板文件失败 {filename}: {str(e)}")
+                    logger.exception(f"读取模板文件失败 {filename}: {str(e)}")
         
         return templates
     
@@ -235,7 +236,7 @@ class TemplateSelectionNode(BaseNode):
     
     def _get_fallback_template(self) -> Dict[str, Any]:
         """获取备用默认模板（空模板，让LLM自行发挥）"""
-        self.log_info("未找到合适模板，使用空模板让LLM自行发挥")
+        logger.info("未找到合适模板，使用空模板让LLM自行发挥")
         
         return {
             'template_name': '自由发挥模板',

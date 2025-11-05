@@ -193,7 +193,9 @@ Weibo_PublicOpinion_AnalysisSystem/
 - **数据库**: MySQL（可选择我们的云数据库服务）
 - **内存**: 建议2GB以上
 
-### 1. 创建Conda环境
+### 1. 创建环境
+
+#### 如果使用Conda
 
 ```bash
 # 创建conda环境
@@ -201,11 +203,21 @@ conda create -n your_conda_name python=3.11
 conda activate your_conda_name
 ```
 
+#### 如果使用uv
+
+```bash
+# 创建uv环境
+uv venv --python 3.11 # 创建3.11环境
+```
+
 ### 2. 安装依赖包
 
 ```bash
 # 基础依赖安装
 pip install -r requirements.txt
+
+# uv版本命令（更快速安装）
+uv pip install -r requirements.txt
 # 如果不想使用本地情感分析模型（算力需求很小，默认安装cpu版本），可以将该文件中的“机器学习”部分注释掉再执行指令
 ```
 
@@ -220,9 +232,9 @@ playwright install chromium
 
 #### 4.1 配置API密钥
 
-复制一份 `config.py.example` 文件，命名为 `config.py`
+复制一份 项目根目录 `.env.example` 文件，命名为 `.env`
 
-编辑 `config.py` 文件，填入您的API密钥（您也可以选择自己的模型、搜索代理，详情见config文件内）：
+编辑 `.env` 文件，填入您的API密钥（您也可以选择自己的模型、搜索代理，详情见根目录.env.example文件内或根目录config.py中的说明）：
 
 ```python
 # MySQL数据库配置
@@ -248,12 +260,14 @@ INSIGHT_ENGINE_MODEL_NAME = "kimi-k2-0711-preview"
 
 **选择1：使用本地数据库**
 
-> MindSpider爬虫系统跟舆情系统是各自独立的，所以需要再去`MindSpider\config.py`配置一下，复制`MindSpider`文件夹下的 `config.py.example` 文件，命名为 `config.py`
-
+> ~~MindSpider爬虫系统跟舆情系统是各自独立的，所以需要再去`MindSpider\config.py`配置一下，复制`MindSpider`文件夹下的 `config.py.example` 文件，命名为 `config.py`~~
+先已更改为基于环境变量配置，请复制项目根目录.env.example文件为.env文件，并在其中填写各项配置
 ```bash
 # 本地MySQL数据库初始化
 cd MindSpider
-python schema/init_database.py
+# 项目初始化
+python main.py --setup
+
 ```
 
 **选择2：使用云数据库服务（推荐）**
@@ -276,6 +290,15 @@ python schema/init_database.py
 ```bash
 # 在项目根目录下，激活conda环境
 conda activate your_conda_name
+
+# 启动主应用即可
+python app.py
+```
+
+uv 版本启动命令 
+```bash
+# 在项目根目录下，激活uv环境
+.venv\Scripts\activate
 
 # 启动主应用即可
 python app.py
@@ -319,6 +342,9 @@ cd MindSpider
 # 项目初始化
 python main.py --setup
 
+# 运行话题提取（获取热点新闻和关键词）
+python main.py --broad-topic
+
 # 运行完整爬虫流程
 python main.py --complete --date 2024-01-20
 
@@ -329,7 +355,7 @@ python main.py --broad-topic --date 2024-01-20
 python main.py --deep-sentiment --platforms xhs dy wb
 ```
 
-## ⚙️ 高级配置
+## ⚙️ 高级配置（已过时，已经统一为项目根目录.env文件管理，其他子agent自动继承根目录配置）
 
 ### 修改关键参数
 

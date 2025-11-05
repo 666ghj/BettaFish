@@ -15,7 +15,7 @@ from flask_socketio import SocketIO, emit
 import signal
 import atexit
 import requests
-import logging
+from loguru import logger
 import importlib
 import re
 from pathlib import Path
@@ -25,7 +25,7 @@ try:
     from ReportEngine.flask_interface import report_bp, initialize_report_engine
     REPORT_ENGINE_AVAILABLE = True
 except ImportError as e:
-    print(f"ReportEngine导入失败: {e}")
+    logger.error(f"ReportEngine导入失败: {e}")
     REPORT_ENGINE_AVAILABLE = False
 
 app = Flask(__name__)
@@ -35,9 +35,9 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 # 注册ReportEngine Blueprint
 if REPORT_ENGINE_AVAILABLE:
     app.register_blueprint(report_bp, url_prefix='/api/report')
-    print("ReportEngine接口已注册")
+    logger.info("ReportEngine接口已注册")
 else:
-    print("ReportEngine不可用，跳过接口注册")
+    logger.info("ReportEngine不可用，跳过接口注册")
 
 # 设置UTF-8编码环境
 os.environ['PYTHONIOENCODING'] = 'utf-8'
@@ -50,6 +50,7 @@ LOG_DIR.mkdir(exist_ok=True)
 CONFIG_MODULE_NAME = 'config'
 CONFIG_FILE_PATH = Path(__file__).resolve().parent / 'config.py'
 CONFIG_KEYS = [
+    'DB_DIALECT',
     'DB_HOST',
     'DB_PORT',
     'DB_USER',
@@ -95,19 +96,34 @@ def _load_config_module():
 
 def read_config_values():
     """Return the current configuration values that are exposed to the frontend."""
-    module = _load_config_module()
-    if not module:
-        return {}
-
-    values = {}
-    for key in CONFIG_KEYS:
-        value = getattr(module, key, '')
-        # Convert to string for uniform handling on the frontend.
-        if value is None:
-            values[key] = ''
+    try:
+        # 重新导入 config 模块以获取最新的 Settings 实例
+        importlib.invalidate_caches()
+        if CONFIG_MODULE_NAME in sys.modules:
+            importlib.reload(sys.modules[CONFIG_MODULE_NAME])
         else:
-            values[key] = str(value)
-    return values
+            importlib.import_module(CONFIG_MODULE_NAME)
+        
+        # 从 config 模块获取 settings 实例
+        config_module = sys.modules[CONFIG_MODULE_NAME]
+        if not hasattr(config_module, 'settings'):
+            logger.error("config 模块中没有找到 settings 实例")
+            return {}
+        
+        settings = config_module.settings
+        values = {}
+        for key in CONFIG_KEYS:
+            # 从 Pydantic Settings 实例读取值
+            value = getattr(settings, key, None)
+            # Convert to string for uniform handling on the frontend.
+            if value is None:
+                values[key] = ''
+            else:
+                values[key] = str(value)
+        return values
+    except Exception as exc:
+        logger.exception(f"读取配置失败: {exc}")
+        return {}
 
 
 def _serialize_config_value(value):
@@ -125,35 +141,58 @@ def _serialize_config_value(value):
 
 
 def write_config_values(updates):
-    """Persist configuration updates into config.py."""
-    if not CONFIG_FILE_PATH.exists():
-        raise FileNotFoundError("配置文件 config.py 不存在")
-
-    content = CONFIG_FILE_PATH.read_text(encoding='utf-8')
-
+    """Persist configuration updates to .env file (Pydantic Settings source)."""
+    from pathlib import Path
+    
+    # 确定 .env 文件路径（与 config.py 中的逻辑一致）
+    project_root = Path(__file__).resolve().parent
+    cwd_env = Path.cwd() / ".env"
+    env_file_path = cwd_env if cwd_env.exists() else (project_root / ".env")
+    
+    # 读取现有的 .env 文件内容
+    env_lines = []
+    env_key_indices = {}  # 记录每个键在文件中的索引位置
+    if env_file_path.exists():
+        env_lines = env_file_path.read_text(encoding='utf-8').splitlines()
+        # 提取已存在的键及其索引
+        for i, line in enumerate(env_lines):
+            line_stripped = line.strip()
+            if line_stripped and not line_stripped.startswith('#'):
+                if '=' in line_stripped:
+                    key = line_stripped.split('=')[0].strip()
+                    env_key_indices[key] = i
+    
+    # 更新或添加配置项
     for key, raw_value in updates.items():
-        formatted_value = _serialize_config_value(raw_value)
-        pattern = re.compile(
-            rf'^(\s*{key}\s*=\s*)(["\'].*?["\']|None|True|False|[0-9\.-]+)(.*)$',
-            re.MULTILINE
-        )
-
-        def replace(match):
-            prefix, _, suffix = match.groups()
-            return f"{prefix}{formatted_value}{suffix}"
-
-        new_content, count = pattern.subn(replace, content, count=1)
-
-        if count == 0:
-            # Append the new key if it was not present.
-            if not new_content.endswith('\n'):
-                new_content += '\n'
-            new_content += f'{key} = {formatted_value}\n'
-
-        content = new_content
-
-    CONFIG_FILE_PATH.write_text(content, encoding='utf-8')
-    # Reload the module so the rest of the app observes the new values when possible.
+        # 格式化值用于 .env 文件（不需要引号，除非是字符串且包含空格）
+        if raw_value is None or raw_value == '':
+            env_value = ''
+        elif isinstance(raw_value, (int, float)):
+            env_value = str(raw_value)
+        elif isinstance(raw_value, bool):
+            env_value = 'True' if raw_value else 'False'
+        else:
+            value_str = str(raw_value)
+            # 如果包含空格或特殊字符，需要引号
+            if ' ' in value_str or '\n' in value_str or '#' in value_str:
+                escaped = value_str.replace('\\', '\\\\').replace('"', '\\"')
+                env_value = f'"{escaped}"'
+            else:
+                env_value = value_str
+        
+        # 更新或添加配置项
+        if key in env_key_indices:
+            # 更新现有行
+            env_lines[env_key_indices[key]] = f'{key}={env_value}'
+        else:
+            # 添加新行到文件末尾
+            env_lines.append(f'{key}={env_value}')
+    
+    # 写入 .env 文件
+    env_file_path.parent.mkdir(parents=True, exist_ok=True)
+    env_file_path.write_text('\n'.join(env_lines) + '\n', encoding='utf-8')
+    
+    # 重新加载配置模块（这会重新读取 .env 文件并创建新的 Settings 实例）
     _load_config_module()
 
 
@@ -268,14 +307,14 @@ def init_forum_log():
             with open(forum_log_file, 'w', encoding='utf-8') as f:
                 start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 f.write(f"=== ForumEngine 系统初始化 - {start_time} ===\n")
-            print(f"ForumEngine: forum.log 已初始化")
+            logger.info(f"ForumEngine: forum.log 已初始化")
         else:
             with open(forum_log_file, 'w', encoding='utf-8') as f:
                 start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 f.write(f"=== ForumEngine 系统初始化 - {start_time} ===\n")
-            print(f"ForumEngine: forum.log 已初始化")
+            logger.info(f"ForumEngine: forum.log 已初始化")
     except Exception as e:
-        print(f"ForumEngine: 初始化forum.log失败: {e}")
+        logger.exception(f"ForumEngine: 初始化forum.log失败: {e}")
 
 # 初始化forum.log
 init_forum_log()
@@ -285,23 +324,23 @@ def start_forum_engine():
     """启动ForumEngine论坛"""
     try:
         from ForumEngine.monitor import start_forum_monitoring
-        print("ForumEngine: 启动论坛...")
+        logger.info("ForumEngine: 启动论坛...")
         success = start_forum_monitoring()
         if not success:
-            print("ForumEngine: 论坛启动失败")
+            logger.info("ForumEngine: 论坛启动失败")
     except Exception as e:
-        print(f"ForumEngine: 启动论坛失败: {e}")
+        logger.exception(f"ForumEngine: 启动论坛失败: {e}")
 
 # 停止ForumEngine智能监控
 def stop_forum_engine():
     """停止ForumEngine论坛"""
     try:
         from ForumEngine.monitor import stop_forum_monitoring
-        print("ForumEngine: 停止论坛...")
+        logger.info("ForumEngine: 停止论坛...")
         stop_forum_monitoring()
-        print("ForumEngine: 论坛已停止")
+        logger.info("ForumEngine: 论坛已停止")
     except Exception as e:
-        print(f"ForumEngine: 停止论坛失败: {e}")
+        logger.exception(f"ForumEngine: 停止论坛失败: {e}")
 
 def parse_forum_log_line(line):
     """解析forum.log行内容，提取对话信息"""
@@ -396,7 +435,7 @@ def monitor_forum_log():
             
             time.sleep(1)  # 每秒检查一次
         except Exception as e:
-            print(f"Forum日志监听错误: {e}")
+            logger.error(f"Forum日志监听错误: {e}")
             time.sleep(5)
 
 # 启动Forum日志监听线程
@@ -433,7 +472,7 @@ def write_log_to_file(app_name, line):
             f.write(line + '\n')
             f.flush()
     except Exception as e:
-        print(f"Error writing log for {app_name}: {e}")
+        logger.error(f"Error writing log for {app_name}: {e}")
 
 def read_log_from_file(app_name, tail_lines=None):
     """从文件读取日志"""
@@ -450,7 +489,7 @@ def read_log_from_file(app_name, tail_lines=None):
                 return lines[-tail_lines:]
             return lines
     except Exception as e:
-        print(f"Error reading log for {app_name}: {e}")
+        logger.exception(f"Error reading log for {app_name}: {e}")
         return []
 
 def read_process_output(process, app_name):
@@ -519,8 +558,7 @@ def read_process_output(process, app_name):
                             })
                             
         except Exception as e:
-            error_msg = f"Error reading output for {app_name}: {e}"
-            print(error_msg)
+            logger.exception(f"Error reading output for {app_name}: {e}")
             write_log_to_file(app_name, f"[{datetime.now().strftime('%H:%M:%S')}] {error_msg}")
             break
 
@@ -670,12 +708,12 @@ def cleanup_processes():
     """清理所有进程"""
     for app_name in STREAMLIT_SCRIPTS:
         stop_streamlit_app(app_name)
-    
+
     processes['forum']['status'] = 'stopped'
     try:
         stop_forum_engine()
     except Exception:  # pragma: no cover
-        logging.exception("停止ForumEngine失败")
+        logger.exception("停止ForumEngine失败")
     _set_system_state(started=False, starting=False)
 
 # 注册清理函数
@@ -863,7 +901,7 @@ def search():
         return jsonify({'success': False, 'message': '搜索查询不能为空'})
     
     # ForumEngine论坛已经在后台运行，会自动检测搜索活动
-    # print("ForumEngine: 搜索请求已收到，论坛将自动检测日志变化")
+    # logger.info("ForumEngine: 搜索请求已收到，论坛将自动检测日志变化")
     
     # 检查哪些应用正在运行
     check_app_status()
@@ -993,12 +1031,15 @@ def handle_status_request():
     })
 
 if __name__ == '__main__':
-    print("等待配置确认，系统将在前端指令后启动组件...")
-    print("启动Flask服务器...")
-
+    HOST = '0.0.0.0'
+    PORT = 5000
+    logger.info("等待配置确认，系统将在前端指令后启动组件...")
+    logger.info(f"Flask服务器已启动，访问地址: http://{HOST}:{PORT}")
+    
     try:
-        socketio.run(app, host='0.0.0.0', port=5000, debug=False)
+        socketio.run(app, host=HOST, port=PORT, debug=False)
     except KeyboardInterrupt:
-        print("\n正在关闭应用...")
+        logger.info("\n正在关闭应用...")
         cleanup_processes()
+        
     

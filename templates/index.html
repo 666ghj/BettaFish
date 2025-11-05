@@ -456,6 +456,15 @@
             border-color: #333333;
         }
 
+        .config-field-input[data-field-type="select"] {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 36px;
+        }
+
         .config-modal-footer {
             display: flex;
             justify-content: space-between;
@@ -1090,7 +1099,7 @@
     <div class="config-modal-overlay" id="configModal">
         <div class="config-modal">
             <div class="config-modal-header">
-                <div class="config-modal-title">LLM 配置 - 与Config文件双向同步</div>
+                <div class="config-modal-title">LLM 配置 - 与.env文件双向同步</div>
                 <div class="config-modal-actions">
                     <button class="config-secondary-button" id="refreshConfigButton">刷新</button>
                     <button class="config-close-button" id="closeConfigModal" aria-label="关闭配置窗口">×</button>
@@ -1141,6 +1150,7 @@
                 title: '数据库连接',
                 subtitle: '用于连接业务数据库的基本配置',
                 fields: [
+                    { key: 'DB_DIALECT', label: '数据库类型', type: 'select', options: ['mysql', 'postgresql'] },
                     { key: 'DB_HOST', label: '主机地址' },
                     { key: 'DB_PORT', label: '端口' },
                     { key: 'DB_USER', label: '用户名' },
@@ -1478,27 +1488,59 @@
                 const fieldsHtml = group.fields.map(field => {
                     const value = values[field.key] !== undefined ? values[field.key] : '';
                     const safeValue = escapeHtml(String(value || ''));
-                    const inputType = field.type === 'password' ? 'password' : (field.type || 'text');
-                    const inputElement = `
-                        <input
-                            type="${inputType}"
-                            class="config-field-input"
-                            data-config-key="${field.key}"
-                            data-field-type="${field.type || 'text'}"
-                            value="${safeValue}"
-                            placeholder="填写${field.label}"
-                            autocomplete="${field.type === 'password' ? 'off' : 'on'}"
-                        >
-                    `;
-
-                    const control = field.type === 'password'
-                        ? `
+                    
+                    let control;
+                    
+                    if (field.type === 'select' && field.options) {
+                        // 下拉选择框
+                        const optionsHtml = field.options.map(option => {
+                            const selected = option === value ? 'selected' : '';
+                            const safeOption = escapeHtml(String(option));
+                            return `<option value="${safeOption}" ${selected}>${safeOption}</option>`;
+                        }).join('');
+                        control = `
+                            <select
+                                class="config-field-input"
+                                data-config-key="${field.key}"
+                                data-field-type="select"
+                            >
+                                ${optionsHtml}
+                            </select>
+                        `;
+                    } else if (field.type === 'password') {
+                        // 密码输入框
+                        const inputElement = `
+                            <input
+                                type="password"
+                                class="config-field-input"
+                                data-config-key="${field.key}"
+                                data-field-type="password"
+                                value="${safeValue}"
+                                placeholder="填写${field.label}"
+                                autocomplete="off"
+                            >
+                        `;
+                        control = `
                             <div class="config-password-wrapper">
                                 ${inputElement}
                                 <button type="button" class="config-password-toggle" data-target="${field.key}">显示</button>
                             </div>
-                        `
-                        : inputElement;
+                        `;
+                    } else {
+                        // 普通文本输入框
+                        const inputType = field.type || 'text';
+                        control = `
+                            <input
+                                type="${inputType}"
+                                class="config-field-input"
+                                data-config-key="${field.key}"
+                                data-field-type="${inputType}"
+                                value="${safeValue}"
+                                placeholder="填写${field.label}"
+                                autocomplete="on"
+                            >
+                        `;
+                    }
 
                     return `
                         <label class="config-field">

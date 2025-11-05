@@ -191,7 +191,9 @@ Weibo_PublicOpinion_AnalysisSystem/
 - **Database**: MySQL (optional, you can choose our cloud database service)
 - **Memory**: 2GB+ recommended
 
-### 1. Create Conda Environment
+### 1. Create Environment
+
+#### If Using Conda
 
 ```bash
 # Create conda environment
@@ -199,11 +201,21 @@ conda create -n your_conda_name python=3.11
 conda activate your_conda_name
 ```
 
+#### If Using uv
+
+```bash
+# Create uv environment
+uv venv --python 3.11 # Create Python 3.11 environment
+```
+
 ### 2. Install Dependencies
 
 ```bash
 # Basic dependency installation
 pip install -r requirements.txt
+
+# uv version command (faster installation)
+uv pip install -r requirements.txt
 # If you do not want to use the local sentiment analysis model (which has low computational requirements and defaults to the CPU version), you can comment out the 'Machine Learning' section in this file before executing the command.
 ```
 
@@ -218,9 +230,9 @@ playwright install chromium
 
 #### 4.1 Configure API Keys
 
-Copy the `config.py.example` file to `config.py`
+Copy the `.env.example` file in the project root directory to `.env`
 
-Edit the `config.py` file and fill in your API keys (you can also choose your own models and search proxies; see the config file for details):
+Edit the `.env` file and fill in your API keys (you can also choose your own models and search proxies; see the `.env.example` file in the project root directory or the `config.py` file for details):
 
 ```python
 # MySQL Database Configuration
@@ -246,7 +258,8 @@ INSIGHT_ENGINE_MODEL_NAME = "kimi-k2-0711-preview"
 
 **Option 1: Use Local Database**
 
-You can refer to `MindSpider\config.py.example` for the configuration template, copy this file and rename it to `config.py`.
+> ~~The MindSpider crawler system and the public opinion system are independent of each other, so you need to configure `MindSpider\config.py`. Copy the `config.py.example` file in the `MindSpider` folder and rename it to `config.py`.~~
+> Configuration has been changed to be based on environment variables. Please copy the `.env.example` file in the project root directory to `.env` and fill in all configurations in it.
 
 ```bash
 # Local MySQL database initialization
@@ -274,6 +287,15 @@ We provide convenient cloud database service with 100,000+ daily real public opi
 ```bash
 # In project root directory, activate conda environment
 conda activate your_conda_name
+
+# Start main application
+python app.py
+```
+
+uv version startup command:
+```bash
+# In project root directory, activate uv environment
+.venv\Scripts\activate
 
 # Start main application
 python app.py
@@ -327,7 +349,7 @@ python main.py --broad-topic --date 2024-01-20
 python main.py --deep-sentiment --platforms xhs dy wb
 ```
 
-## ⚙️ Advanced Configuration
+## ⚙️ Advanced Configuration (Deprecated: Configuration has been unified to the `.env` file in the project root directory, and other sub-agents automatically inherit the root directory configuration)
 
 ### Modify Key Parameters
 

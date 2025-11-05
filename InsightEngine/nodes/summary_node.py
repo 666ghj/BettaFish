@@ -6,6 +6,7 @@
 import json
 from typing import Dict, Any, List
 from json.decoder import JSONDecodeError
+from loguru import logger
 
 from .base_node import StateMutationNode
 from ..state.state import State
@@ -27,7 +28,7 @@ try:
     FORUM_READER_AVAILABLE = True
 except ImportError:
     FORUM_READER_AVAILABLE = False
-    print("警告: 无法导入forum_reader模块，将跳过HOST发言读取功能")
+    logger.warning("无法导入forum_reader模块，将跳过HOST发言读取功能")
 
 
 class FirstSummaryNode(StateMutationNode):
@@ -84,9 +85,9 @@ class FirstSummaryNode(StateMutationNode):
                     if host_speech:
                         # 将HOST发言添加到输入数据中
                         data['host_speech'] = host_speech
-                        self.log_info(f"已读取HOST发言，长度: {len(host_speech)}字符")
+                        logger.info(f"已读取HOST发言，长度: {len(host_speech)}字符")
                 except Exception as e:
-                    self.log_info(f"读取HOST发言失败: {str(e)}")
+                    logger.exception(f"读取HOST发言失败: {str(e)}")
             
             # 转换为JSON字符串
             message = json.dumps(data, ensure_ascii=False)
@@ -96,7 +97,7 @@ class FirstSummaryNode(StateMutationNode):
                 formatted_host = format_host_speech_for_prompt(data['host_speech'])
                 message = formatted_host + "\n" + message
             
-            self.log_info("正在生成首次段落总结")
+            logger.info("正在生成首次段落总结")
             
             # 调用LLM
             response = self.llm_client.invoke(SYSTEM_PROMPT_FIRST_SUMMARY, message)
@@ -104,11 +105,11 @@ class FirstSummaryNode(StateMutationNode):
             # 处理响应
             processed_response = self.process_output(response)
             
-            self.log_info("成功生成首次段落总结")
+            logger.info("成功生成首次段落总结")
             return processed_response
             
         except Exception as e:
-            self.log_error(f"生成首次总结失败: {str(e)}")
+            logger.exception(f"生成首次总结失败: {str(e)}")
             raise e
     
     def process_output(self, output: str) -> str:
@@ -127,26 +128,26 @@ class FirstSummaryNode(StateMutationNode):
             cleaned_output = clean_json_tags(cleaned_output)
             
             # 记录清理后的输出用于调试
-            self.log_info(f"清理后的输出: {cleaned_output}")
+            logger.info(f"清理后的输出: {cleaned_output}")
             
             # 解析JSON
             try:
                 result = json.loads(cleaned_output)
-                self.log_info("JSON解析成功")
+                logger.info("JSON解析成功")
             except JSONDecodeError as e:
-                self.log_info(f"JSON解析失败: {str(e)}")
+                logger.exception(f"JSON解析失败: {str(e)}")
                 # 尝试修复JSON
                 fixed_json = fix_incomplete_json(cleaned_output)
                 if fixed_json:
                     try:
                         result = json.loads(fixed_json)
-                        self.log_info("JSON修复成功")
+                        logger.info("JSON修复成功")
                     except JSONDecodeError:
-                        self.log_info("JSON修复失败，直接使用清理后的文本")
+                        logger.exception("JSON修复失败，直接使用清理后的文本")
                         # 如果不是JSON格式，直接返回清理后的文本
                         return cleaned_output
                 else:
-                    self.log_info("无法修复JSON，直接使用清理后的文本")
+                    logger.exception("无法修复JSON，直接使用清理后的文本")
                     # 如果不是JSON格式，直接返回清理后的文本
                     return cleaned_output
             
@@ -160,7 +161,7 @@ class FirstSummaryNode(StateMutationNode):
             return cleaned_output
             
         except Exception as e:
-            self.log_error(f"处理输出失败: {str(e)}")
+            logger.exception(f"处理输出失败: {str(e)}")
             return "段落总结生成失败"
     
     def mutate_state(self, input_data: Any, state: State, paragraph_index: int, **kwargs) -> State:
@@ -183,7 +184,7 @@ class FirstSummaryNode(StateMutationNode):
             # 更新状态
             if 0 <= paragraph_index < len(state.paragraphs):
                 state.paragraphs[paragraph_index].research.latest_summary = summary
-                self.log_info(f"已更新段落 {paragraph_index} 的首次总结")
+                logger.info(f"已更新段落 {paragraph_index} 的首次总结")
             else:
                 raise ValueError(f"段落索引 {paragraph_index} 超出范围")
             
@@ -191,7 +192,7 @@ class FirstSummaryNode(StateMutationNode):
             return state
             
         except Exception as e:
-            self.log_error(f"状态更新失败: {str(e)}")
+            logger.exception(f"状态更新失败: {str(e)}")
             raise e
 
 
@@ -249,9 +250,9 @@ class ReflectionSummaryNode(StateMutationNode):
                     if host_speech:
                         # 将HOST发言添加到输入数据中
                         data['host_speech'] = host_speech
-                        self.log_info(f"已读取HOST发言，长度: {len(host_speech)}字符")
+                        logger.info(f"已读取HOST发言，长度: {len(host_speech)}字符")
                 except Exception as e:
-                    self.log_info(f"读取HOST发言失败: {str(e)}")
+                    logger.exception(f"读取HOST发言失败: {str(e)}")
             
             # 转换为JSON字符串
             message = json.dumps(data, ensure_ascii=False)
@@ -261,7 +262,7 @@ class ReflectionSummaryNode(StateMutationNode):
                 formatted_host = format_host_speech_for_prompt(data['host_speech'])
                 message = formatted_host + "\n" + message
             
-            self.log_info("正在生成反思总结")
+            logger.info("正在生成反思总结")
             
             # 调用LLM
             response = self.llm_client.invoke(SYSTEM_PROMPT_REFLECTION_SUMMARY, message)
@@ -269,11 +270,11 @@ class ReflectionSummaryNode(StateMutationNode):
             # 处理响应
             processed_response = self.process_output(response)
             
-            self.log_info("成功生成反思总结")
+            logger.info("成功生成反思总结")
             return processed_response
             
         except Exception as e:
-            self.log_error(f"生成反思总结失败: {str(e)}")
+            logger.exception(f"生成反思总结失败: {str(e)}")
             raise e
     
     def process_output(self, output: str) -> str:
@@ -292,26 +293,26 @@ class ReflectionSummaryNode(StateMutationNode):
             cleaned_output = clean_json_tags(cleaned_output)
             
             # 记录清理后的输出用于调试
-            self.log_info(f"清理后的输出: {cleaned_output}")
+            logger.info(f"清理后的输出: {cleaned_output}")
             
             # 解析JSON
             try:
                 result = json.loads(cleaned_output)
-                self.log_info("JSON解析成功")
+                logger.info("JSON解析成功")
             except JSONDecodeError as e:
-                self.log_info(f"JSON解析失败: {str(e)}")
+                logger.exception(f"JSON解析失败: {str(e)}")
                 # 尝试修复JSON
                 fixed_json = fix_incomplete_json(cleaned_output)
                 if fixed_json:
                     try:
                         result = json.loads(fixed_json)
-                        self.log_info("JSON修复成功")
+                        logger.info("JSON修复成功")
                     except JSONDecodeError:
-                        self.log_info("JSON修复失败，直接使用清理后的文本")
+                        logger.info("JSON修复失败，直接使用清理后的文本")
                         # 如果不是JSON格式，直接返回清理后的文本
                         return cleaned_output
                 else:
-                    self.log_info("无法修复JSON，直接使用清理后的文本")
+                    logger.info("无法修复JSON，直接使用清理后的文本")
                     # 如果不是JSON格式，直接返回清理后的文本
                     return cleaned_output
             
@@ -325,7 +326,7 @@ class ReflectionSummaryNode(StateMutationNode):
             return cleaned_output
             
         except Exception as e:
-            self.log_error(f"处理输出失败: {str(e)}")
+            logger.exception(f"处理输出失败: {str(e)}")
             return "反思总结生成失败"
     
     def mutate_state(self, input_data: Any, state: State, paragraph_index: int, **kwargs) -> State:
@@ -349,7 +350,7 @@ class ReflectionSummaryNode(StateMutationNode):
             if 0 <= paragraph_index < len(state.paragraphs):
                 state.paragraphs[paragraph_index].research.latest_summary = updated_summary
                 state.paragraphs[paragraph_index].research.increment_reflection()
-                self.log_info(f"已更新段落 {paragraph_index} 的反思总结")
+                logger.info(f"已更新段落 {paragraph_index} 的反思总结")
             else:
                 raise ValueError(f"段落索引 {paragraph_index} 超出范围")
             
@@ -357,5 +358,5 @@ class ReflectionSummaryNode(StateMutationNode):
             return state
             
         except Exception as e:
-            self.log_error(f"状态更新失败: {str(e)}")
+            logger.exception(f"状态更新失败: {str(e)}")
             raise e

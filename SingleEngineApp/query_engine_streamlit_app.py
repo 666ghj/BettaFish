@@ -9,6 +9,7 @@ import streamlit as st
 from datetime import datetime
 import json
 import locale
+from loguru import logger
 
 # 设置UTF-8编码环境
 os.environ['PYTHONIOENCODING'] = 'utf-8'
@@ -26,8 +27,8 @@ except locale.Error:
 # 添加src目录到Python路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from QueryEngine import DeepSearchAgent, Config
-from config import QUERY_ENGINE_API_KEY, QUERY_ENGINE_BASE_URL, QUERY_ENGINE_MODEL_NAME, TAVILY_API_KEY
+from QueryEngine import DeepSearchAgent, Settings
+from config import settings
 
 
 def main():
@@ -56,16 +57,16 @@ def main():
 
     # ----- 配置被硬编码 -----
     # 强制使用 DeepSeek
-    model_name = QUERY_ENGINE_MODEL_NAME or "deepseek-chat"
+    model_name = settings.QUERY_ENGINE_MODEL_NAME or "deepseek-chat"
     # 默认高级配置
     max_reflections = 2
     max_content_length = 20000
 
     # 简化的研究查询展示区域
-    
+
     # 如果有自动查询，使用它作为默认值，否则显示占位符
     display_query = auto_query if auto_query else "等待从主页面接收分析内容..."
-    
+
     # 只读的查询展示区域
     st.text_area(
         "当前查询",
@@ -79,7 +80,7 @@ def main():
     # 自动搜索逻辑
     start_research = False
     query = auto_query
-    
+
     if auto_search and auto_query and 'auto_search_executed' not in st.session_state:
         st.session_state.auto_search_executed = True
         start_research = True
@@ -93,33 +94,33 @@ def main():
             return
 
         # 由于强制使用DeepSeek，检查相关的API密钥
-        if not QUERY_ENGINE_API_KEY:
-            st.error("请在您的配置文件(config.py)中设置QUERY_ENGINE_API_KEY")
+        if not settings.QUERY_ENGINE_API_KEY:
+            st.error("请在您的环境变量中设置QUERY_ENGINE_API_KEY")
             return
-        if not TAVILY_API_KEY:
-            st.error("请在您的配置文件(config.py)中设置TAVILY_API_KEY")
+        if not settings.TAVILY_API_KEY:
+            st.error("请在您的环境变量中设置TAVILY_API_KEY")
             return
 
         # 自动使用配置文件中的API密钥
-        engine_key = QUERY_ENGINE_API_KEY
-        tavily_key = TAVILY_API_KEY
+        engine_key = settings.QUERY_ENGINE_API_KEY
+        tavily_key = settings.TAVILY_API_KEY
 
         # 创建配置
-        config = Config(
-            llm_api_key=engine_key,
-            llm_base_url=QUERY_ENGINE_BASE_URL,
-            llm_model_name=model_name,
-            tavily_api_key=tavily_key,
-            max_reflections=max_reflections,
-            max_content_length=max_content_length,
-            output_dir="query_engine_streamlit_reports"
+        config = Settings(
+            QUERY_ENGINE_API_KEY=engine_key,
+            QUERY_ENGINE_BASE_URL=settings.QUERY_ENGINE_BASE_URL,
+            QUERY_ENGINE_MODEL_NAME=model_name,
+            TAVILY_API_KEY=tavily_key,
+            MAX_REFLECTIONS=max_reflections,
+            SEARCH_CONTENT_MAX_LENGTH=max_content_length,
+            OUTPUT_DIR="query_engine_streamlit_reports"
         )
 
         # 执行研究
         execute_research(query, config)
 
 
-def execute_research(query: str, config: Config):
+def execute_research(query: str, config: Settings):
     """执行研究"""
     try:
         # 创建进度条
@@ -171,7 +172,10 @@ def execute_research(query: str, config: Config):
         display_results(agent, final_report)
 
     except Exception as e:
-        st.error(f"研究过程中发生错误: {str(e)}")
+        import traceback
+        error_traceback = traceback.format_exc()
+        st.error(f"研究过程中发生错误: {str(e)} \n错误堆栈: {error_traceback}")
+        logger.exception(f"研究过程中发生错误: {str(e)}")
 
 
 def display_results(agent: DeepSearchAgent, final_report: str):

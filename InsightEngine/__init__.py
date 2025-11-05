@@ -4,9 +4,9 @@ Deep Search Agent
 """
 
 from .agent import DeepSearchAgent, create_agent
-from .utils.config import Config, load_config
+from .utils.config import settings, Settings
 
 __version__ = "1.0.0"
 __author__ = "Deep Search Agent Team"
 
-__all__ = ["DeepSearchAgent", "create_agent", "Config", "load_config"]
+__all__ = ["DeepSearchAgent", "create_agent", "settings", "Settings"]

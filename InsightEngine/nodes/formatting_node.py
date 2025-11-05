@@ -5,6 +5,7 @@
 
 import json
 from typing import List, Dict, Any
+from loguru import logger
 
 from .base_node import BaseNode
 from ..prompts import SYSTEM_PROMPT_REPORT_FORMATTING
@@ -12,6 +13,8 @@ from ..utils.text_processing import (
     remove_reasoning_from_output,
     clean_markdown_tags
 )
+
+
 
 
 class ReportFormattingNode(BaseNode):
@@ -65,19 +68,22 @@ class ReportFormattingNode(BaseNode):
             else:
                 message = json.dumps(input_data, ensure_ascii=False)
             
-            self.log_info("正在格式化最终报告")
+            logger.info("正在格式化最终报告")
             
             # 调用LLM
-            response = self.llm_client.invoke(SYSTEM_PROMPT_REPORT_FORMATTING, message)
+            response = self.llm_client.invoke(
+                SYSTEM_PROMPT_REPORT_FORMATTING,
+                message,
+            )
             
             # 处理响应
             processed_response = self.process_output(response)
             
-            self.log_info("成功生成格式化报告")
+            logger.info("成功生成格式化报告")
             return processed_response
             
         except Exception as e:
-            self.log_error(f"报告格式化失败: {str(e)}")
+            logger.exception(f"报告格式化失败: {str(e)}")
             raise e
     
     def process_output(self, output: str) -> str:
@@ -106,7 +112,7 @@ class ReportFormattingNode(BaseNode):
             return cleaned_output.strip()
             
         except Exception as e:
-            self.log_error(f"处理输出失败: {str(e)}")
+            logger.exception(f"处理输出失败: {str(e)}")
             return "# 报告处理失败\n\n报告格式化过程中发生错误。"
     
     def format_report_manually(self, paragraphs_data: List[Dict[str, str]], 
@@ -122,7 +128,7 @@ class ReportFormattingNode(BaseNode):
             格式化的Markdown报告
         """
         try:
-            self.log_info("使用手动格式化方法")
+            logger.info("使用手动格式化方法")
             
             # 构建报告
             report_lines = [
@@ -160,5 +166,5 @@ class ReportFormattingNode(BaseNode):
             return "\n".join(report_lines)
             
         except Exception as e:
-            self.log_error(f"手动格式化失败: {str(e)}")
+            logger.exception(f"手动格式化失败: {str(e)}")
             return "# 报告生成失败\n\n无法完成报告格式化。"

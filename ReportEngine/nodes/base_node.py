@@ -3,12 +3,11 @@ Report Engine节点基类
 定义所有处理节点的基础接口
 """
 
-import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional
 from ..llms.base import LLMClient
 from ..state.state import ReportState
-
+from loguru import logger
 
 class BaseNode(ABC):
     """节点基类"""
@@ -23,7 +22,6 @@ class BaseNode(ABC):
         """
         self.llm_client = llm_client
         self.node_name = node_name or self.__class__.__name__
-        self.logger = logging.getLogger('ReportEngine')
     
     @abstractmethod
     def run(self, input_data: Any, **kwargs) -> Any:
@@ -66,12 +64,12 @@ class BaseNode(ABC):
     def log_info(self, message: str):
         """记录信息日志"""
         formatted_message = f"[{self.node_name}] {message}"
-        self.logger.info(formatted_message)
+        logger.info(formatted_message)
     
     def log_error(self, message: str):
         """记录错误日志"""
         formatted_message = f"[{self.node_name}] {message}"
-        self.logger.error(formatted_message)
+        logger.error(formatted_message)
 
 
 class StateMutationNode(BaseNode):

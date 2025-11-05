@@ -1,151 +1,79 @@
 """
-Configuration management module for the Query Engine.
+Query Engine 配置管理模块
+
+此模块使用 pydantic-settings 管理 Query Engine 的配置，支持从环境变量和 .env 文件自动加载。
+数据模型定义位置：
+- 本文件 - 配置模型定义
 """
 
-import os
-from dataclasses import dataclass
+from pathlib import Path
+from pydantic_settings import BaseSettings
+from pydantic import Field
 from typing import Optional
+from loguru import logger
 
 
-def _get_value(source, key: str, default=None, *fallback_keys: str):
-    candidates = (key,) + fallback_keys
-    value = None
-    for candidate in candidates:
-        if isinstance(source, dict):
-            value = source.get(candidate)
-        else:
-            value = getattr(source, candidate, None)
-        if value not in (None, ""):
-            break
-    if value in (None, ""):
-        for candidate in candidates:
-            env_val = os.getenv(candidate)
-            if env_val not in (None, ""):
-                value = env_val
-                break
-    return value if value not in (None, "") else default
+# 计算 .env 优先级：优先当前工作目录，其次项目根目录
+PROJECT_ROOT: Path = Path(__file__).resolve().parents[2]
+CWD_ENV: Path = Path.cwd() / ".env"
+ENV_FILE: str = str(CWD_ENV if CWD_ENV.exists() else (PROJECT_ROOT / ".env"))
 
 
-@dataclass
-class Config:
-    """Query Engine configuration."""
-
-    llm_api_key: Optional[str] = None
-    llm_base_url: Optional[str] = None
-    llm_model_name: Optional[str] = None
-    llm_provider: Optional[str] = None  # compatibility
-
-    tavily_api_key: Optional[str] = None
-
-    search_timeout: int = 240
-    max_content_length: int = 20000
-    max_reflections: int = 2
-    max_paragraphs: int = 5
-    max_search_results: int = 20
-
-    output_dir: str = "reports"
-    save_intermediate_states: bool = True
-
-    def __post_init__(self):
-        if not self.llm_provider and self.llm_model_name:
-            self.llm_provider = self.llm_model_name
-
-    def validate(self) -> bool:
-        if not self.llm_api_key:
-            print("错误: Query Engine LLM API Key 未设置 (QUERY_ENGINE_API_KEY)。")
-            return False
-        if not self.llm_model_name:
-            print("错误: Query Engine 模型名称未设置 (QUERY_ENGINE_MODEL_NAME)。")
-            return False
-        if not self.tavily_api_key:
-            print("错误: Tavily API Key 未设置 (TAVILY_API_KEY)。")
-            return False
-        return True
-
-    @classmethod
-    def from_file(cls, config_file: str) -> "Config":
-        if config_file.endswith(".py"):
-            import importlib.util
-
-            spec = importlib.util.spec_from_file_location("config", config_file)
-            config_module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(config_module)
-
-            return cls(
-                llm_api_key=_get_value(config_module, "QUERY_ENGINE_API_KEY"),
-                llm_base_url=_get_value(config_module, "QUERY_ENGINE_BASE_URL"),
-                llm_model_name=_get_value(config_module, "QUERY_ENGINE_MODEL_NAME"),
-                tavily_api_key=_get_value(config_module, "TAVILY_API_KEY"),
-                search_timeout=int(_get_value(config_module, "SEARCH_TIMEOUT", 240)),
-                max_content_length=int(_get_value(config_module, "SEARCH_CONTENT_MAX_LENGTH", 20000)),
-                max_reflections=int(_get_value(config_module, "MAX_REFLECTIONS", 2)),
-                max_paragraphs=int(_get_value(config_module, "MAX_PARAGRAPHS", 5)),
-                max_search_results=int(_get_value(config_module, "MAX_SEARCH_RESULTS", 20)),
-                output_dir=_get_value(config_module, "OUTPUT_DIR", "reports"),
-                save_intermediate_states=str(
-                    _get_value(config_module, "SAVE_INTERMEDIATE_STATES", "true")
-                ).lower()
-                in ("true", "1", "yes"),
-            )
-
-        config_dict = {}
-        if os.path.exists(config_file):
-            with open(config_file, "r", encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith("#") and "=" in line:
-                        key, value = line.split("=", 1)
-                        config_dict[key.strip()] = value.strip()
-
-        return cls(
-            llm_api_key=_get_value(config_dict, "QUERY_ENGINE_API_KEY"),
-            llm_base_url=_get_value(config_dict, "QUERY_ENGINE_BASE_URL"),
-            llm_model_name=_get_value(config_dict, "QUERY_ENGINE_MODEL_NAME"),
-            tavily_api_key=_get_value(config_dict, "TAVILY_API_KEY"),
-            search_timeout=int(_get_value(config_dict, "SEARCH_TIMEOUT", 240)),
-            max_content_length=int(_get_value(config_dict, "SEARCH_CONTENT_MAX_LENGTH", 20000)),
-            max_reflections=int(_get_value(config_dict, "MAX_REFLECTIONS", 2)),
-            max_paragraphs=int(_get_value(config_dict, "MAX_PARAGRAPHS", 5)),
-            max_search_results=int(_get_value(config_dict, "MAX_SEARCH_RESULTS", 20)),
-            output_dir=_get_value(config_dict, "OUTPUT_DIR", "reports"),
-            save_intermediate_states=str(
-                _get_value(config_dict, "SAVE_INTERMEDIATE_STATES", "true")
-            ).lower()
-            in ("true", "1", "yes"),
-        )
+class Settings(BaseSettings):
+    """
+    Query Engine 全局配置；支持 .env 和环境变量自动加载。
+    变量名与原 config.py 大写一致，便于平滑过渡。
+    """
+    
+    # ======================= LLM 相关 =======================
+    QUERY_ENGINE_API_KEY: str = Field(..., description="Query Engine LLM API密钥，用于主LLM。您可以更改每个部分LLM使用的API，🚩只要兼容OpenAI请求格式都可以，定义好KEY、BASE_URL与MODEL_NAME即可正常使用。")
+    QUERY_ENGINE_BASE_URL: Optional[str] = Field(None, description="Query Engine LLM接口BaseUrl，可自定义厂商API")
+    QUERY_ENGINE_MODEL_NAME: str = Field(..., description="Query Engine LLM模型名称")
+    QUERY_ENGINE_PROVIDER: Optional[str] = Field(None, description="Query Engine LLM提供商（兼容字段）")
+    
+    # ================== 网络工具配置 ====================
+    TAVILY_API_KEY: str = Field(..., description="Tavily API（申请地址：https://www.tavily.com/）API密钥，用于Tavily网络搜索")
+    
+    # ================== 搜索参数配置 ====================
+    SEARCH_TIMEOUT: int = Field(240, description="搜索超时（秒）")
+    SEARCH_CONTENT_MAX_LENGTH: int = Field(20000, description="用于提示的最长内容长度")
+    MAX_REFLECTIONS: int = Field(2, description="最大反思轮数")
+    MAX_PARAGRAPHS: int = Field(5, description="最大段落数")
+    MAX_SEARCH_RESULTS: int = Field(20, description="最大搜索结果数")
+    
+    # ================== 输出配置 ====================
+    OUTPUT_DIR: str = Field("reports", description="输出目录")
+    SAVE_INTERMEDIATE_STATES: bool = Field(True, description="是否保存中间状态")
+    
+    class Config:
+        env_file = ENV_FILE
+        env_prefix = ""
+        case_sensitive = False
+        extra = "allow"
 
 
-def load_config(config_file: Optional[str] = None) -> Config:
-    if config_file:
-        if not os.path.exists(config_file):
-            raise FileNotFoundError(f"配置文件不存在: {config_file}")
-        file_to_load = config_file
-    else:
-        for candidate in ("config.py", "config.env", ".env"):
-            if os.path.exists(candidate):
-                file_to_load = candidate
-                print(f"已找到配置文件: {candidate}")
-                break
-        else:
-            raise FileNotFoundError("未找到配置文件，请创建 config.py。")
+# 创建全局配置实例
+settings = Settings()
 
-    config = Config.from_file(file_to_load)
-    if not config.validate():
-        raise ValueError("配置校验失败，请检查 config.py 中的相关配置。")
-    return config
-
-
-def print_config(config: Config):
-    print("\n=== Query Engine 配置 ===")
-    print(f"LLM 模型: {config.llm_model_name}")
-    print(f"LLM Base URL: {config.llm_base_url or '(默认)'}")
-    print(f"Tavily API Key: {'已配置' if config.tavily_api_key else '未配置'}")
-    print(f"搜索超时: {config.search_timeout} 秒")
-    print(f"最长内容长度: {config.max_content_length}")
-    print(f"最大反思次数: {config.max_reflections}")
-    print(f"最大段落数: {config.max_paragraphs}")
-    print(f"最大搜索结果数: {config.max_search_results}")
-    print(f"输出目录: {config.output_dir}")
-    print(f"保存中间状态: {config.save_intermediate_states}")
-    print(f"LLM API Key: {'已配置' if config.llm_api_key else '未配置'}")
-    print("========================\n")
+def print_config(config: Settings):
+    """
+    打印配置信息
+    
+    Args:
+        config: Settings配置对象
+    """
+    message = ""
+    message += "=== Query Engine 配置 ===\n"
+    message += f"LLM 模型: {config.QUERY_ENGINE_MODEL_NAME}\n"
+    message += f"LLM Base URL: {config.QUERY_ENGINE_BASE_URL or '(默认)'}\n"
+    message += f"Tavily API Key: {'已配置' if config.TAVILY_API_KEY else '未配置'}\n"
+    message += f"搜索超时: {config.SEARCH_TIMEOUT} 秒\n"
+    message += f"最长内容长度: {config.SEARCH_CONTENT_MAX_LENGTH}\n"
+    message += f"最大反思次数: {config.MAX_REFLECTIONS}\n"
+    message += f"最大段落数: {config.MAX_PARAGRAPHS}\n"
+    message += f"最大搜索结果数: {config.MAX_SEARCH_RESULTS}\n"
+    message += f"输出目录: {config.OUTPUT_DIR}\n"
+    message += f"保存中间状态: {config.SAVE_INTERMEDIATE_STATES}\n"
+    message += f"LLM API Key: {'已配置' if config.QUERY_ENGINE_API_KEY else '未配置'}\n"
+    message += "========================\n"
+    logger.info(message)

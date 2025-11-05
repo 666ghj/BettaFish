@@ -25,6 +25,9 @@ import json
 import sys
 from typing import List, Dict, Any, Optional, Literal
 
+from loguru import logger
+from config import settings
+
 # 运行前请确保已安装 requests 库: pip install requests
 try:
     import requests
@@ -90,8 +93,8 @@ class BochaMultimodalSearch:
     一个包含多种专用多模态搜索工具的客户端。
     每个公共方法都设计为供 AI Agent 独立调用的工具。
     """
-    
-    BASE_URL = "https://api.bochaai.com/v1/ai-search"
+
+    BOCHA_BASE_URL = settings.BOCHA_BASE_URL or "https://api.bochaai.com/v1/ai-search"
 
     def __init__(self, api_key: Optional[str] = None):
         """
@@ -100,10 +103,10 @@ class BochaMultimodalSearch:
             api_key: Bocha API密钥，若不提供则从环境变量 BOCHA_API_KEY 读取。
         """
         if api_key is None:
-            api_key = os.getenv("BOCHA_API_KEY")
+            api_key = settings.BOCHA_WEB_SEARCH_API_KEY
             if not api_key:
                 raise ValueError("Bocha API Key未找到！请设置 BOCHA_API_KEY 环境变量或在初始化时提供")
-        
+
         self._headers = {
             'Authorization': f'Bearer {api_key}',
             'Content-Type': 'application/json',
@@ -112,7 +115,7 @@ class BochaMultimodalSearch:
 
     def _parse_search_response(self, response_dict: Dict[str, Any], query: str) -> BochaResponse:
         """从API的原始字典响应中解析出结构化的BochaResponse对象"""
-        
+
         final_response = BochaResponse(query=query)
         final_response.conversation_id = response_dict.get('conversation_id')
 
@@ -125,7 +128,7 @@ class BochaMultimodalSearch:
             msg_type = msg.get('type')
             content_type = msg.get('content_type')
             content_str = msg.get('content', '{}')
-            
+
             try:
                 content_data = json.loads(content_str)
             except json.JSONDecodeError:
@@ -134,7 +137,7 @@ class BochaMultimodalSearch:
 
             if msg_type == 'answer' and content_type == 'text':
                 final_response.answer = content_data
-            
+
             elif msg_type == 'follow_up' and content_type == 'text':
                 final_response.follow_ups.append(content_data)
 
@@ -164,7 +167,7 @@ class BochaMultimodalSearch:
                         card_type=content_type,
                         content=content_data
                     ))
-                    
+
         return final_response
 
 
@@ -176,23 +179,23 @@ class BochaMultimodalSearch:
             "stream": False,  # Agent工具通常使用非流式以获取完整结果
         }
         payload.update(kwargs)
-        
+
         try:
-            response = requests.post(self.BASE_URL, headers=self._headers, json=payload, timeout=30)
+            response = requests.post(self.BOCHA_BASE_URL, headers=self._headers, json=payload, timeout=30)
             response.raise_for_status()  # 如果HTTP状态码是4xx或5xx，则抛出异常
-            
+
             response_dict = response.json()
             if response_dict.get("code") != 200:
-                print(f"API返回错误: {response_dict.get('msg', '未知错误')}")
+                logger.error(f"API返回错误: {response_dict.get('msg', '未知错误')}")
                 return BochaResponse(query=query)
 
             return self._parse_search_response(response_dict, query)
 
         except requests.exceptions.RequestException as e:
-            print(f"搜索时发生网络错误: {str(e)}")
+            logger.exception(f"搜索时发生网络错误: {str(e)}")
             raise e  # 让重试机制捕获并处理
         except Exception as e:
-            print(f"处理响应时发生未知错误: {str(e)}")
+            logger.exception(f"处理响应时发生未知错误: {str(e)}")
             raise e  # 让重试机制捕获并处理
 
     # --- Agent 可用的工具方法 ---
@@ -203,19 +206,19 @@ class BochaMultimodalSearch:
         返回网页、图片、AI总结、追问建议和可能的模态卡。这是最常用的通用搜索工具。
         Agent可提供搜索查询(query)和可选的最大结果数(max_results)。
         """
-        print(f"--- TOOL: 全面综合搜索 (query: {query}) ---")
+        logger.info(f"--- TOOL: 全面综合搜索 (query: {query}) ---")
         return self._search_internal(
             query=query,
             count=max_results,
             answer=True  # 开启AI总结
         )
-        
+
     def web_search_only(self, query: str, max_results: int = 15) -> BochaResponse:
         """
         【工具】纯网页搜索: 只获取网页链接和摘要，不请求AI生成答案。
         适用于需要快速获取原始网页信息，而不需要AI额外分析的场景。速度更快，成本更低。
         """
-        print(f"--- TOOL: 纯网页搜索 (query: {query}) ---")
+        logger.info(f"--- TOOL: 纯网页搜索 (query: {query}) ---")
         return self._search_internal(
             query=query,
             count=max_results,
@@ -228,7 +231,7 @@ class BochaMultimodalSearch:
         当Agent意图是查询天气、股票、汇率、百科定义、火车票、汽车参数等结构化信息时，应优先使用此工具。
         它会返回所有信息，但Agent应重点关注结果中的 `modal_cards` 部分。
         """
-        print(f"--- TOOL: 结构化数据查询 (query: {query}) ---")
+        logger.info(f"--- TOOL: 结构化数据查询 (query: {query}) ---")
         # 实现上与 comprehensive_search 相同，但通过命名和文档引导Agent的意图
         return self._search_internal(
             query=query,
@@ -241,7 +244,7 @@ class BochaMultimodalSearch:
         【工具】搜索24小时内信息: 获取关于某个主题的最新动态。
         此工具专门查找过去24小时内发布的内容。适用于追踪突发事件或最新进展。
         """
-        print(f"--- TOOL: 搜索24小时内信息 (query: {query}) ---")
+        logger.info(f"--- TOOL: 搜索24小时内信息 (query: {query}) ---")
         return self._search_internal(query=query, freshness='oneDay', answer=True)
 
     def search_last_week(self, query: str) -> BochaResponse:
@@ -249,7 +252,7 @@ class BochaMultimodalSearch:
         【工具】搜索本周信息: 获取关于某个主题过去一周内的主要报道。
         适用于进行周度舆情总结或回顾。
         """
-        print(f"--- TOOL: 搜索本周信息 (query: {query}) ---")
+        logger.info(f"--- TOOL: 搜索本周信息 (query: {query}) ---")
         return self._search_internal(query=query, freshness='oneWeek', answer=True)
 
 
@@ -258,32 +261,32 @@ class BochaMultimodalSearch:
 def print_response_summary(response: BochaResponse):
     """简化的打印函数，用于展示测试结果"""
     if not response or not response.query:
-        print("未能获取有效响应。")
+        logger.error("未能获取有效响应。")
         return
-        
-    print(f"\n查询: '{response.query}' | 会话ID: {response.conversation_id}")
+
+    logger.info(f"\n查询: '{response.query}' | 会话ID: {response.conversation_id}")
     if response.answer:
-        print(f"AI摘要: {response.answer[:150]}...")
-    
-    print(f"找到 {len(response.webpages)} 个网页, {len(response.images)} 张图片, {len(response.modal_cards)} 个模态卡。")
+        logger.info(f"AI摘要: {response.answer[:150]}...")
+
+    logger.info(f"找到 {len(response.webpages)} 个网页, {len(response.images)} 张图片, {len(response.modal_cards)} 个模态卡。")
 
     if response.modal_cards:
         first_card = response.modal_cards[0]
-        print(f"第一个模态卡类型: {first_card.card_type}")
+        logger.info(f"第一个模态卡类型: {first_card.card_type}")
 
     if response.webpages:
         first_result = response.webpages[0]
-        print(f"第一条网页结果: {first_result.name}")
+        logger.info(f"第一条网页结果: {first_result.name}")
 
     if response.follow_ups:
-        print(f"建议追问: {response.follow_ups}")
+        logger.info(f"建议追问: {response.follow_ups}")
 
-    print("-" * 60)
+    logger.info("-" * 60)
 
 
 if __name__ == "__main__":
     # 在运行前，请确保您已设置 BOCHA_API_KEY 环境变量
-    
+
     try:
         # 初始化多模态搜索客户端，它内部包含了所有工具
         search_client = BochaMultimodalSearch()
@@ -297,7 +300,7 @@ if __name__ == "__main__":
         print_response_summary(response2)
         # 深度解析第一个模态卡
         if response2.modal_cards and response2.modal_cards[0].card_type == 'weather_china':
-             print("天气模态卡详情:", json.dumps(response2.modal_cards[0].content, indent=2, ensure_ascii=False))
+             logger.info("天气模态卡详情:", json.dumps(response2.modal_cards[0].content, indent=2, ensure_ascii=False))
 
 
         # 场景3: Agent需要查询特定结构化信息 - 股票
@@ -311,11 +314,11 @@ if __name__ == "__main__":
         # 场景5: Agent只需要快速获取网页信息，不需要AI总结
         response5 = search_client.web_search_only(query="Python dataclasses用法")
         print_response_summary(response5)
-        
+
         # 场景6: Agent需要回顾一周内关于某项技术的新闻
         response6 = search_client.search_last_week(query="量子计算商业化")
         print_response_summary(response6)
-        
+
         '''下面是测试程序的输出：
         --- TOOL: 全面综合搜索 (query: 人工智能对未来教育的影响) ---
 
@@ -381,7 +384,7 @@ AI摘要: 量子计算商业化正在逐步推进。
 ------------------------------------------------------------'''
 
     except ValueError as e:
-        print(f"初始化失败: {e}")
-        print("请确保 BOCHA_API_KEY 环境变量已正确设置。")
+        logger.exception(f"初始化失败: {e}")
+        logger.error("请确保 BOCHA_API_KEY 环境变量已正确设置。")
     except Exception as e:
-        print(f"测试过程中发生未知错误: {e}")
+        logger.exception(f"测试过程中发生未知错误: {e}")
