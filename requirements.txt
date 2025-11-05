@@ -34,6 +34,8 @@ pymysql==1.1.0
 aiomysql==0.2.0
 aiosqlite==0.21.0
 redis>=4.6.0
+SQLAlchemy==2.0.35
+asyncpg==0.29.0
 
 # ===== 爬虫相关 =====
 playwright==1.45.0
@@ -64,6 +66,7 @@ tqdm>=4.65.0
 tenacity==8.2.2
 loguru>=0.7.0
 pydantic==2.5.2
+pydantic-settings==2.2.1
 
 # ===== 开发工具（可选） =====
 pytest>=7.4.0

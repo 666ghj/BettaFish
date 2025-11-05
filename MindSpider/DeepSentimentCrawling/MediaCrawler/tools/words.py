@@ -35,6 +35,8 @@ class AsyncWordCloudGenerator:
             jieba.add_word(word)
 
     def load_stop_words(self):
+        if not os.path.exists(self.stop_words_file):
+            return set()
         with open(self.stop_words_file, 'r', encoding='utf-8') as f:
             return set(f.read().strip().split('\n'))
 
