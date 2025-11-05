@@ -11,7 +11,7 @@
 
 import asyncio
 import os
-import random
+# import random  # Removed as we now use fixed config.CRAWLER_MAX_SLEEP_SEC intervals
 import time
 from asyncio import Task
 from typing import Dict, List, Optional, Tuple
@@ -26,6 +26,7 @@ from playwright.async_api import (
 
 import config
 from base.base_crawler import AbstractCrawler
+from model.m_kuaishou import VideoUrlInfo, CreatorUrlInfo
 from proxy.proxy_ip_pool import IpInfoModel, create_ip_pool
 from store import kuaishou as kuaishou_store
 from tools import utils
@@ -34,6 +35,7 @@ from var import comment_tasks_var, crawler_type_var, source_keyword_var
 
 from .client import KuaiShouClient
 from .exception import DataFetchError
+from .help import parse_video_info_from_url, parse_creator_info_from_url
 from .login import KuaishouLogin
 
 
@@ -76,8 +78,10 @@ class KuaishouCrawler(AbstractCrawler):
                 self.browser_context = await self.launch_browser(
                     chromium, None, self.user_agent, headless=config.HEADLESS
                 )
-            # stealth.min.js is a js script to prevent the website from detecting the crawler.
-            await self.browser_context.add_init_script(path="libs/stealth.min.js")
+                # stealth.min.js is a js script to prevent the website from detecting the crawler.
+                await self.browser_context.add_init_script(path="libs/stealth.min.js")
+
+
             self.context_page = await self.browser_context.new_page()
             await self.context_page.goto(f"{self.index_url}?isHome=1")
 
@@ -159,20 +163,36 @@ class KuaishouCrawler(AbstractCrawler):
 
                 # batch fetch video comments
                 page += 1
+                
+                # Sleep after page navigation
+                await asyncio.sleep(config.CRAWLER_MAX_SLEEP_SEC)
+                utils.logger.info(f"[KuaishouCrawler.search] Sleeping for {config.CRAWLER_MAX_SLEEP_SEC} seconds after page {page-1}")
+                
                 await self.batch_get_video_comments(video_id_list)
 
     async def get_specified_videos(self):
         """Get the information and comments of the specified post"""
+        utils.logger.info("[KuaishouCrawler.get_specified_videos] Parsing video URLs...")
+        video_ids = []
+        for video_url in config.KS_SPECIFIED_ID_LIST:
+            try:
+                video_info = parse_video_info_from_url(video_url)
+                video_ids.append(video_info.video_id)
+                utils.logger.info(f"Parsed video ID: {video_info.video_id} from {video_url}")
+            except ValueError as e:
+                utils.logger.error(f"Failed to parse video URL: {e}")
+                continue
+
         semaphore = asyncio.Semaphore(config.MAX_CONCURRENCY_NUM)
         task_list = [
             self.get_video_info_task(video_id=video_id, semaphore=semaphore)
-            for video_id in config.KS_SPECIFIED_ID_LIST
+            for video_id in video_ids
         ]
         video_details = await asyncio.gather(*task_list)
         for video_detail in video_details:
             if video_detail is not None:
                 await kuaishou_store.update_kuaishou_video(video_detail)
-        await self.batch_get_video_comments(config.KS_SPECIFIED_ID_LIST)
+        await self.batch_get_video_comments(video_ids)
 
     async def get_video_info_task(
         self, video_id: str, semaphore: asyncio.Semaphore
@@ -181,6 +201,11 @@ class KuaishouCrawler(AbstractCrawler):
         async with semaphore:
             try:
                 result = await self.ks_client.get_video_info(video_id)
+                
+                # Sleep after fetching video details
+                await asyncio.sleep(config.CRAWLER_MAX_SLEEP_SEC)
+                utils.logger.info(f"[KuaishouCrawler.get_video_info_task] Sleeping for {config.CRAWLER_MAX_SLEEP_SEC} seconds after fetching video details {video_id}")
+                
                 utils.logger.info(
                     f"[KuaishouCrawler.get_video_info_task] Get video_id:{video_id} info result: {result} ..."
                 )
@@ -234,9 +259,14 @@ class KuaishouCrawler(AbstractCrawler):
                 utils.logger.info(
                     f"[KuaishouCrawler.get_comments] begin get video_id: {video_id} comments ..."
                 )
+                
+                # Sleep before fetching comments
+                await asyncio.sleep(config.CRAWLER_MAX_SLEEP_SEC)
+                utils.logger.info(f"[KuaishouCrawler.get_comments] Sleeping for {config.CRAWLER_MAX_SLEEP_SEC} seconds before fetching comments for video {video_id}")
+                
                 await self.ks_client.get_video_all_comments(
                     photo_id=video_id,
-                    crawl_interval=random.random(),
+                    crawl_interval=config.CRAWLER_MAX_SLEEP_SEC,
                     callback=kuaishou_store.batch_update_ks_video_comments,
                     max_count=config.CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES,
                 )
@@ -352,16 +382,25 @@ class KuaishouCrawler(AbstractCrawler):
         utils.logger.info(
             "[KuaiShouCrawler.get_creators_and_videos] Begin get kuaishou creators"
         )
-        for user_id in config.KS_CREATOR_ID_LIST:
-            # get creator detail info from web html content
-            createor_info: Dict = await self.ks_client.get_creator_info(user_id=user_id)
-            if createor_info:
-                await kuaishou_store.save_creator(user_id, creator=createor_info)
+        for creator_url in config.KS_CREATOR_ID_LIST:
+            try:
+                # Parse creator URL to get user_id
+                creator_info: CreatorUrlInfo = parse_creator_info_from_url(creator_url)
+                utils.logger.info(f"[KuaiShouCrawler.get_creators_and_videos] Parse creator URL info: {creator_info}")
+                user_id = creator_info.user_id
+
+                # get creator detail info from web html content
+                createor_info: Dict = await self.ks_client.get_creator_info(user_id=user_id)
+                if createor_info:
+                    await kuaishou_store.save_creator(user_id, creator=createor_info)
+            except ValueError as e:
+                utils.logger.error(f"[KuaiShouCrawler.get_creators_and_videos] Failed to parse creator URL: {e}")
+                continue
 
             # Get all video information of the creator
             all_video_list = await self.ks_client.get_all_videos_by_creator(
                 user_id=user_id,
-                crawl_interval=random.random(),
+                crawl_interval=config.CRAWLER_MAX_SLEEP_SEC,
                 callback=self.fetch_creator_video_detail,
             )
 

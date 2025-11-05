@@ -17,9 +17,8 @@ from typing import List
 import config
 from var import source_keyword_var
 
-from . import xhs_store_impl
 from .xhs_store_media import *
-from .xhs_store_impl import *
+from ._store_impl import *
 
 
 class XhsStoreFactory:
@@ -28,13 +27,14 @@ class XhsStoreFactory:
         "db": XhsDbStoreImplement,
         "json": XhsJsonStoreImplement,
         "sqlite": XhsSqliteStoreImplement,
+        "postgresql": XhsDbStoreImplement,
     }
 
     @staticmethod
     def create_store() -> AbstractStore:
         store_class = XhsStoreFactory.STORES.get(config.SAVE_DATA_OPTION)
         if not store_class:
-            raise ValueError("[XhsStoreFactory.create_store] Invalid save option only supported csv or db or json or sqlite ...")
+            raise ValueError("[XhsStoreFactory.create_store] Invalid save option only supported csv or db or json or sqlite or postgresql ...")
         return store_class()
 
 

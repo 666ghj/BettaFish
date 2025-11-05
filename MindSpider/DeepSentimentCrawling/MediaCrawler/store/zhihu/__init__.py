@@ -15,7 +15,7 @@ from typing import List
 import config
 from base.base_crawler import AbstractStore
 from model.m_zhihu import ZhihuComment, ZhihuContent, ZhihuCreator
-from store.zhihu.zhihu_store_impl import (ZhihuCsvStoreImplement,
+from ._store_impl import (ZhihuCsvStoreImplement,
                                           ZhihuDbStoreImplement,
                                           ZhihuJsonStoreImplement,
                                           ZhihuSqliteStoreImplement)
@@ -28,14 +28,15 @@ class ZhihuStoreFactory:
         "csv": ZhihuCsvStoreImplement,
         "db": ZhihuDbStoreImplement,
         "json": ZhihuJsonStoreImplement,
-        "sqlite": ZhihuSqliteStoreImplement
+        "sqlite": ZhihuSqliteStoreImplement,
+        "postgresql": ZhihuDbStoreImplement,
     }
 
     @staticmethod
     def create_store() -> AbstractStore:
         store_class = ZhihuStoreFactory.STORES.get(config.SAVE_DATA_OPTION)
         if not store_class:
-            raise ValueError("[ZhihuStoreFactory.create_store] Invalid save option only supported csv or db or json or sqlite ...")
+            raise ValueError("[ZhihuStoreFactory.create_store] Invalid save option only supported csv or db or json or sqlite or postgresql ...")
         return store_class()
 
 async def batch_update_zhihu_contents(contents: List[ZhihuContent]):

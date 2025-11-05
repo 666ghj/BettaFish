@@ -217,12 +217,35 @@ git clone https://github.com/yourusername/MindSpider.git
 cd MindSpider
 ```
 
-### 2. 创建并激活Conda环境
+### 2. 创建并激活环境
+
+#### Conda配置方法
+
+#### Conda配置方法
 
 ```bash
+# 创建名为 pytorch_python11 的conda环境并指定Python版本
 conda create -n pytorch_python11 python=3.11
+# 激活该环境
 conda activate pytorch_python11
 ```
+
+#### UV配置方法
+
+> [UV 是一种快速轻量级 Python 包环境管理工具，适用于低依赖及便捷管理需求。可参考：https://github.com/astral-sh/uv]
+
+- 安装uv（如未安装）
+```bash
+pip install uv
+```
+- 创建虚拟环境并激活
+```bash
+uv venv --python 3.11 # 创建3.11环境
+source .venv/bin/activate   # Linux/macOS
+# 或
+.venv\Scripts\activate      # Windows
+```
+
 
 ### 3. 安装依赖
 
@@ -230,13 +253,18 @@ conda activate pytorch_python11
 # 安装Python依赖
 pip install -r requirements.txt
 
+或
+# uv版本更加快速
+uv pip install -r requirements.txt
+
+
 # 安装Playwright浏览器驱动
 playwright install
 ```
 
 ### 4. 配置系统
 
-编辑 `config.py` 文件，设置数据库和API配置：
+复制.env.example文件为.env文件，放置在项目根目录。编辑 `.env` 文件，设置数据库和API配置：
 
 ```python
 # MySQL数据库配置
@@ -248,7 +276,9 @@ DB_NAME = "mindspider"
 DB_CHARSET = "utf8mb4"
 
 # DeepSeek API密钥
-DEEPSEEK_API_KEY = "your_deepseek_api_key"
+MINDSPIDER_BASE_URL=your_api_base_url
+MINDSPIDER_API_KEY=sk-your-key
+MINDSPIDER_MODEL_NAME=deepseek-chat
 ```
 
 ### 5. 初始化系统
@@ -418,6 +448,11 @@ python main.py --status
 ```bash
 # 重新安装
 pip install playwright
+
+或
+
+uv pip install playwright
+
 playwright install
 ```
 

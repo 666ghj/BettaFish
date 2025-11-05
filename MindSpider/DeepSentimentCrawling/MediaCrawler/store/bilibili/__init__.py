@@ -18,7 +18,7 @@ from typing import List
 import config
 from var import source_keyword_var
 
-from .bilibili_store_impl import *
+from ._store_impl import *
 from .bilibilli_store_media import *
 
 
@@ -28,13 +28,14 @@ class BiliStoreFactory:
         "db": BiliDbStoreImplement,
         "json": BiliJsonStoreImplement,
         "sqlite": BiliSqliteStoreImplement,
+        "postgresql": BiliDbStoreImplement,
     }
 
     @staticmethod
     def create_store() -> AbstractStore:
         store_class = BiliStoreFactory.STORES.get(config.SAVE_DATA_OPTION)
         if not store_class:
-            raise ValueError("[BiliStoreFactory.create_store] Invalid save option only supported csv or db or json or sqlite ...")
+            raise ValueError("[BiliStoreFactory.create_store] Invalid save option only supported csv or db or json or sqlite or postgresql ...")
         return store_class()
 
 
@@ -42,17 +43,19 @@ async def update_bilibili_video(video_item: Dict):
     video_item_view: Dict = video_item.get("View")
     video_user_info: Dict = video_item_view.get("owner")
     video_item_stat: Dict = video_item_view.get("stat")
-    video_id = str(video_item_view.get("aid"))
+    # 保持 video_id 为整数类型，匹配数据库 BigInteger 字段
+    video_id = int(video_item_view.get("aid"))
     save_content_item = {
         "video_id": video_id,
         "video_type": "video",
         "title": video_item_view.get("title", "")[:500],
         "desc": video_item_view.get("desc", "")[:500],
         "create_time": video_item_view.get("pubdate"),
-        "user_id": str(video_user_info.get("mid")),
+        # user_id 和 liked_count 需要保持为整数类型，匹配数据库 BigInteger/Integer 字段
+        "user_id": int(video_user_info.get("mid")) if video_user_info.get("mid") else None,
         "nickname": video_user_info.get("name"),
         "avatar": video_user_info.get("face", ""),
-        "liked_count": str(video_item_stat.get("like", "")),
+        "liked_count": int(video_item_stat.get("like", 0)) if video_item_stat.get("like") else None,
         "disliked_count": str(video_item_stat.get("dislike", "")),
         "video_play_count": str(video_item_stat.get("view", "")),
         "video_favorite_count": str(video_item_stat.get("favorite", "")),
@@ -72,8 +75,10 @@ async def update_bilibili_video(video_item: Dict):
 async def update_up_info(video_item: Dict):
     video_item_card_list: Dict = video_item.get("Card")
     video_item_card: Dict = video_item_card_list.get("card")
+    # user_id 需要保持为整数类型，匹配数据库 BigInteger 字段
+    mid_value = video_item_card.get("mid")
     saver_up_info = {
-        "user_id": str(video_item_card.get("mid")),
+        "user_id": int(mid_value) if mid_value else None,
         "nickname": video_item_card.get("name"),
         "sex": video_item_card.get("sex"),
         "sign": video_item_card.get("sign"),
@@ -96,18 +101,25 @@ async def batch_update_bilibili_video_comments(video_id: str, comments: List[Dic
 
 
 async def update_bilibili_video_comment(video_id: str, comment_item: Dict):
-    comment_id = str(comment_item.get("rpid"))
+    # comment_id 和 video_id 需要保持为整数类型，匹配数据库 BigInteger 字段
+    rpid_value = comment_item.get("rpid")
+    comment_id = int(rpid_value) if rpid_value else None
     parent_comment_id = str(comment_item.get("parent", 0))
     content: Dict = comment_item.get("content")
     user_info: Dict = comment_item.get("member")
-    like_count: int = comment_item.get("like", 0)
+    # like_count 需要保持为字符串类型，匹配数据库 Text 字段
+    like_count_value = comment_item.get("like", 0)
+    like_count = str(like_count_value) if like_count_value is not None else "0"
+    # 将 video_id 转换为整数类型，匹配数据库 BigInteger 字段
+    video_id_int = int(video_id) if video_id else None
     save_comment_item = {
         "comment_id": comment_id,
         "parent_comment_id": parent_comment_id,
         "create_time": comment_item.get("ctime"),
-        "video_id": str(video_id),
+        "video_id": video_id_int,
         "content": content.get("message"),
-        "user_id": user_info.get("mid"),
+        # user_id 需要保持为字符串类型，匹配数据库 String(255) 字段
+        "user_id": str(user_info.get("mid")) if user_info.get("mid") else None,
         "nickname": user_info.get("uname"),
         "sex": user_info.get("sex"),
         "sign": user_info.get("sign"),
@@ -188,15 +200,18 @@ async def batch_update_bilibili_creator_dynamics(creator_info: Dict, dynamics_li
 
 
 async def update_bilibili_creator_contact(creator_info: Dict, fan_info: Dict):
+    # up_id 和 fan_id 需要保持为整数类型，匹配数据库 BigInteger 字段
+    up_id_value = creator_info.get("id")
+    fan_id_value = fan_info.get("id")
     save_contact_item = {
-        "up_id": creator_info["id"],
-        "fan_id": fan_info["id"],
-        "up_name": creator_info["name"],
-        "fan_name": fan_info["name"],
-        "up_sign": creator_info["sign"],
-        "fan_sign": fan_info["sign"],
-        "up_avatar": creator_info["avatar"],
-        "fan_avatar": fan_info["avatar"],
+        "up_id": int(up_id_value) if up_id_value else None,
+        "fan_id": int(fan_id_value) if fan_id_value else None,
+        "up_name": creator_info.get("name"),
+        "fan_name": fan_info.get("name"),
+        "up_sign": creator_info.get("sign"),
+        "fan_sign": fan_info.get("sign"),
+        "up_avatar": creator_info.get("avatar"),
+        "fan_avatar": fan_info.get("avatar"),
         "last_modify_ts": utils.get_current_timestamp(),
     }
 

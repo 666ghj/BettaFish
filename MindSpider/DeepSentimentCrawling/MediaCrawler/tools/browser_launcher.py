@@ -14,6 +14,7 @@ import platform
 import subprocess
 import time
 import socket
+import signal
 from typing import Optional, List, Tuple
 import asyncio
 from pathlib import Path
@@ -106,7 +107,7 @@ class BrowserLauncher:
         
         raise RuntimeError(f"无法找到可用的端口，已尝试 {start_port} 到 {port-1}")
     
-    def launch_browser(self, browser_path: str, debug_port: int, headless: bool = False, 
+    def launch_browser(self, browser_path: str, debug_port: int, headless: bool = False,
                       user_data_dir: Optional[str] = None) -> subprocess.Popen:
         """
         启动浏览器进程
@@ -126,23 +127,24 @@ class BrowserLauncher:
             "--disable-hang-monitor",
             "--disable-prompt-on-repost",
             "--disable-sync",
-            "--disable-web-security",  # 可能有助于某些网站的访问
-            "--disable-features=VizDisplayCompositor",
             "--disable-dev-shm-usage",  # 避免共享内存问题
             "--no-sandbox",  # 在CDP模式下关闭沙箱
+            # 🔥 关键反检测参数
+            "--disable-blink-features=AutomationControlled",  # 禁用自动化控制标记
+            "--exclude-switches=enable-automation",  # 排除自动化开关
+            "--disable-infobars",  # 禁用信息栏
         ]
-        
+
         # 无头模式
         if headless:
             args.extend([
-                "--headless",
+                "--headless=new",  # 使用新的headless模式
                 "--disable-gpu",
             ])
         else:
-            # 非无头模式下也保持一些稳定性参数
+            # 非无头模式的额外参数
             args.extend([
-                "--disable-blink-features=AutomationControlled",
-                "--disable-infobars",
+                "--start-maximized",  # 最大化窗口,更像真实用户
             ])
         
         # 用户数据目录
@@ -169,7 +171,8 @@ class BrowserLauncher:
                     stderr=subprocess.DEVNULL,
                     preexec_fn=os.setsid  # 创建新的进程组
                 )
-            
+
+            self.browser_process = process
             return process
             
         except Exception as e:
@@ -230,20 +233,48 @@ class BrowserLauncher:
         """
         清理资源，关闭浏览器进程
         """
-        if self.browser_process:
-            try:
-                utils.logger.info("[BrowserLauncher] 正在关闭浏览器进程...")
-                
-                if self.system == "Windows":
-                    # Windows下使用taskkill强制终止进程树
-                    subprocess.run(["taskkill", "/F", "/T", "/PID", str(self.browser_process.pid)], 
-                                 capture_output=True)
+        if not self.browser_process:
+            return
+
+        process = self.browser_process
+
+        if process.poll() is not None:
+            utils.logger.info("[BrowserLauncher] 浏览器进程已退出，无需清理")
+            self.browser_process = None
+            return
+
+        utils.logger.info("[BrowserLauncher] 正在关闭浏览器进程...")
+
+        try:
+            if self.system == "Windows":
+                # 先尝试正常终止
+                process.terminate()
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    utils.logger.warning("[BrowserLauncher] 正常终止超时，使用taskkill强制结束")
+                    subprocess.run(
+                        ["taskkill", "/F", "/T", "/PID", str(process.pid)],
+                        capture_output=True,
+                        check=False,
+                    )
+                    process.wait(timeout=5)
+            else:
+                pgid = os.getpgid(process.pid)
+                try:
+                    os.killpg(pgid, signal.SIGTERM)
+                except ProcessLookupError:
+                    utils.logger.info("[BrowserLauncher] 浏览器进程组不存在，可能已退出")
                 else:
-                    # Unix系统下终止进程组
-                    os.killpg(os.getpgid(self.browser_process.pid), 9)
-                
-                self.browser_process = None
-                utils.logger.info("[BrowserLauncher] 浏览器进程已关闭")
-                
-            except Exception as e:
-                utils.logger.warning(f"[BrowserLauncher] 关闭浏览器进程时出错: {e}")
+                    try:
+                        process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        utils.logger.warning("[BrowserLauncher] 优雅关闭超时，发送SIGKILL")
+                        os.killpg(pgid, signal.SIGKILL)
+                        process.wait(timeout=5)
+
+            utils.logger.info("[BrowserLauncher] 浏览器进程已关闭")
+        except Exception as e:
+            utils.logger.warning(f"[BrowserLauncher] 关闭浏览器进程时出错: {e}")
+        finally:
+            self.browser_process = None
