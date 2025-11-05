@@ -42,7 +42,7 @@ class AbstractCrawler(ABC):
         """
         pass
 
-    async def launch_browser_with_cdp(self, playwright: Playwright, playwright_proxy: Optional[Dict], user_agent: Optional[str], headless: bool = True) -> BrowserContext:
+    async def launch_browser_with_cdp(self, playwright: Playwright, playwright_proxy: Optional[Dict], user_agent: Optional[str], headless: bool = True, channel: Optional[str] = "msedge") -> BrowserContext:
         """
         使用CDP模式启动浏览器（可选实现）
         :param playwright: playwright实例

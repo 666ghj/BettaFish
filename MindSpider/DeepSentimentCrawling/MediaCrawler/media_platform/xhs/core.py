@@ -49,7 +49,7 @@ class XiaoHongShuCrawler(AbstractCrawler):
     def __init__(self) -> None:
         self.index_url = "https://www.xiaohongshu.com"
         # self.user_agent = utils.get_user_agent()
-        self.user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+        self.user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/124.0.0.0"
         self.cdp_manager = None
 
     async def start(self) -> None:
@@ -357,7 +357,7 @@ class XiaoHongShuCrawler(AbstractCrawler):
                 "sec-fetch-dest": "empty",
                 "sec-fetch-mode": "cors",
                 "sec-fetch-site": "same-site",
-                "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+                "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/124.0.0.0",
                 "Cookie": cookie_str,
             },
             playwright_page=self.context_page,
@@ -401,6 +401,7 @@ class XiaoHongShuCrawler(AbstractCrawler):
         playwright_proxy: Optional[Dict],
         user_agent: Optional[str],
         headless: bool = True,
+        channel: Optional[str] = "msedge",
     ) -> BrowserContext:
         """
         使用CDP模式启动浏览器
@@ -412,6 +413,7 @@ class XiaoHongShuCrawler(AbstractCrawler):
                 playwright_proxy=playwright_proxy,
                 user_agent=user_agent,
                 headless=headless,
+                channel=channel,
             )
 
             # 显示浏览器信息
@@ -424,7 +426,9 @@ class XiaoHongShuCrawler(AbstractCrawler):
             utils.logger.error(f"[XiaoHongShuCrawler] CDP模式启动失败，回退到标准模式: {e}")
             # 回退到标准模式
             chromium = playwright.chromium
-            return await self.launch_browser(chromium, playwright_proxy, user_agent, headless)
+            return await self.launch_browser(
+                chromium, playwright_proxy, user_agent, headless, channel=channel
+            )
 
     async def close(self):
         """Close browser context"""

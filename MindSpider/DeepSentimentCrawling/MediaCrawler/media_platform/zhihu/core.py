@@ -49,7 +49,7 @@ class ZhihuCrawler(AbstractCrawler):
     def __init__(self) -> None:
         self.index_url = "https://www.zhihu.com"
         # self.user_agent = utils.get_user_agent()
-        self.user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+        self.user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 Edg/124.0.0.0"
         self._extractor = ZhihuExtractor()
         self.cdp_manager = None
 
@@ -444,6 +444,7 @@ class ZhihuCrawler(AbstractCrawler):
         playwright_proxy: Optional[Dict],
         user_agent: Optional[str],
         headless: bool = True,
+        channel: Optional[str] = "msedge",
     ) -> BrowserContext:
         """
         使用CDP模式启动浏览器
@@ -455,6 +456,7 @@ class ZhihuCrawler(AbstractCrawler):
                 playwright_proxy=playwright_proxy,
                 user_agent=user_agent,
                 headless=headless,
+                channel=channel,
             )
 
             # 显示浏览器信息
@@ -468,7 +470,7 @@ class ZhihuCrawler(AbstractCrawler):
             # 回退到标准模式
             chromium = playwright.chromium
             return await self.launch_browser(
-                chromium, playwright_proxy, user_agent, headless
+                chromium, playwright_proxy, user_agent, headless, channel=channel
             )
 
     async def close(self):

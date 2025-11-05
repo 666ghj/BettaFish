@@ -356,6 +356,7 @@ class WeiboCrawler(AbstractCrawler):
         playwright_proxy: Optional[Dict],
         user_agent: Optional[str],
         headless: bool = True,
+        channel: Optional[str] = "msedge",
     ) -> BrowserContext:
         """
         使用CDP模式启动浏览器
@@ -367,6 +368,7 @@ class WeiboCrawler(AbstractCrawler):
                 playwright_proxy=playwright_proxy,
                 user_agent=user_agent,
                 headless=headless,
+                channel=channel,
             )
 
             # 显示浏览器信息
@@ -379,7 +381,9 @@ class WeiboCrawler(AbstractCrawler):
             utils.logger.error(f"[WeiboCrawler] CDP模式启动失败，回退到标准模式: {e}")
             # 回退到标准模式
             chromium = playwright.chromium
-            return await self.launch_browser(chromium, playwright_proxy, user_agent, headless)
+            return await self.launch_browser(
+                chromium, playwright_proxy, user_agent, headless, channel=channel
+            )
 
     async def close(self):
         """Close browser context"""
