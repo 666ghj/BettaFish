@@ -24,7 +24,7 @@ except ImportError:
     logger.error("错误: 无法导入config.py配置文件")
     sys.exit(1)
 
-from MindSpider.config import settings
+from config import settings
 
 class DatabaseManager:
     def __init__(self):
