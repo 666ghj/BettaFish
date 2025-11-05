@@ -1,4 +1,4 @@
-<div align="center">
+<div align="">
 
 <img src="static/image/logo_compressed.png" alt="Weibo Public Opinion Analysis System Logo" width="100%">
 
@@ -14,58 +14,58 @@
 [![Version](https://img.shields.io/badge/version-v1.0.0-green.svg?style=flat-square)](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem)
 [![Docker](https://img.shields.io/badge/Docker-Build-2496ED?style=flat-square&logo=docker&logoColor=white)](https://hub.docker.com/)
 
-
 [English](./README-EN.md) | [中文文档](./README.md)
 
 </div>
 
 ## ⚡ 项目概述
 
-“**微舆**” 是一个从0实现的创新型 多智能体 舆情分析系统，帮助大家破除信息茧房，还原舆情原貌，预测未来走向，辅助决策。用户只需像聊天一样提出分析需求，智能体开始全自动分析 国内外30+主流社媒 与 数百万条大众评论。
+“**微舆**” 是一个从 0 实现的创新型 多智能体 舆情分析系统，帮助大家破除信息茧房，还原舆情原貌，预测未来走向，辅助决策。用户只需像聊天一样提出分析需求，智能体开始全自动分析 国内外 30+主流社媒 与 数百万条大众评论。
 
-> “微舆”谐音“微鱼”，BettaFish是一种体型很小但非常好斗、漂亮的鱼，它象征着“小而强大，不畏挑战”
+> “微舆”谐音“微鱼”，BettaFish 是一种体型很小但非常好斗、漂亮的鱼，它象征着“小而强大，不畏挑战”
 
 查看系统以“武汉大学舆情”为例，生成的研究报告：[武汉大学品牌声誉深度分析报告](./final_reports/final_report__20250827_131630.html)
 
 查看系统以“武汉大学舆情”为例，一次完整运行的视频：[视频-武汉大学品牌声誉深度分析报告](https://www.bilibili.com/video/BV1TH1WBxEWN/?vd_source=da3512187e242ce17dceee4c537ec7a6#reply279744466833)
 
-不仅仅体现在报告质量上，相比同类产品，我们拥有🚀六大优势：
+不仅仅体现在报告质量上，相比同类产品，我们拥有 🚀 六大优势：
 
-1. **AI驱动的全域监控**：AI爬虫集群7x24小时不间断作业，全面覆盖微博、小红书、抖音、快手等10+国内外关键社媒。不仅实时捕获热点内容，更能下钻至海量用户评论，让您听到最真实、最广泛的大众声音。
+1. **AI 驱动的全域监控**：AI 爬虫集群 7x24 小时不间断作业，全面覆盖微博、小红书、抖音、快手等 10+国内外关键社媒。不仅实时捕获热点内容，更能下钻至海量用户评论，让您听到最真实、最广泛的大众声音。
 
-2. **超越LLM的复合分析引擎**：我们不仅依赖设计的5类专业Agent，更融合了微调模型、统计模型等中间件。通过多模型协同工作，确保了分析结果的深度、准度与多维视角。
+2. **超越 LLM 的复合分析引擎**：我们不仅依赖设计的 5 类专业 Agent，更融合了微调模型、统计模型等中间件。通过多模型协同工作，确保了分析结果的深度、准度与多维视角。
 
 3. **强大的多模态能力**：突破图文限制，能深度解析抖音、快手等短视频内容，并精准提取现代搜索引擎中的天气、日历、股票等结构化多模态信息卡片，让您全面掌握舆情动态。
 
-4. **Agent“论坛”协作机制**：为不同Agent赋予独特的工具集与思维模式，引入辩论主持人模型，通过“论坛”机制进行链式思维碰撞与辩论。这不仅避免了单一模型的思维局限与交流导致的同质化，更催生出更高质量的集体智能与决策支持。
+4. **Agent“论坛”协作机制**：为不同 Agent 赋予独特的工具集与思维模式，引入辩论主持人模型，通过“论坛”机制进行链式思维碰撞与辩论。这不仅避免了单一模型的思维局限与交流导致的同质化，更催生出更高质量的集体智能与决策支持。
 
 5. **公私域数据无缝融合**：平台不仅分析公开舆情，还提供高安全性的接口，支持您将内部业务数据库与舆情数据无缝集成。打通数据壁垒，为垂直业务提供“外部趋势+内部洞察”的强大分析能力。
 
-6. **轻量化与高扩展性框架**：基于纯Python模块化设计，实现轻量化、一键式部署。代码结构清晰，开发者可轻松集成自定义模型与业务逻辑，实现平台的快速扩展与深度定制。
+6. **轻量化与高扩展性框架**：基于纯 Python 模块化设计，实现轻量化、一键式部署。代码结构清晰，开发者可轻松集成自定义模型与业务逻辑，实现平台的快速扩展与深度定制。
 
 **始于舆情，而不止于舆情**。“微舆”的目标，是成为驱动一切业务场景的简洁通用的数据分析引擎。
 
-> 举个例子. 你只需简单修改Agent工具集的api参数与prompt，就可以把他变成一个金融领域的市场分析系统
+> 举个例子. 你只需简单修改 Agent 工具集的 api 参数与 prompt，就可以把他变成一个金融领域的市场分析系统
 >
-> 附一个比较活跃的L站项目讨论帖：https://linux.do/t/topic/1009280
+> 附一个比较活跃的 L 站项目讨论帖：https://linux.do/t/topic/1009280
 
 <div align="center">
 <img src="static/image/system_schematic.png" alt="banner" width="800">
 
 告别传统的数据看板，在“微舆”，一切由一个简单的问题开始，您只需像对话一样，提出您的分析需求
+
 </div>
 
 ## 🏗️ 系统架构
 
 ### 整体架构图
 
-**Insight Agent** 私有数据库挖掘：私有舆情数据库深度分析AI代理
+**Insight Agent** 私有数据库挖掘：私有舆情数据库深度分析 AI 代理
 
-**Media Agent** 多模态内容分析：具备强大多模态能力的AI代理
+**Media Agent** 多模态内容分析：具备强大多模态能力的 AI 代理
 
-**Query Agent** 精准信息搜索：具备国内外网页搜索能力的AI代理
+**Query Agent** 精准信息搜索：具备国内外网页搜索能力的 AI 代理
 
-**Report Agent** 智能报告生成：内置模板的多轮报告生成AI代理
+**Report Agent** 智能报告生成：内置模板的多轮报告生成 AI 代理
 
 <div align="center">
 <img src="static/image/framework.png" alt="banner" width="800">
@@ -73,18 +73,18 @@
 
 ### 一次完整分析流程
 
-| 步骤 | 阶段名称 | 主要操作 | 参与组件 | 循环特性 |
-|------|----------|----------|----------|----------|
-| 1 | 用户提问 | Flask主应用接收查询 | Flask主应用 | - |
-| 2 | 并行启动 | 三个Agent同时开始工作 | Query Agent、Media Agent、Insight Agent | - |
-| 3 | 初步分析 | 各Agent使用专属工具进行概览搜索 | 各Agent + 专属工具集 | - |
-| 4 | 策略制定 | 基于初步结果制定分块研究策略 | 各Agent内部决策模块 | - |
-| 5-N | **循环阶段** | **论坛协作 + 深度研究** | **ForumEngine + 所有Agent** | **多轮循环** |
-| 5.1 | 深度研究 | 各Agent基于论坛主持人引导进行专项搜索 | 各Agent + 反思机制 + 论坛引导 | 每轮循环 |
-| 5.2 | 论坛协作 | ForumEngine监控Agent发言并生成主持人总结 | ForumEngine + LLM主持人 | 每轮循环 |
-| 5.3 | 交流融合 | 各Agent根据讨论调整研究方向 | 各Agent + forum_reader工具 | 每轮循环 |
-| N+1 | 结果整合 | Report Agent收集所有分析结果和论坛内容 | Report Agent | - |
-| N+2 | 报告生成 | 动态选择模板和样式，多轮生成最终报告 | Report Agent + 模板引擎 | - |
+| 步骤 | 阶段名称     | 主要操作                                    | 参与组件                                | 循环特性     |
+| ---- | ------------ | ------------------------------------------- | --------------------------------------- | ------------ |
+| 1    | 用户提问     | Flask 主应用接收查询                        | Flask 主应用                            | -            |
+| 2    | 并行启动     | 三个 Agent 同时开始工作                     | Query Agent、Media Agent、Insight Agent | -            |
+| 3    | 初步分析     | 各 Agent 使用专属工具进行概览搜索           | 各 Agent + 专属工具集                   | -            |
+| 4    | 策略制定     | 基于初步结果制定分块研究策略                | 各 Agent 内部决策模块                   | -            |
+| 5-N  | **循环阶段** | **论坛协作 + 深度研究**                     | **ForumEngine + 所有 Agent**            | **多轮循环** |
+| 5.1  | 深度研究     | 各 Agent 基于论坛主持人引导进行专项搜索     | 各 Agent + 反思机制 + 论坛引导          | 每轮循环     |
+| 5.2  | 论坛协作     | ForumEngine 监控 Agent 发言并生成主持人总结 | ForumEngine + LLM 主持人                | 每轮循环     |
+| 5.3  | 交流融合     | 各 Agent 根据讨论调整研究方向               | 各 Agent + forum_reader 工具            | 每轮循环     |
+| N+1  | 结果整合     | Report Agent 收集所有分析结果和论坛内容     | Report Agent                            | -            |
+| N+2  | 报告生成     | 动态选择模板和样式，多轮生成最终报告        | Report Agent + 模板引擎                 | -            |
 
 ### 项目代码结构树
 
@@ -183,19 +183,19 @@ Weibo_PublicOpinion_AnalysisSystem/
 
 ## 🚀 快速开始
 
-> 如果你是初次学习一个Agent系统的搭建，可以从一个非常简单的demo开始：[Deep Search Agent Demo](https://github.com/666ghj/DeepSearchAgent-Demo)
+> 如果你是初次学习一个 Agent 系统的搭建，可以从一个非常简单的 demo 开始：[Deep Search Agent Demo](https://github.com/666ghj/DeepSearchAgent-Demo)
 
 ### 环境要求
 
 - **操作系统**: Windows、Linux、MacOS
-- **Python版本**: 3.9+
-- **Conda**: Anaconda或Miniconda
+- **Python 版本**: 3.9+
+- **Conda**: Anaconda 或 Miniconda
 - **数据库**: MySQL（可选择我们的云数据库服务）
-- **内存**: 建议2GB以上
+- **内存**: 建议 2GB 以上
 
 ### 1. 创建环境
 
-#### 如果使用Conda
+#### 如果使用 Conda
 
 ```bash
 # 创建conda环境
@@ -203,7 +203,7 @@ conda create -n your_conda_name python=3.11
 conda activate your_conda_name
 ```
 
-#### 如果使用uv
+#### 如果使用 uv
 
 ```bash
 # 创建uv环境
@@ -221,7 +221,7 @@ uv pip install -r requirements.txt
 # 如果不想使用本地情感分析模型（算力需求很小，默认安装cpu版本），可以将该文件中的“机器学习”部分注释掉再执行指令
 ```
 
-### 3. 安装Playwright浏览器驱动
+### 3. 安装 Playwright 浏览器驱动
 
 ```bash
 # 安装浏览器驱动（用于爬虫功能）
@@ -230,11 +230,11 @@ playwright install chromium
 
 ### 4. 配置系统
 
-#### 4.1 配置API密钥
+#### 4.1 配置 API 密钥
 
 复制一份 项目根目录 `.env.example` 文件，命名为 `.env`
 
-编辑 `.env` 文件，填入您的API密钥（您也可以选择自己的模型、搜索代理，详情见根目录.env.example文件内或根目录config.py中的说明）：
+编辑 `.env` 文件，填入您的 API 密钥（您也可以选择自己的模型、搜索代理，详情见根目录.env.example 文件内或根目录 config.py 中的说明）：
 
 ```python
 # MySQL数据库配置
@@ -258,10 +258,11 @@ INSIGHT_ENGINE_MODEL_NAME = "kimi-k2-0711-preview"
 
 #### 4.2 数据库初始化
 
-**选择1：使用本地数据库**
+**选择 1：使用本地数据库**
 
-> ~~MindSpider爬虫系统跟舆情系统是各自独立的，所以需要再去`MindSpider\config.py`配置一下，复制`MindSpider`文件夹下的 `config.py.example` 文件，命名为 `config.py`~~
-先已更改为基于环境变量配置，请复制项目根目录.env.example文件为.env文件，并在其中填写各项配置
+> ~~MindSpider 爬虫系统跟舆情系统是各自独立的，所以需要再去`MindSpider\config.py`配置一下，复制`MindSpider`文件夹下的 `config.py.example` 文件，命名为 `config.py`~~
+> 先已更改为基于环境变量配置，请复制项目根目录.env.example 文件为.env 文件，并在其中填写各项配置
+
 ```bash
 # 本地MySQL数据库初始化
 cd MindSpider
@@ -270,9 +271,9 @@ python main.py --setup
 
 ```
 
-**选择2：使用云数据库服务（推荐）**
+**选择 2：使用云数据库服务（推荐）**
 
-我们提供便捷的云数据库服务，包含日均10万+真实舆情数据，目前**免费申请**！
+我们提供便捷的云数据库服务，包含日均 10 万+真实舆情数据，目前**免费申请**！
 
 - 真实舆情数据，实时更新
 - 多维度标签分类
@@ -281,7 +282,7 @@ python main.py --setup
 
 **联系我们申请免费云数据库访问：📧 670939375@qq.com**
 
-> 为进行数据合规性审查与服务升级，云数据库自2025年10月1日起暂停接收新的使用申请
+> 为进行数据合规性审查与服务升级，云数据库自 2025 年 10 月 1 日起暂停接收新的使用申请
 
 ### 5. 启动系统
 
@@ -295,7 +296,8 @@ conda activate your_conda_name
 python app.py
 ```
 
-uv 版本启动命令 
+uv 版本启动命令
+
 ```bash
 # 在项目根目录下，激活uv环境
 .venv\Scripts\activate
@@ -304,21 +306,21 @@ uv 版本启动命令
 python app.py
 ```
 
-> 注1：一次运行终止后，streamlit app可能结束异常仍然占用端口，此时搜索占用端口的进程kill掉即可
+> 注 1：一次运行终止后，streamlit app 可能结束异常仍然占用端口，此时搜索占用端口的进程 kill 掉即可
 
-> 注2：数据爬取需要单独操作，见5.3指引
+> 注 2：数据爬取需要单独操作，见 5.3 指引
 
-> 注3：如果服务器远程部署出现页面显示问题，见[PR#45](https://github.com/666ghj/BettaFish/pull/45)
+> 注 3：如果服务器远程部署出现页面显示问题，见[PR#45](https://github.com/666ghj/BettaFish/pull/45)
 
 访问 http://localhost:5000 即可使用完整系统
 
-#### 5.2 单独启动某个Agent
+#### 5.2 单独启动某个 Agent
 
 ```bash
 # 启动QueryEngine
 streamlit run SingleEngineApp/query_engine_streamlit_app.py --server.port 8503
 
-# 启动MediaEngine  
+# 启动MediaEngine
 streamlit run SingleEngineApp/media_engine_streamlit_app.py --server.port 8502
 
 # 启动InsightEngine
@@ -327,12 +329,13 @@ streamlit run SingleEngineApp/insight_engine_streamlit_app.py --server.port 8501
 
 #### 5.3 爬虫系统单独使用
 
-这部分有详细的配置文档：[MindSpider使用说明](./MindSpider/README.md)
+这部分有详细的配置文档：[MindSpider 使用说明](./MindSpider/README.md)
 
 <div align="center">
 <img src="MindSpider\img\example.png" alt="banner" width="600">
 
 MindSpider 运行示例
+
 </div>
 
 ```bash
@@ -355,13 +358,13 @@ python main.py --broad-topic --date 2024-01-20
 python main.py --deep-sentiment --platforms xhs dy wb
 ```
 
-## ⚙️ 高级配置（已过时，已经统一为项目根目录.env文件管理，其他子agent自动继承根目录配置）
+## ⚙️ 高级配置（已过时，已经统一为项目根目录.env 文件管理，其他子 agent 自动继承根目录配置）
 
 ### 修改关键参数
 
-#### Agent配置参数
+#### Agent 配置参数
 
-每个Agent都有专门的配置文件，可根据需求调整，下面是部分示例：
+每个 Agent 都有专门的配置文件，可根据需求调整，下面是部分示例：
 
 ```python
 # QueryEngine/utils/config.py
@@ -369,12 +372,12 @@ class Config:
     max_reflections = 2           # 反思轮次
     max_search_results = 15       # 最大搜索结果数
     max_content_length = 8000     # 最大内容长度
-    
-# MediaEngine/utils/config.py  
+
+# MediaEngine/utils/config.py
 class Config:
     comprehensive_search_limit = 10  # 综合搜索限制
     web_search_limit = 15           # 网页搜索限制
-    
+
 # InsightEngine/utils/config.py
 class Config:
     default_search_topic_globally_limit = 200    # 全局搜索限制
@@ -394,28 +397,29 @@ SENTIMENT_CONFIG = {
 }
 ```
 
-### 接入不同的LLM模型
+### 接入不同的 LLM 模型
 
-支持任意openAI调用格式的LLM提供商，只需要在/config.py中填写对应的KEY、BASE_URL、MODEL_NAME即可。
+支持任意 openAI 调用格式的 LLM 提供商，只需要在/config.py 中填写对应的 KEY、BASE_URL、MODEL_NAME 即可。
 
-> 什么是openAI调用格式？下面提供一个简单的例子：
->```python
->from openai import OpenAI
+> 什么是 openAI 调用格式？下面提供一个简单的例子：
 >
->client = OpenAI(api_key="your_api_key", 
+> ```python
+> from openai import OpenAI
+>
+> client = OpenAI(api_key="your_api_key",
 >                base_url="https://api.siliconflow.cn/v1")
 >
->response = client.chat.completions.create(
+> response = client.chat.completions.create(
 >    model="Qwen/Qwen2.5-72B-Instruct",
 >    messages=[
->        {'role': 'user', 
+>        {'role': 'user',
 >         'content': "推理模型会给市场带来哪些新的机会"}
 >    ],
->)
+> )
 >
->complete_response = response.choices[0].message.content
->print(complete_response)
->```
+> complete_response = response.choices[0].message.content
+> print(complete_response)
+> ```
 
 ### 更改情感分析模型
 
@@ -428,14 +432,14 @@ cd SentimentAnalysisModel/WeiboMultilingualSentiment
 python predict.py --text "This product is amazing!" --lang "en"
 ```
 
-#### 2. 小参数Qwen3微调
+#### 2. 小参数 Qwen3 微调
 
 ```bash
 cd SentimentAnalysisModel/WeiboSentiment_SmallQwen
 python predict_universal.py --text "这次活动办得很成功"
 ```
 
-#### 3. 基于BERT的微调模型
+#### 3. 基于 BERT 的微调模型
 
 ```bash
 # 使用BERT中文模型
@@ -443,7 +447,7 @@ cd SentimentAnalysisModel/WeiboSentiment_Finetuned/BertChinese-Lora
 python predict.py --text "这个产品真的很不错"
 ```
 
-#### 4. GPT-2 LoRA微调模型
+#### 4. GPT-2 LoRA 微调模型
 
 ```bash
 cd SentimentAnalysisModel/WeiboSentiment_Finetuned/GPT2-Lora
@@ -476,7 +480,7 @@ BUSINESS_DB_NAME = "your_business_database"
 # InsightEngine/tools/custom_db_tool.py
 class CustomBusinessDBTool:
     """自定义业务数据库查询工具"""
-    
+
     def __init__(self):
         self.connection_config = {
             'host': config.BUSINESS_DB_HOST,
@@ -485,19 +489,19 @@ class CustomBusinessDBTool:
             'password': config.BUSINESS_DB_PASSWORD,
             'database': config.BUSINESS_DB_NAME,
         }
-    
+
     def search_business_data(self, query: str, table: str):
         """查询业务数据"""
         # 实现您的业务逻辑
         pass
-    
+
     def get_customer_feedback(self, product_id: str):
         """获取客户反馈数据"""
         # 实现客户反馈查询逻辑
         pass
 ```
 
-#### 3. 集成到InsightEngine
+#### 3. 集成到 InsightEngine
 
 ```python
 # InsightEngine/agent.py 中集成自定义工具
@@ -507,7 +511,7 @@ class DeepSearchAgent:
     def __init__(self, config=None):
         # ... 其他初始化代码
         self.custom_db_tool = CustomBusinessDBTool()
-    
+
     def execute_custom_search(self, query: str):
         """执行自定义业务数据搜索"""
         return self.custom_db_tool.search_business_data(query, "your_table")
@@ -515,13 +519,13 @@ class DeepSearchAgent:
 
 ### 自定义报告模板
 
-#### 1. 在Web界面中上传
+#### 1. 在 Web 界面中上传
 
-系统支持上传自定义模板文件（.md或.txt格式），可在生成报告时选择使用。
+系统支持上传自定义模板文件（.md 或.txt 格式），可在生成报告时选择使用。
 
 #### 2. 创建模板文件
 
-在 `ReportEngine/report_template/` 目录下创建新的模板，我们的Agent会自行选用最合适的模板。
+在 `ReportEngine/report_template/` 目录下创建新的模板，我们的 Agent 会自行选用最合适的模板。
 
 ## 🤝 贡献指南
 
@@ -529,22 +533,22 @@ class DeepSearchAgent:
 
 ### 如何贡献
 
-1. **Fork项目**到您的GitHub账号
-2. **创建Feature分支**：`git checkout -b feature/AmazingFeature`
+1. **Fork 项目**到您的 GitHub 账号
+2. **创建 Feature 分支**：`git checkout -b feature/AmazingFeature`
 3. **提交更改**：`git commit -m 'Add some AmazingFeature'`
 4. **推送到分支**：`git push origin feature/AmazingFeature`
-5. **开启Pull Request**
+5. **开启 Pull Request**
 
 ### 开发规范
 
-- 代码遵循PEP8规范
+- 代码遵循 PEP8 规范
 - 提交信息使用清晰的中英文描述
 - 新功能需要包含相应的测试用例
 - 更新相关文档
 
 ## 🦖 下一步开发计划
 
-现在系统只完成了"三板斧"中的前两步，即：输入要求->详细分析，还缺少一步预测，直接将他继续交给LLM是不具有说服力的。
+现在系统只完成了"三板斧"中的前两步，即：输入要求->详细分析，还缺少一步预测，直接将他继续交给 LLM 是不具有说服力的。
 
 <div align="center">
 <img src="static/image/banner_compressed.png" alt="banner" width="800">
@@ -557,22 +561,26 @@ class DeepSearchAgent:
 **重要提醒：本项目仅供学习、学术研究和教育目的使用**
 
 1. **合规性声明**：
+
    - 本项目中的所有代码、工具和功能均仅供学习、学术研究和教育目的使用
    - 严禁将本项目用于任何商业用途或盈利性活动
    - 严禁将本项目用于任何违法、违规或侵犯他人权益的行为
 
 2. **爬虫功能免责**：
+
    - 项目中的爬虫功能仅用于技术学习和研究目的
-   - 使用者必须遵守目标网站的robots.txt协议和使用条款
+   - 使用者必须遵守目标网站的 robots.txt 协议和使用条款
    - 使用者必须遵守相关法律法规，不得进行恶意爬取或数据滥用
    - 因使用爬虫功能产生的任何法律后果由使用者自行承担
 
 3. **数据使用免责**：
+
    - 项目涉及的数据分析功能仅供学术研究使用
    - 严禁将分析结果用于商业决策或盈利目的
    - 使用者应确保所分析数据的合法性和合规性
 
 4. **技术免责**：
+
    - 本项目按"现状"提供，不提供任何明示或暗示的保证
    - 作者不对使用本项目造成的任何直接或间接损失承担责任
    - 使用者应自行评估项目的适用性和风险
@@ -586,15 +594,15 @@ class DeepSearchAgent:
 
 ## 📄 许可证
 
-本项目采用 [GPL-2.0许可证](LICENSE)。详细信息请参阅LICENSE文件。
+本项目采用 [GPL-2.0 许可证](LICENSE)。详细信息请参阅 LICENSE 文件。
 
 ## 🎉 支持与联系
 
 ### 获取帮助
 
-- **项目主页**：[GitHub仓库](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem)
-- **问题反馈**：[Issues页面](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/issues)
-- **功能建议**：[Discussions页面](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/discussions)
+- **项目主页**：[GitHub 仓库](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem)
+- **问题反馈**：[Issues 页面](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/issues)
+- **功能建议**：[Discussions 页面](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/discussions)
 
 ### 联系方式
 
