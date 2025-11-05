@@ -376,7 +376,7 @@ class KuaishouCrawler(AbstractCrawler):
             # 回退到标准模式
             chromium = playwright.chromium
             return await self.launch_browser(
-                chromium, playwright_proxy, user_agent, headless, channel=channel
+                chromium, playwright_proxy, user_agent, headless
             )
 
     async def get_creators_and_videos(self) -> None:

@@ -360,7 +360,9 @@ class DouYinCrawler(AbstractCrawler):
             utils.logger.error(f"[DouYinCrawler] CDP模式启动失败，回退到标准模式: {e}")
             # 回退到标准模式
             chromium = playwright.chromium
-            return await self.launch_browser(chromium, playwright_proxy, user_agent, headless)
+            return await self.launch_browser(
+                chromium, playwright_proxy, user_agent, headless
+            )
 
     async def close(self) -> None:
         """Close browser context"""
