@@ -39,7 +39,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install the latest uv release and expose it on PATH
-RUN curl -LsSf --retry 3 --retry-delay 2 --proto '=https' --tlsv1.2 https://astral.sh/uv/install.sh | sh
+RUN curl -LsSf --retry 3 --retry-delay 2 --proto '=https' --proto-redir '=https' --tlsv1.2 https://astral.sh/uv/install.sh | sh
 
 WORKDIR /app
 
