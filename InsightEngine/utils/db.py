@@ -7,7 +7,7 @@
 """
 
 from __future__ import annotations
-
+from urllib.parse import quote_plus
 import asyncio
 import os
 from typing import Any, Dict, Iterable, List, Optional, Union
@@ -35,6 +35,8 @@ def _build_database_url() -> str:
 
     if os.getenv("DATABASE_URL"):
         return os.getenv("DATABASE_URL")  # 直接使用外部提供的完整URL
+
+    password = quote_plus(password)
 
     if dialect in ("postgresql", "postgres"):
         # PostgreSQL 使用 asyncpg 驱动

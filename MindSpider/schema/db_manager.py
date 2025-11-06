@@ -13,6 +13,7 @@ import argparse
 from pathlib import Path
 from datetime import datetime, timedelta
 from loguru import logger
+from urllib.parse import quote_plus
 
 # 添加项目根目录到路径
 project_root = Path(__file__).parent.parent
@@ -36,9 +37,9 @@ class DatabaseManager:
         try:
             dialect = (settings.DB_DIALECT or "mysql").lower()
             if dialect in ("postgresql", "postgres"):
-                url = f"postgresql+psycopg://{settings.DB_USER}:{settings.DB_PASSWORD}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
+                url = f"postgresql+psycopg://{settings.DB_USER}:{quote_plus(settings.DB_PASSWORD)}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
             else:
-                url = f"mysql+pymysql://{settings.DB_USER}:{settings.DB_PASSWORD}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}?charset={settings.DB_CHARSET}"
+                url = f"mysql+pymysql://{settings.DB_USER}:{quote_plus(settings.DB_PASSWORD)}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}?charset={settings.DB_CHARSET}"
             self.engine = create_engine(url, future=True)
             logger.info(f"成功连接到数据库: {settings.DB_NAME}")
         except Exception as e:
