@@ -68,6 +68,7 @@ Solomon Blog LionCC.ai; Programming Carpool codecodex.ai; Programming Computing 
 <details>
 <summary>Pay-as-you-go enterprise-grade AI resource platform offering a comprehensive set of AI models and APIs, plus multiple ready-to-use online AI apps: <span style="margin-left: 10px"><a href="https://share.302.ai/P66Qe3" target="_blank"><img src="./static/image/logo_302ai.png" alt="302.ai" height="40"/></a></span></summary>
 <img src="static/image/banner_302ai.jpg" alt="banner">
+302.AI is a pay-as-you-go enterprise AI resource hub that offers the latest and most comprehensive AI models and APIs on the market, along with a variety of ready-to-use online AI applications.
 </details>
 
 ## 🏗️ System Architecture
