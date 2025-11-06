@@ -195,7 +195,7 @@ class ReportAgent:
         start_time = datetime.now()
         
         logger.info(f"开始生成报告: {query}")
-        self.logger.info(f"输入数据 - 报告数量: {len(reports)}, 论坛日志长度: {len(forum_logs)}")
+        logger.info(f"输入数据 - 报告数量: {len(reports)}, 论坛日志长度: {len(forum_logs)}")
         
         try:
             # Step 1: 模板选择
