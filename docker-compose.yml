@@ -23,3 +23,18 @@ services:
       - ./insight_engine_streamlit_reports:/app/insight_engine_streamlit_reports
       - ./media_engine_streamlit_reports:/app/media_engine_streamlit_reports
       - ./query_engine_streamlit_reports:/app/query_engine_streamlit_reports
+
+  db:
+    image: postgres:15
+    container_name: bettafish-db
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bettafish}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bettafish}
+      POSTGRES_DB: ${POSTGRES_DB:-bettafish}
+    ports:
+      - "${POSTGRES_PORT:-5444}:5432"
+    volumes:
+      - ./db_data:/var/lib/postgresql/data
