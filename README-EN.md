@@ -5,7 +5,8 @@
 <a href="https://trendshift.io/repositories/15286" target="_blank"><img src="https://trendshift.io/api/badge/repositories/15286" alt="666ghj%2FBettaFish | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
 <a href="https://aihubmix.com/?aff=8Ds9" target="_blank"><img src="./static/image/logo_aihubmix.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>&ensp;
-<a href="https://lioncc.ai/" target="_blank"><img src="./static/image/logo_loincc.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>
+<a href="https://lioncc.ai/" target="_blank"><img src="./static/image/logo_loincc.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>&ensp;
+<a href="https://share.302.ai/P66Qe3" target="_blank"><img src="./static/image/logo_302ai.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>
 
 [![GitHub Stars](https://img.shields.io/github/stars/666ghj/Weibo_PublicOpinion_AnalysisSystem?style=flat-square)](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/stargazers)
 [![GitHub Watchers](https://img.shields.io/github/watchers/666ghj/Weibo_PublicOpinion_AnalysisSystem?style=flat-square)](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/watchers)
@@ -63,6 +64,11 @@ Say goodbye to traditional data dashboards. In "WeiYu", everything starts with a
 LLM Model API Sponsor: <a href="https://aihubmix.com/?aff=8Ds9" target="_blank"><img src="./static/image/logo_aihubmix.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>
 
 Solomon Blog LionCC.ai; Programming Carpool codecodex.ai; Programming Computing Power VibeCodingAPI.ai: <span style="margin-left: 10px"><a href="https://lioncc.ai/" target="_blank"><img src="./static/image/logo_loincc.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a></span>
+
+<details>
+<summary>Pay-as-you-go enterprise-grade AI resource platform offering a comprehensive set of AI models and APIs, plus multiple ready-to-use online AI apps: <span style="margin-left: 10px"><a href="https://share.302.ai/P66Qe3" target="_blank"><img src="./static/image/logo_302ai.png" alt="302.ai" height="40"/></a></span></summary>
+<img src="static/image/banner_302ai.jpg" alt="banner">
+</details>
 
 ## 🏗️ System Architecture
 
