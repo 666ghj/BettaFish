@@ -301,170 +301,9 @@ We provide convenient cloud database service with 100,000+ daily real public opi
 
 > To conduct a data compliance review and service upgrade, we are suspending new applications for the cloud database, effective October 1, 2025.
 
-### 5. Docker Deployment (Recommended)
+### 5. Launch System
 
-The project provides complete Docker support, including application and database services, for easy deployment and environment isolation.
-
-#### 5.1 Docker Requirements
-
-- **Docker**: 20.10+
-- **Docker Compose**: 2.0+
-- **Available Memory**: 4GB+ recommended
-- **Available Disk Space**: 10GB+ recommended
-
-#### 5.2 Docker Quick Start
-
-1. **Clone project and enter directory**
-```bash
-git clone https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem.git
-cd Weibo_PublicOpinion_AnalysisSystem
-```
-
-2. **Configure environment variables**
-```bash
-# Copy environment variable template
-cp .env.example .env
-
-# Edit environment variable file and fill in required configurations
-vim .env
-```
-
-> **Note:** The application reads database settings from `.env`. Keep `DB_DIALECT=postgresql` when using the bundled PostgreSQL service; change it only if you switch to another database engine.
-
-**Important environment variable configuration**:
-```bash
-# LLM API configuration (required)
-INSIGHT_ENGINE_API_KEY="your_api_key"
-INSIGHT_ENGINE_BASE_URL="https://api.moonshot.cn/v1"
-INSIGHT_ENGINE_MODEL_NAME="kimi-k2-0711-preview"
-
-# Media Agent configuration
-MEDIA_ENGINE_API_KEY="your_api_key"
-MEDIA_ENGINE_BASE_URL="https://api.moonshot.cn/v1"
-MEDIA_ENGINE_MODEL_NAME="kimi-k2-0711-preview"
-
-# Query Agent configuration
-QUERY_ENGINE_API_KEY="your_api_key"
-QUERY_ENGINE_BASE_URL="https://api.moonshot.cn/v1"
-QUERY_ENGINE_MODEL_NAME="kimi-k2-0711-preview"
-
-# Report Agent configuration
-REPORT_ENGINE_API_KEY="your_api_key"
-REPORT_ENGINE_BASE_URL="https://api.moonshot.cn/v1"
-REPORT_ENGINE_MODEL_NAME="kimi-k2-0711-preview"
-
-# Database configuration (using built-in Docker PostgreSQL)
-POSTGRES_USER=bettafish
-POSTGRES_PASSWORD=bettafish
-POSTGRES_DB=bettafish
-POSTGRES_PORT=5444
-```
-
-3. **Start Docker services**
-```bash
-# Build and start all services
-docker-compose up -d
-
-# Check service status
-docker-compose ps
-
-# View logs
-docker-compose logs -f bettafish
-```
-
-4. **Access applications**
-- **Main Application**: http://localhost:5000
-- **Insight Engine**: http://localhost:8501
-- **Media Engine**: http://localhost:8502
-- **Query Engine**: http://localhost:8503
-
-#### 5.3 Docker Management Commands
-
-```bash
-# Start all services
-docker-compose up -d
-
-# Stop all services
-docker-compose down
-
-# Stop and delete all data (use with caution)
-docker-compose down -v
-
-# Rebuild and start
-docker-compose up --build -d
-
-# View real-time logs
-docker-compose logs -f
-
-# View specific service logs
-docker-compose logs -f bettafish
-docker-compose logs -f db
-
-# Enter container
-docker-compose exec bettafish bash
-
-# Backup database
-docker-compose exec db pg_dump -U bettafish bettafish > backup.sql
-
-# Restore database
-docker-compose exec -T db psql -U bettafish bettafish < backup.sql
-```
-
-#### 5.4 Docker Data Persistence
-
-The project configures the following data volumes:
-- `./logs`: Application log files
-- `./final_reports`: Generated analysis reports
-- `./insight_engine_streamlit_reports`: Insight Engine reports
-- `./media_engine_streamlit_reports`: Media Engine reports
-- `./query_engine_streamlit_reports`: Query Engine reports
-- `./db_data`: PostgreSQL database data
-
-#### 5.5 Docker Troubleshooting
-
-**Common issues and solutions**:
-
-1. **Port conflicts**
-```bash
-# Check port usage
-netstat -tulpn | grep :5000
-# Or modify port mapping in docker-compose.yml
-```
-
-2. **Insufficient memory**
-```bash
-# Increase Docker memory limits
-# Adjust resource allocation in Docker Desktop
-```
-
-3. **Permission issues**
-```bash
-# Ensure scripts have execute permissions
-chmod +x scripts/*.sh
-
-# Ensure data directory permissions are correct
-sudo chown -R $USER:$USER ./
-```
-
-4. **Build failures**
-```bash
-# Clear Docker cache and rebuild
-docker system prune -a
-docker-compose build --no-cache
-```
-
-5. **Service won't start**
-```bash
-# Check logs to troubleshoot
-docker-compose logs bettafish
-
-# Check environment variable configuration
-docker-compose config
-```
-
-### 6. Traditional Deployment
-
-#### 6.1 Complete System Launch (Recommended)
+#### 5.1 Complete System Launch (Recommended)
 
 ```bash
 # In project root directory, activate conda environment
@@ -485,13 +324,13 @@ python app.py
 
 > Note 1: After a run is terminated, the Streamlit app might not shut down correctly and may still be occupying the port. If this occurs, find the process that is holding the port and kill it.
 
-> Note 2: Data scraping needs to be performed as a separate operation. Please refer to the instructions in section 6.3.
+> Note 2: Data scraping needs to be performed as a separate operation. Please refer to the instructions in section 5.3.
 
 > Note 3: If page display issues occur during remote server deployment, see [PR#45](https://github.com/666ghj/BettaFish/pull/45)
 
 Visit http://localhost:5000 to use the complete system
 
-#### 6.2 Launch Individual Agents
+#### 5.2 Launch Individual Agents
 
 ```bash
 # Start QueryEngine
@@ -504,7 +343,7 @@ streamlit run SingleEngineApp/media_engine_streamlit_app.py --server.port 8502
 streamlit run SingleEngineApp/insight_engine_streamlit_app.py --server.port 8501
 ```
 
-#### 6.3 Crawler System Standalone Use
+#### 5.3 Crawler System Standalone Use
 
 This section has detailed configuration documentation: [MindSpider Usage Guide](./MindSpider/README.md)
 

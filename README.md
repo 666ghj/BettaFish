@@ -300,170 +300,9 @@ python main.py --setup
 
 > 为进行数据合规性审查与服务升级，云数据库自2025年10月1日起暂停接收新的使用申请
 
-### 5. Docker 部署（推荐）
+### 5. 启动系统
 
-项目提供了完整的Docker支持，包含应用程序和数据库服务，便于快速部署和环境隔离。
-
-#### 5.1 Docker 环境要求
-
-- **Docker**: 20.10+
-- **Docker Compose**: 2.0+
-- **可用内存**: 建议4GB以上
-- **可用磁盘空间**: 建议10GB以上
-
-#### 5.2 Docker 快速启动
-
-1. **克隆项目并进入目录**
-```bash
-git clone https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem.git
-cd Weibo_PublicOpinion_AnalysisSystem
-```
-
-2. **配置环境变量**
-```bash
-# 复制环境变量模板
-cp .env.example .env
-
-# 编辑环境变量文件，填入必要的配置
-vim .env
-```
-
-> **提示：** 应用会从 `.env` 读取数据库相关配置。使用内置 PostgreSQL 时请保持 `DB_DIALECT=postgresql`，只有在切换到其他数据库引擎时再调整该值。
-
-**重要环境变量配置**：
-```bash
-# LLM API配置（必需）
-INSIGHT_ENGINE_API_KEY="your_api_key"
-INSIGHT_ENGINE_BASE_URL="https://api.moonshot.cn/v1"
-INSIGHT_ENGINE_MODEL_NAME="kimi-k2-0711-preview"
-
-# Media Agent配置
-MEDIA_ENGINE_API_KEY="your_api_key"
-MEDIA_ENGINE_BASE_URL="https://api.moonshot.cn/v1"
-MEDIA_ENGINE_MODEL_NAME="kimi-k2-0711-preview"
-
-# Query Agent配置
-QUERY_ENGINE_API_KEY="your_api_key"
-QUERY_ENGINE_BASE_URL="https://api.moonshot.cn/v1"
-QUERY_ENGINE_MODEL_NAME="kimi-k2-0711-preview"
-
-# Report Agent配置
-REPORT_ENGINE_API_KEY="your_api_key"
-REPORT_ENGINE_BASE_URL="https://api.moonshot.cn/v1"
-REPORT_ENGINE_MODEL_NAME="kimi-k2-0711-preview"
-
-# 数据库配置（使用Docker内置PostgreSQL）
-POSTGRES_USER=bettafish
-POSTGRES_PASSWORD=bettafish
-POSTGRES_DB=bettafish
-POSTGRES_PORT=5444
-```
-
-3. **启动Docker服务**
-```bash
-# 构建并启动所有服务
-docker-compose up -d
-
-# 查看服务状态
-docker-compose ps
-
-# 查看日志
-docker-compose logs -f bettafish
-```
-
-4. **访问应用**
-- **主应用**: http://localhost:5000
-- **Insight Engine**: http://localhost:8501
-- **Media Engine**: http://localhost:8502
-- **Query Engine**: http://localhost:8503
-
-#### 5.3 Docker 管理命令
-
-```bash
-# 启动所有服务
-docker-compose up -d
-
-# 停止所有服务
-docker-compose down
-
-# 停止并删除所有数据（谨慎使用）
-docker-compose down -v
-
-# 重新构建并启动
-docker-compose up --build -d
-
-# 查看实时日志
-docker-compose logs -f
-
-# 查看特定服务日志
-docker-compose logs -f bettafish
-docker-compose logs -f db
-
-# 进入容器内部
-docker-compose exec bettafish bash
-
-# 备份数据库
-docker-compose exec db pg_dump -U bettafish bettafish > backup.sql
-
-# 恢复数据库
-docker-compose exec -T db psql -U bettafish bettafish < backup.sql
-```
-
-#### 5.4 Docker 数据持久化
-
-项目配置了以下数据卷：
-- `./logs`: 应用日志文件
-- `./final_reports`: 生成的分析报告
-- `./insight_engine_streamlit_reports`: Insight Engine报告
-- `./media_engine_streamlit_reports`: Media Engine报告
-- `./query_engine_streamlit_reports`: Query Engine报告
-- `./db_data`: PostgreSQL数据库数据
-
-#### 5.5 Docker 故障排除
-
-**常见问题及解决方案**：
-
-1. **端口冲突**
-```bash
-# 检查端口占用
-netstat -tulpn | grep :5000
-# 或修改docker-compose.yml中的端口映射
-```
-
-2. **内存不足**
-```bash
-# 增加Docker内存限制
-# 在Docker Desktop中调整资源分配
-```
-
-3. **权限问题**
-```bash
-# 确保脚本有执行权限
-chmod +x scripts/*.sh
-
-# 确保数据目录权限正确
-sudo chown -R $USER:$USER ./
-```
-
-4. **构建失败**
-```bash
-# 清理Docker缓存并重新构建
-docker system prune -a
-docker-compose build --no-cache
-```
-
-5. **服务无法启动**
-```bash
-# 检查日志排查问题
-docker-compose logs bettafish
-
-# 检查环境变量配置
-docker-compose config
-```
-
-### 6. 传统方式启动
-
-#### 6.1 完整系统启动
+#### 5.1 完整系统启动（推荐）
 
 ```bash
 # 在项目根目录下，激活conda环境
@@ -473,7 +312,7 @@ conda activate your_conda_name
 python app.py
 ```
 
-uv 版本启动命令
+uv 版本启动命令 
 ```bash
 # 在项目根目录下，激活uv环境
 .venv\Scripts\activate
@@ -484,13 +323,13 @@ python app.py
 
 > 注1：一次运行终止后，streamlit app可能结束异常仍然占用端口，此时搜索占用端口的进程kill掉即可
 
-> 注2：数据爬取需要单独操作，见6.3指引
+> 注2：数据爬取需要单独操作，见5.3指引
 
 > 注3：如果服务器远程部署出现页面显示问题，见[PR#45](https://github.com/666ghj/BettaFish/pull/45)
 
 访问 http://localhost:5000 即可使用完整系统
 
-#### 6.2 单独启动某个Agent
+#### 5.2 单独启动某个Agent
 
 ```bash
 # 启动QueryEngine
@@ -503,7 +342,7 @@ streamlit run SingleEngineApp/media_engine_streamlit_app.py --server.port 8502
 streamlit run SingleEngineApp/insight_engine_streamlit_app.py --server.port 8501
 ```
 
-#### 6.3 爬虫系统单独使用
+#### 5.3 爬虫系统单独使用
 
 这部分有详细的配置文档：[MindSpider使用说明](./MindSpider/README.md)
 
