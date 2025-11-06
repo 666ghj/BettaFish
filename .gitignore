@@ -344,3 +344,6 @@ insight_engine_streamlit_reports/
 media_engine_streamlit_reports/
 query_engine_streamlit_reports/
 final_reports/
+
+#Postgres自动生成的库文件
+db_data/
