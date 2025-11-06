@@ -12,7 +12,7 @@ import re
 
 # 添加项目根目录到Python路径以导入config
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from config import FORUM_HOST_API_KEY, FORUM_HOST_BASE_URL, FORUM_HOST_MODEL_NAME
+from config import settings
 
 # 添加utils目录到Python路径
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -21,7 +21,7 @@ utils_dir = os.path.join(root_dir, 'utils')
 if utils_dir not in sys.path:
     sys.path.append(utils_dir)
 
-from retry_helper import with_graceful_retry, SEARCH_API_RETRY_CONFIG
+from utils.retry_helper import with_graceful_retry, SEARCH_API_RETRY_CONFIG
 
 
 class ForumHost:
@@ -38,18 +38,18 @@ class ForumHost:
             api_key: 硅基流动API密钥，如果不提供则从配置文件读取
             base_url: 接口基础地址，默认使用配置文件提供的SiliconFlow地址
         """
-        self.api_key = api_key or FORUM_HOST_API_KEY
+        self.api_key = api_key or settings.FORUM_HOST_API_KEY
 
         if not self.api_key:
             raise ValueError("未找到硅基流动API密钥，请在config.py中设置FORUM_HOST_API_KEY")
 
-        self.base_url = base_url or FORUM_HOST_BASE_URL
+        self.base_url = base_url or settings.FORUM_HOST_BASE_URL
 
         self.client = OpenAI(
             api_key=self.api_key,
             base_url=self.base_url
         )
-        self.model = model_name or FORUM_HOST_MODEL_NAME  # Use configured model
+        self.model = model_name or settings.FORUM_HOST_MODEL_NAME  # Use configured model
 
         # Track previous summaries to avoid duplicates
         self.previous_summaries = []
