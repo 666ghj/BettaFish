@@ -8,8 +8,6 @@ services:
     image: bettafish:latest
     container_name: bettafish
     restart: unless-stopped
-    env_file:
-      - .env
     environment:
       - PYTHONUNBUFFERED=1
     ports:
