@@ -13,11 +13,12 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
     ports:
-      - "5000:5000"
+      - "${PORT:-5000}:${PORT:-5000}"
       - "8501:8501"
       - "8502:8502"
       - "8503:8503"
     volumes:
+      - ./.env:/app/.env
       - ./logs:/app/logs
       - ./final_reports:/app/final_reports
       - ./insight_engine_streamlit_reports:/app/insight_engine_streamlit_reports
