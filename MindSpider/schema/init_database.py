@@ -13,7 +13,7 @@ from __future__ import annotations
 import asyncio
 import os
 from typing import Optional
-
+from urllib.parse import quote_plus
 from loguru import logger
 
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -49,6 +49,7 @@ def _build_database_url() -> str:
     port = str(settings.DB_PORT or ("3306" if dialect == "mysql" else "5432"))
     user = settings.DB_USER or "root"
     password = settings.DB_PASSWORD or ""
+    password = quote_plus(password)
     db_name = settings.DB_NAME or "mindspider"
 
     if dialect in ("postgresql", "postgres"):
