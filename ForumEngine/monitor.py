@@ -145,7 +145,10 @@ class LogMonitor:
                 return False
         
         # 如果行长度过短，也认为不是有价值的内容
-        clean_line = re.sub(r'\[\d{2}:\d{2}:\d{2}\]', '', line).strip()
+        # 移除时间戳：支持旧格式和新格式
+        clean_line = re.sub(r'\[\d{2}:\d{2}:\d{2}\]', '', line)
+        clean_line = re.sub(r'\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}\s*\|\s*[A-Z]+\s*\|\s*[^|]+?\s*-\s*', '', clean_line)
+        clean_line = clean_line.strip()
         if len(clean_line) < 30:  # 阈值可以调整
             return False
             
@@ -156,9 +159,25 @@ class LogMonitor:
         return "清理后的输出: {" in line
     
     def is_json_end_line(self, line: str) -> bool:
-        """判断是否是JSON结束行"""
+        """判断是否是JSON结束行
+        
+        只判断纯粹的结束标记行，不包含任何日志格式信息（时间戳等）。
+        如果行包含时间戳，应该先清理再判断，但这里返回False表示需要进一步处理。
+        """
         stripped = line.strip()
-        return stripped == "}" or (stripped.startswith("[") and stripped.endswith("] }"))
+        
+        # 如果行包含时间戳（旧格式或新格式），说明不是纯粹的结束行
+        # 旧格式：[HH:MM:SS]
+        if re.match(r'^\[\d{2}:\d{2}:\d{2}\]', stripped):
+            return False
+        # 新格式：YYYY-MM-DD HH:mm:ss.SSS
+        if re.match(r'^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}', stripped):
+            return False
+        
+        # 不包含时间戳的行，检查是否是纯结束标记
+        if stripped == "}" or stripped == "] }":
+            return True
+        return False
     
     def extract_json_content(self, json_lines: List[str]) -> Optional[str]:
         """从多行中提取并解析JSON内容"""
@@ -200,8 +219,12 @@ class LogMonitor:
             # 处理多行JSON
             json_text = json_part
             for line in json_lines[json_start_idx + 1:]:
-                # 移除时间戳
+                # 移除时间戳：支持旧格式 [HH:MM:SS] 和新格式 loguru (YYYY-MM-DD HH:mm:ss.SSS | LEVEL | ...)
+                # 旧格式：[HH:MM:SS]
                 clean_line = re.sub(r'^\[\d{2}:\d{2}:\d{2}\]\s*', '', line)
+                # 新格式：移除 loguru 格式的时间戳和级别信息
+                # 格式: YYYY-MM-DD HH:mm:ss.SSS | LEVEL | module:function:line -
+                clean_line = re.sub(r'^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}\s*\|\s*[A-Z]+\s*\|\s*[^|]+?\s*-\s*', '', clean_line)
                 json_text += clean_line
             
             # 尝试解析JSON
@@ -247,42 +270,51 @@ class LogMonitor:
 
     def extract_node_content(self, line: str) -> Optional[str]:
         """提取节点内容，去除时间戳、节点名称等前缀"""
-        # 移除时间戳部分
-        # 格式: [HH:MM:SS] [NodeName] message
-        match = re.search(r'\[\d{2}:\d{2}:\d{2}\]\s*(.+)', line)
-        if match:
-            content = match.group(1).strip()
-            
-            # 移除所有的方括号标签（包括节点名称和应用名称）
+        content = line
+        
+        # 移除时间戳部分：支持旧格式和新格式
+        # 旧格式: [HH:MM:SS]
+        match_old = re.search(r'\[\d{2}:\d{2}:\d{2}\]\s*(.+)', content)
+        if match_old:
+            content = match_old.group(1).strip()
+        else:
+            # 新格式: YYYY-MM-DD HH:mm:ss.SSS | LEVEL | module:function:line -
+            match_new = re.search(r'\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}\s*\|\s*[A-Z]+\s*\|\s*[^|]+?\s*-\s*(.+)', content)
+            if match_new:
+                content = match_new.group(1).strip()
+        
+        if not content:
+            return line.strip()
+        
+        # 移除所有的方括号标签（包括节点名称和应用名称）
+        content = re.sub(r'^\[.*?\]\s*', '', content)
+        
+        # 继续移除可能的多个连续标签
+        while re.match(r'^\[.*?\]\s*', content):
             content = re.sub(r'^\[.*?\]\s*', '', content)
-            
-            # 继续移除可能的多个连续标签
-            while re.match(r'^\[.*?\]\s*', content):
-                content = re.sub(r'^\[.*?\]\s*', '', content)
-            
-            # 移除常见前缀（如"首次总结: "、"反思总结: "等）
-            prefixes_to_remove = [
-                "首次总结: ",
-                "反思总结: ",
-                "清理后的输出: "
-            ]
-            
-            for prefix in prefixes_to_remove:
-                if content.startswith(prefix):
-                    content = content[len(prefix):]
-                    break
-            
-            # 移除可能存在的应用名标签（不在方括号内的）
-            app_names = ['INSIGHT', 'MEDIA', 'QUERY']
-            for app_name in app_names:
-                # 移除单独的APP_NAME（在行首）
-                content = re.sub(rf'^{app_name}\s+', '', content, flags=re.IGNORECASE)
-            
-            # 清理多余的空格
-            content = re.sub(r'\s+', ' ', content)
-            
-            return content.strip()
-        return line.strip()
+        
+        # 移除常见前缀（如"首次总结: "、"反思总结: "等）
+        prefixes_to_remove = [
+            "首次总结: ",
+            "反思总结: ",
+            "清理后的输出: "
+        ]
+        
+        for prefix in prefixes_to_remove:
+            if content.startswith(prefix):
+                content = content[len(prefix):]
+                break
+        
+        # 移除可能存在的应用名标签（不在方括号内的）
+        app_names = ['INSIGHT', 'MEDIA', 'QUERY']
+        for app_name in app_names:
+            # 移除单独的APP_NAME（在行首）
+            content = re.sub(rf'^{app_name}\s+', '', content, flags=re.IGNORECASE)
+        
+        # 清理多余的空格
+        content = re.sub(r'\s+', ' ', content)
+        
+        return content.strip()
    
     def get_file_size(self, file_path: Path) -> int:
         """获取文件大小"""
@@ -349,10 +381,13 @@ class LogMonitor:
             if not line.strip():
                 continue
                 
-            # 检查是否是目标节点行
-            if self.is_target_log_line(line):
-                if self.is_json_start_line(line):
-                    # 开始捕获JSON
+            # 检查是否是目标节点行或包含JSON开始标记的行
+            is_target = self.is_target_log_line(line)
+            is_json_start = self.is_json_start_line(line)
+            
+            if is_target or is_json_start:
+                if is_json_start:
+                    # 开始捕获JSON（即使不是目标节点，只要包含"清理后的输出: {"就处理）
                     self.capturing_json[app_name] = True
                     self.json_buffer[app_name] = [line]
                     self.json_start_line[app_name] = line
@@ -368,8 +403,8 @@ class LogMonitor:
                         self.capturing_json[app_name] = False
                         self.json_buffer[app_name] = []
                         
-                elif self.is_valuable_content(line):
-                    # 其他有价值的SummaryNode内容
+                elif is_target and self.is_valuable_content(line):
+                    # 其他有价值的SummaryNode内容（必须是目标节点且有价值）
                     clean_content = self._clean_content_tags(self.extract_node_content(line), app_name)
                     captured_contents.append(f"{clean_content}")
                     
@@ -378,7 +413,16 @@ class LogMonitor:
                 self.json_buffer[app_name].append(line)
                 
                 # 检查是否是JSON结束
-                if self.is_json_end_line(line):
+                # 先清理时间戳，然后判断清理后的行是否是结束标记
+                cleaned_line = line.strip()
+                # 清理旧格式时间戳：[HH:MM:SS]
+                cleaned_line = re.sub(r'^\[\d{2}:\d{2}:\d{2}\]\s*', '', cleaned_line)
+                # 清理新格式时间戳：YYYY-MM-DD HH:mm:ss.SSS | LEVEL | module:function:line -
+                cleaned_line = re.sub(r'^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}\s*\|\s*[A-Z]+\s*\|\s*[^|]+?\s*-\s*', '', cleaned_line)
+                cleaned_line = cleaned_line.strip()
+                
+                # 清理后判断是否是结束标记
+                if cleaned_line == "}" or cleaned_line == "] }":
                     # JSON结束，处理完整的JSON
                     content = self.extract_json_content(self.json_buffer[app_name])
                     if content:  # 只有成功解析的内容才会被记录
