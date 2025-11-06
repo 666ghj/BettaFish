@@ -40,9 +40,9 @@ class Settings(BaseSettings):
     INSIGHT_ENGINE_BASE_URL: Optional[str] = Field("https://api.moonshot.cn/v1", description="Insight Agent LLM接口BaseUrl，可自定义厂商API")
     INSIGHT_ENGINE_MODEL_NAME: str = Field("kimi-k2-0711-preview", description="Insight Agent LLM模型名称，如kimi-k2-0711-preview")
     
-    # Media Agent（推荐Gemini，这里我用了一个中转厂商，你也可以换成你自己的，申请地址：https://www.chataiapi.com/）
-    MEDIA_ENGINE_API_KEY: Optional[str] = Field(None, description="Media Agent（推荐Gemini，这里我用了一个中转厂商，你也可以换成你自己的，申请地址：https://www.chataiapi.com/）API密钥")
-    MEDIA_ENGINE_BASE_URL: Optional[str] = Field("https://www.chataiapi.com/v1", description="Media Agent LLM接口BaseUrl")
+    # Media Agent（推荐Gemini，推荐中转厂商：https://aihubmix.com/?aff=8Ds9）
+    MEDIA_ENGINE_API_KEY: Optional[str] = Field(None, description="Media Agent（推荐Gemini，推荐中转api厂商：https://aihubmix.com/?aff=8Ds9")
+    MEDIA_ENGINE_BASE_URL: Optional[str] = Field("https://aihubmix.com/v1", description="Media Agent LLM接口BaseUrl")
     MEDIA_ENGINE_MODEL_NAME: str = Field("gemini-2.5-pro", description="Media Agent LLM模型名称，如gemini-2.5-pro")
     
     # Query Agent（推荐DeepSeek，申请地址：https://www.deepseek.com/）
@@ -50,9 +50,9 @@ class Settings(BaseSettings):
     QUERY_ENGINE_BASE_URL: Optional[str] = Field("https://api.deepseek.com", description="Query Agent LLM接口BaseUrl")
     QUERY_ENGINE_MODEL_NAME: str = Field("deepseek-reasoner", description="Query Agent LLM模型，如deepseek-reasoner")
     
-    # Report Agent（推荐Gemini，这里我用了一个中转厂商，你也可以换成你自己的）
-    REPORT_ENGINE_API_KEY: Optional[str] = Field(None, description="Report Agent（推荐Gemini，这里我用了一个中转厂商，你也可以换成你自己的，申请地址：https://www.chataiapi.com/）API密钥")
-    REPORT_ENGINE_BASE_URL: Optional[str] = Field("https://www.chataiapi.com/v1", description="Report Agent LLM接口BaseUrl")
+    # Report Agent（推荐Gemini，推荐中转厂商：https://aihubmix.com/?aff=8Ds9）
+    REPORT_ENGINE_API_KEY: Optional[str] = Field(None, description="Report Agent（推荐Gemini，推荐中转api厂商：https://aihubmix.com/?aff=8Ds9")
+    REPORT_ENGINE_BASE_URL: Optional[str] = Field("https://aihubmix.com/v1", description="Report Agent LLM接口BaseUrl")
     REPORT_ENGINE_MODEL_NAME: str = Field("gemini-2.5-pro", description="Report Agent LLM模型，如gemini-2.5-pro")
     
     # Forum Host（Qwen3最新模型，这里我使用了硅基流动这个平台，申请地址：https://cloud.siliconflow.cn/）
