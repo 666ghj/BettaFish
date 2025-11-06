@@ -322,6 +322,8 @@ cp .env.example .env
 vim .env
 ```
 
+> **提示：** 应用会从 `.env` 读取数据库相关配置。使用内置 PostgreSQL 时请保持 `DB_DIALECT=postgresql`，只有在切换到其他数据库引擎时再调整该值。
+
 **重要环境变量配置**：
 ```bash
 # LLM API配置（必需）

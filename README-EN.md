@@ -308,6 +308,8 @@ cp .env.example .env
 vim .env
 ```
 
+> **Note:** The application reads database settings from `.env`. Keep `DB_DIALECT=postgresql` when using the bundled PostgreSQL service; change it only if you switch to another database engine.
+
 **Important environment variable configuration**:
 ```bash
 # LLM API configuration (required)
