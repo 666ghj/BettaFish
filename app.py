@@ -2,20 +2,22 @@
 Flask主应用 - 统一管理三个Streamlit应用
 """
 
+import atexit
 import os
-import sys
 import subprocess
-import time
+import sys
 import threading
+import time
 from datetime import datetime
 from queue import Queue
+
 from flask import Flask, render_template, request, jsonify, Response
 from flask_socketio import SocketIO, emit
-import atexit
 import requests
-from loguru import logger
 import importlib
 from pathlib import Path
+from loguru import logger
+from utils.port_utils import prompt_for_available_port
 
 # 导入ReportEngine
 try:
@@ -152,22 +154,30 @@ def write_config_values(updates):
                     env_key_indices[key] = i
     
     # 更新或添加配置项
+    runtime_env_updates = {}
+
     for key, raw_value in updates.items():
         # 格式化值用于 .env 文件（不需要引号，除非是字符串且包含空格）
         if raw_value is None or raw_value == '':
             env_value = ''
+            runtime_value = None
         elif isinstance(raw_value, (int, float)):
             env_value = str(raw_value)
+            runtime_value = str(raw_value)
         elif isinstance(raw_value, bool):
             env_value = 'True' if raw_value else 'False'
+            runtime_value = env_value
         else:
             value_str = str(raw_value)
+            runtime_value = value_str
             # 如果包含空格或特殊字符，需要引号
             if ' ' in value_str or '\n' in value_str or '#' in value_str:
                 escaped = value_str.replace('\\', '\\\\').replace('"', '\\"')
                 env_value = f'"{escaped}"'
             else:
                 env_value = value_str
+
+        runtime_env_updates[key] = runtime_value
         
         # 更新或添加配置项
         if key in env_key_indices:
@@ -180,6 +190,13 @@ def write_config_values(updates):
     # 写入 .env 文件
     env_file_path.parent.mkdir(parents=True, exist_ok=True)
     env_file_path.write_text('\n'.join(env_lines) + '\n', encoding='utf-8')
+
+    # 同步当前进程的环境变量，确保刷新后能读取最新值
+    for key, runtime_value in runtime_env_updates.items():
+        if runtime_value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = runtime_value
     
     # 重新加载配置模块（这会重新读取 .env 文件并创建新的 Settings 实例）
     _load_config_module()
@@ -1019,11 +1036,14 @@ def handle_status_request():
         for app_name, info in processes.items()
     })
 
+
 if __name__ == '__main__':
     # 从配置文件读取 HOST 和 PORT
     from config import settings
     HOST = settings.HOST
     PORT = settings.PORT
+
+    PORT = prompt_for_available_port(HOST, PORT)
     
     logger.info("等待配置确认，系统将在前端指令后启动组件...")
     logger.info(f"Flask服务器已启动，访问地址: http://{HOST}:{PORT}")
