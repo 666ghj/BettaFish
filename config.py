@@ -9,8 +9,9 @@
 
 from pathlib import Path
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import Field, ConfigDict
 from typing import Optional
+from loguru import logger
 
 
 # 计算 .env 优先级：优先当前工作目录，其次项目根目录
@@ -86,12 +87,29 @@ class Settings(BaseSettings):
     SEARCH_TIMEOUT: int = Field(240, description="单次搜索请求超时")
     MAX_CONTENT_LENGTH: int = Field(500000, description="搜索最大内容长度")
     
-    class Config:
-        env_file = ENV_FILE
-        env_prefix = ""
-        case_sensitive = False
-        extra = "allow"
+    model_config = ConfigDict(
+        env_file=ENV_FILE,
+        env_prefix="",
+        case_sensitive=False,
+        extra="allow"
+    )
 
 
 # 创建全局配置实例
 settings = Settings()
+
+
+def reload_settings() -> Settings:
+    """
+    重新加载配置
+    
+    从 .env 文件和环境变量重新加载配置，更新全局 settings 实例。
+    用于在运行时动态更新配置。
+    
+    Returns:
+        Settings: 新创建的配置实例
+    """
+    
+    global settings
+    settings = Settings()
+    return settings

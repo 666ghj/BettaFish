@@ -134,6 +134,7 @@ def run_report_generation(task: ReportTask, query: str, custom_template: str = "
         task.update_status("completed", 100)
 
     except Exception as e:
+        logger.exception(f"报告生成过程中发生错误: {str(e)}")
         task.update_status("error", 0, str(e))
         # 只在出错时清理任务
         with task_lock:
@@ -156,6 +157,7 @@ def get_status():
             'current_task': current_task.to_dict() if current_task else None
         })
     except Exception as e:
+        logger.exception(f"获取Report Engine状态失败: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -228,6 +230,7 @@ def generate_report():
         })
 
     except Exception as e:
+        logger.exception(f"开始生成报告失败: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -319,6 +322,7 @@ def get_result_json(task_id: str):
         })
 
     except Exception as e:
+        logger.exception(f"获取报告生成结果失败: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -348,6 +352,7 @@ def cancel_task(task_id: str):
                 }), 404
 
     except Exception as e:
+        logger.exception(f"取消报告生成任务失败: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -391,6 +396,7 @@ def get_templates():
         })
 
     except Exception as e:
+        logger.exception(f"获取可用模板列表失败: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -400,6 +406,7 @@ def get_templates():
 # 错误处理
 @report_bp.errorhandler(404)
 def not_found(error):
+    logger.exception(f"API端点不存在: {str(error)}")
     return jsonify({
         'success': False,
         'error': 'API端点不存在'
@@ -408,6 +415,7 @@ def not_found(error):
 
 @report_bp.errorhandler(500)
 def internal_error(error):
+    logger.exception(f"服务器内部错误: {str(error)}")
     return jsonify({
         'success': False,
         'error': '服务器内部错误'

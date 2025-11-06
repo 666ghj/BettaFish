@@ -35,13 +35,13 @@ class ForumHost:
         初始化论坛主持人
         
         Args:
-            api_key: 硅基流动API密钥，如果不提供则从配置文件读取
-            base_url: 接口基础地址，默认使用配置文件提供的SiliconFlow地址
+            api_key: 论坛主持人 LLM API 密钥，如果不提供则从配置文件读取
+            base_url: 论坛主持人 LLM API 接口基础地址，默认使用配置文件提供的SiliconFlow地址
         """
         self.api_key = api_key or settings.FORUM_HOST_API_KEY
 
         if not self.api_key:
-            raise ValueError("未找到硅基流动API密钥，请在config.py中设置FORUM_HOST_API_KEY")
+            raise ValueError("未找到论坛主持人API密钥，请在环境变量文件中设置FORUM_HOST_API_KEY")
 
         self.base_url = base_url or settings.FORUM_HOST_BASE_URL
 

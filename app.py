@@ -94,20 +94,10 @@ def _load_config_module():
 def read_config_values():
     """Return the current configuration values that are exposed to the frontend."""
     try:
-        # 重新导入 config 模块以获取最新的 Settings 实例
-        importlib.invalidate_caches()
-        if CONFIG_MODULE_NAME in sys.modules:
-            importlib.reload(sys.modules[CONFIG_MODULE_NAME])
-        else:
-            importlib.import_module(CONFIG_MODULE_NAME)
+        # 重新加载配置以获取最新的 Settings 实例
+        from config import reload_settings, settings
+        reload_settings()
         
-        # 从 config 模块获取 settings 实例
-        config_module = sys.modules[CONFIG_MODULE_NAME]
-        if not hasattr(config_module, 'settings'):
-            logger.error("config 模块中没有找到 settings 实例")
-            return {}
-        
-        settings = config_module.settings
         values = {}
         for key in CONFIG_KEYS:
             # 从 Pydantic Settings 实例读取值
