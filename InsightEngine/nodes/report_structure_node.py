@@ -87,11 +87,11 @@ class ReportStructureNode(StateMutationNode):
                 report_structure = json.loads(cleaned_output)
                 logger.info("JSON解析成功")
             except JSONDecodeError as e:
-                logger.exception(f"JSON解析失败: {str(e)}")
+                logger.error(f"JSON解析失败: {str(e)}")
                 # 使用更强大的提取方法
                 report_structure = extract_clean_response(cleaned_output)
                 if "error" in report_structure:
-                    logger.exception("JSON解析失败，尝试修复...")
+                    logger.error("JSON解析失败，尝试修复...")
                     # 尝试修复JSON
                     fixed_json = fix_incomplete_json(cleaned_output)
                     if fixed_json:
@@ -99,11 +99,11 @@ class ReportStructureNode(StateMutationNode):
                             report_structure = json.loads(fixed_json)
                             logger.info("JSON修复成功")
                         except JSONDecodeError:
-                            logger.exception("JSON修复失败")
+                            logger.error("JSON修复失败")
                             # 返回默认结构
                             return self._generate_default_structure()
                     else:
-                        logger.exception("无法修复JSON，使用默认结构")
+                        logger.error("无法修复JSON，使用默认结构")
                         return self._generate_default_structure()
             
             # 验证结构

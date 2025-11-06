@@ -351,7 +351,7 @@ class ReportAgent:
         query_safe = query_safe.replace(' ', '_')[:30]
         
         filename = f"final_report_{query_safe}_{timestamp}.html"
-        filepath = os.path.join(settings.OUTPUT_DIR, filename)
+        filepath = os.path.join(self.config.OUTPUT_DIR, filename)
         
         # 保存HTML报告
         with open(filepath, 'w', encoding='utf-8') as f:
@@ -361,7 +361,7 @@ class ReportAgent:
         
         # 保存状态
         state_filename = f"report_state_{query_safe}_{timestamp}.json"
-        state_filepath = os.path.join(settings.OUTPUT_DIR, state_filename)
+        state_filepath = os.path.join(self.config.OUTPUT_DIR, state_filename)
         self.state.save_to_file(state_filepath)
         logger.info(f"状态已保存到: {state_filepath}")
     
