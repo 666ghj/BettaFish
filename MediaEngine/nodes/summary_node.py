@@ -138,7 +138,7 @@ class FirstSummaryNode(StateMutationNode):
                 result = json.loads(cleaned_output)
                 logger.info("JSON解析成功")
             except JSONDecodeError as e:
-                logger.exception(f"JSON解析失败: {str(e)}")
+                logger.error(f"JSON解析失败: {str(e)}")
                 # 尝试修复JSON
                 fixed_json = fix_incomplete_json(cleaned_output)
                 if fixed_json:
@@ -306,7 +306,7 @@ class ReflectionSummaryNode(StateMutationNode):
                 result = json.loads(cleaned_output)
                 logger.info("JSON解析成功")
             except JSONDecodeError as e:
-                logger.exception(f"JSON解析失败: {str(e)}")
+                logger.error(f"JSON解析失败: {str(e)}")
                 # 尝试修复JSON
                 fixed_json = fix_incomplete_json(cleaned_output)
                 if fixed_json:
@@ -314,11 +314,11 @@ class ReflectionSummaryNode(StateMutationNode):
                         result = json.loads(fixed_json)
                         logger.info("JSON修复成功")
                     except JSONDecodeError:
-                        logger.exception("JSON修复失败，直接使用清理后的文本")
+                        logger.error("JSON修复失败，直接使用清理后的文本")
                         # 如果不是JSON格式，直接返回清理后的文本
                         return cleaned_output
                 else:
-                    logger.exception("无法修复JSON，直接使用清理后的文本")
+                    logger.error("无法修复JSON，直接使用清理后的文本")
                     # 如果不是JSON格式，直接返回清理后的文本
                     return cleaned_output
             

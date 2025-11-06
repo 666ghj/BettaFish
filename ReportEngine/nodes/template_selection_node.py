@@ -145,7 +145,7 @@ class TemplateSelectionNode(BaseNode):
             return None
             
         except json.JSONDecodeError as e:
-            logger.exception(f"JSON解析失败: {str(e)}")
+            logger.error(f"JSON解析失败: {str(e)}")
             # 尝试从文本响应中提取模板信息
             return self._extract_template_from_text(response, available_templates)
     
