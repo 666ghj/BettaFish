@@ -50,6 +50,9 @@ RUN uv pip install --system -r requirements.txt
 # Install Playwright browser binaries (system deps already handled above)
 RUN python -m playwright install chromium
 
+# Copy .env
+COPY .env.example .env
+
 # Copy application source
 COPY . .
 
