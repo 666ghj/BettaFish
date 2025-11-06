@@ -18,7 +18,7 @@ try:
     from .llm_host import generate_host_speech
     HOST_AVAILABLE = True
 except ImportError:
-    logger.warning("ForumEngine: 论坛主持人模块未找到，将以纯监控模式运行")
+    logger.exception("ForumEngine: 论坛主持人模块未找到，将以纯监控模式运行")
     HOST_AVAILABLE = False
 
 class LogMonitor:
@@ -50,10 +50,20 @@ class LogMonitor:
         self.host_speech_threshold = 5  # 每5条agent发言触发一次主持人发言
         self.is_host_generating = False  # 主持人是否正在生成发言
        
-        # 目标节点名称 - 直接匹配字符串
-        self.target_nodes = [
-            'FirstSummaryNode',
-            'ReflectionSummaryNode'
+        # 目标节点识别模式
+        # 1. 类名（旧格式可能包含）
+        # 2. 完整模块路径（实际日志格式，包含引擎前缀）
+        # 3. 部分模块路径（兼容性）
+        # 4. 关键标识文本
+        self.target_node_patterns = [
+            'FirstSummaryNode',  # 类名
+            'ReflectionSummaryNode',  # 类名
+            'InsightEngine.nodes.summary_node',  # InsightEngine完整路径
+            'MediaEngine.nodes.summary_node',  # MediaEngine完整路径
+            'QueryEngine.nodes.summary_node',  # QueryEngine完整路径
+            'nodes.summary_node',  # 模块路径（兼容性，用于部分匹配）
+            '正在生成首次段落总结',  # FirstSummaryNode的标识
+            '正在生成反思总结',  # ReflectionSummaryNode的标识
         ]
         
         # 多行内容捕获状态
@@ -107,12 +117,33 @@ class LogMonitor:
                     f.flush()
         except Exception as e:
             logger.exception(f"ForumEngine: 写入forum.log失败: {e}")
-   
+    
     def is_target_log_line(self, line: str) -> bool:
-        """检查是否是目标日志行（SummaryNode）"""
-        # 简单字符串包含检查，更可靠
-        for node_name in self.target_nodes:
-            if node_name in line:
+        """检查是否是目标日志行（SummaryNode）
+        
+        支持多种识别方式：
+        1. 类名：FirstSummaryNode, ReflectionSummaryNode
+        2. 完整模块路径：InsightEngine.nodes.summary_node、MediaEngine.nodes.summary_node、QueryEngine.nodes.summary_node
+        3. 部分模块路径：nodes.summary_node（兼容性）
+        4. 关键标识文本：正在生成首次段落总结、正在生成反思总结
+        
+        排除条件：
+        - ERROR 级别的日志（错误日志不应被识别为目标节点）
+        - 包含错误关键词的日志（JSON解析失败、JSON修复失败等）
+        """
+        # 排除 ERROR 级别的日志
+        if "| ERROR" in line or "| ERROR    |" in line:
+            return False
+        
+        # 排除包含错误关键词的日志
+        error_keywords = ["JSON解析失败", "JSON修复失败", "Traceback", "File \""]
+        for keyword in error_keywords:
+            if keyword in line:
+                return False
+        
+        # 检查是否包含目标节点模式
+        for pattern in self.target_node_patterns:
+            if pattern in line:
                 return True
         return False
     
@@ -381,32 +412,33 @@ class LogMonitor:
             if not line.strip():
                 continue
                 
-            # 检查是否是目标节点行或包含JSON开始标记的行
+            # 检查是否是目标节点行和JSON开始标记
             is_target = self.is_target_log_line(line)
             is_json_start = self.is_json_start_line(line)
             
-            if is_target or is_json_start:
-                if is_json_start:
-                    # 开始捕获JSON（即使不是目标节点，只要包含"清理后的输出: {"就处理）
-                    self.capturing_json[app_name] = True
-                    self.json_buffer[app_name] = [line]
-                    self.json_start_line[app_name] = line
+            # 只有目标节点（SummaryNode）的JSON输出才应该被捕获
+            # 过滤掉SearchNode等其他节点的输出（它们不是目标节点，即使有JSON也不会被捕获）
+            if is_target and is_json_start:
+                # 开始捕获JSON（必须是目标节点且包含"清理后的输出: {"）
+                self.capturing_json[app_name] = True
+                self.json_buffer[app_name] = [line]
+                self.json_start_line[app_name] = line
+                
+                # 检查是否是单行JSON
+                if line.strip().endswith("}"):
+                    # 单行JSON，立即处理
+                    content = self.extract_json_content([line])
+                    if content:  # 只有成功解析的内容才会被记录
+                        # 去除重复的标签和格式化
+                        clean_content = self._clean_content_tags(content, app_name)
+                        captured_contents.append(f"{clean_content}")
+                    self.capturing_json[app_name] = False
+                    self.json_buffer[app_name] = []
                     
-                    # 检查是否是单行JSON
-                    if line.strip().endswith("}"):
-                        # 单行JSON，立即处理
-                        content = self.extract_json_content([line])
-                        if content:  # 只有成功解析的内容才会被记录
-                            # 去除重复的标签和格式化
-                            clean_content = self._clean_content_tags(content, app_name)
-                            captured_contents.append(f"{clean_content}")
-                        self.capturing_json[app_name] = False
-                        self.json_buffer[app_name] = []
-                        
-                elif is_target and self.is_valuable_content(line):
-                    # 其他有价值的SummaryNode内容（必须是目标节点且有价值）
-                    clean_content = self._clean_content_tags(self.extract_node_content(line), app_name)
-                    captured_contents.append(f"{clean_content}")
+            elif is_target and self.is_valuable_content(line):
+                # 其他有价值的SummaryNode内容（必须是目标节点且有价值）
+                clean_content = self._clean_content_tags(self.extract_node_content(line), app_name)
+                captured_contents.append(f"{clean_content}")
                     
             elif self.capturing_json[app_name]:
                 # 正在捕获JSON的后续行
@@ -528,13 +560,16 @@ class LogMonitor:
                         # 先检查是否需要触发搜索（只触发一次）
                         if not self.is_searching:
                             for line in new_lines:
-                                if line.strip() and 'FirstSummaryNode' in line:
-                                    logger.info(f"ForumEngine: 在{app_name}中检测到第一次论坛发表内容")
-                                    self.is_searching = True
-                                    self.search_inactive_count = 0
-                                    # 清空forum.log开始新会话
-                                    self.clear_forum_log()
-                                    break  # 找到一个就够了，跳出循环
+                                # 检查是否包含目标节点模式（支持多种格式）
+                                if line.strip() and self.is_target_log_line(line):
+                                    # 进一步确认是首次总结节点（FirstSummaryNode或包含"正在生成首次段落总结"）
+                                    if 'FirstSummaryNode' in line or '正在生成首次段落总结' in line:
+                                        logger.info(f"ForumEngine: 在{app_name}中检测到第一次论坛发表内容")
+                                        self.is_searching = True
+                                        self.search_inactive_count = 0
+                                        # 清空forum.log开始新会话
+                                        self.clear_forum_log()
+                                        break  # 找到一个就够了，跳出循环
                        
                         # 处理所有新增内容（如果正在搜索状态）
                         if self.is_searching:
