@@ -25,7 +25,10 @@ class Settings(BaseSettings):
     全局配置；支持 .env 和环境变量自动加载。
     变量名与原 config.py 大写一致，便于平滑过渡。
     """
-    
+    # ================== Flask 服务器配置 ====================
+    HOST: str = Field("0.0.0.0", description="Flask服务器主机地址，默认0.0.0.0（允许外部访问）")
+    PORT: int = Field(5000, description="Flask服务器端口号，默认5000")
+
     # ====================== 数据库配置 ======================
     DB_DIALECT: str = Field("mysql", description="数据库类型，例如 'mysql' 或 'postgresql'。用于支持多种数据库后端（如 SQLAlchemy，请与连接信息共同配置）")
     DB_HOST: str = Field("your_db_host", description="数据库主机，例如localhost 或 127.0.0.1。我们也提供云数据库资源便捷配置，日均10w+数据，可免费申请，联系我们：670939375@qq.com NOTE：为进行数据合规性审查与服务升级，云数据库自2025年10月1日起暂停接收新的使用申请")
