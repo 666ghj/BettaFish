@@ -87,7 +87,7 @@ class ReportStructureNode(StateMutationNode):
                 report_structure = json.loads(cleaned_output)
                 logger.info("JSON解析成功")
             except JSONDecodeError as e:
-                logger.exception(f"JSON解析失败: {str(e)}")
+                logger.error(f"JSON解析失败: {str(e)}")
                 # 使用更强大的提取方法
                 report_structure = extract_clean_response(cleaned_output)
                 if "error" in report_structure:
