@@ -779,5 +779,5 @@ def create_agent(config_file: Optional[str] = None) -> DeepSearchAgent:
     Returns:
         DeepSearchAgent实例
     """
-    config = settings
+    config = Settings()
     return DeepSearchAgent(config)

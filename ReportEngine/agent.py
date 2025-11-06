@@ -138,7 +138,7 @@ class ReportAgent:
         self.state = ReportState()
         
         # 确保输出目录存在
-        os.makedirs(settings.OUTPUT_DIR, exist_ok=True)
+        os.makedirs(self.config.OUTPUT_DIR, exist_ok=True)
         
         logger.info("Report Agent已初始化")
         logger.info(f"使用LLM: {self.llm_client.get_model_info()}")
@@ -146,11 +146,11 @@ class ReportAgent:
     def _setup_logging(self):
         """设置日志"""
         # 确保日志目录存在
-        log_dir = os.path.dirname(settings.LOG_FILE)
+        log_dir = os.path.dirname(self.config.LOG_FILE)
         os.makedirs(log_dir, exist_ok=True)
         
         # 创建专用的logger，避免与其他模块冲突
-        logger.add(settings.LOG_FILE, level="INFO")
+        logger.add(self.config.LOG_FILE, level="INFO")
         
     def _initialize_file_baseline(self):
         """初始化文件数量基准"""
@@ -164,9 +164,9 @@ class ReportAgent:
     def _initialize_llm(self) -> LLMClient:
         """初始化LLM客户端"""
         return LLMClient(
-            api_key=settings.REPORT_ENGINE_API_KEY,
-            model_name=settings.REPORT_ENGINE_MODEL_NAME,
-            base_url=settings.REPORT_ENGINE_BASE_URL,
+            api_key=self.config.REPORT_ENGINE_API_KEY,
+            model_name=self.config.REPORT_ENGINE_MODEL_NAME,
+            base_url=self.config.REPORT_ENGINE_BASE_URL,
         )
     
     def _initialize_nodes(self):
