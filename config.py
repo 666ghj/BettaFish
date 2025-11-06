@@ -8,10 +8,11 @@
 """
 
 from pathlib import Path
-from pydantic_settings import BaseSettings
 from pydantic import Field, ConfigDict
+from pydantic_settings import BaseSettings
 from typing import Optional
 from loguru import logger
+from dotenv import load_dotenv
 
 
 # 计算 .env 优先级：优先当前工作目录，其次项目根目录
@@ -19,6 +20,8 @@ PROJECT_ROOT: Path = Path(__file__).resolve().parent
 CWD_ENV: Path = Path.cwd() / ".env"
 ENV_FILE: str = str(CWD_ENV if CWD_ENV.exists() else (PROJECT_ROOT / ".env"))
 
+# 先将 .env 内容加载进环境变量，确保后续读取能够覆盖旧值
+load_dotenv(ENV_FILE, override=True)
 
 class Settings(BaseSettings):
     """
@@ -113,6 +116,9 @@ def reload_settings() -> Settings:
         Settings: 新创建的配置实例
     """
     
+    # 重新加载 .env 内容到环境变量，确保外部修改能被捕获
+    load_dotenv(ENV_FILE, override=True)
+
     global settings
     settings = Settings()
     return settings
