@@ -84,9 +84,10 @@ def with_retry(config: RetryConfig = None):
                     
                     if attempt == config.max_retries:
                         # 最后一次尝试也失败了
-                        logger.error(f"函数 {func.__name__} 在 {config.max_retries + 1} 次尝试后仍然失败")
-                        logger.error(f"最终错误: {str(e)}")
-                        raise e
+                        logger.exception(
+                            f"函数 {func.__name__} 在 {config.max_retries + 1} 次尝试后仍然失败，最终错误: {str(e)}"
+                        )
+                        raise
                     
                     # 计算延迟时间
                     delay = min(
@@ -94,15 +95,17 @@ def with_retry(config: RetryConfig = None):
                         config.max_delay
                     )
                     
-                    logger.warning(f"函数 {func.__name__} 第 {attempt + 1} 次尝试失败: {str(e)}")
+                    logger.opt(exception=e).warning(
+                        f"函数 {func.__name__} 第 {attempt + 1} 次尝试失败: {str(e)}"
+                    )
                     logger.info(f"将在 {delay:.1f} 秒后进行第 {attempt + 2} 次尝试...")
                     
                     time.sleep(delay)
                 
                 except Exception as e:
                     # 不在重试列表中的异常，直接抛出
-                    logger.error(f"函数 {func.__name__} 遇到不可重试的异常: {str(e)}")
-                    raise e
+                    logger.exception(f"函数 {func.__name__} 遇到不可重试的异常: {str(e)}")
+                    raise
             
             # 这里不应该到达，但作为安全网
             if last_exception:
@@ -170,8 +173,10 @@ def with_graceful_retry(config: RetryConfig = None, default_return=None):
                     
                     if attempt == config.max_retries:
                         # 最后一次尝试也失败了，返回默认值而不抛出异常
-                        logger.warning(f"非关键API {func.__name__} 在 {config.max_retries + 1} 次尝试后仍然失败")
-                        logger.warning(f"最终错误: {str(e)}")
+                        logger.opt(exception=e).warning(
+                            f"非关键API {func.__name__} 在 {config.max_retries + 1} 次尝试后仍然失败"
+                        )
+                        logger.opt(exception=e).warning(f"最终错误: {str(e)}")
                         logger.info(f"返回默认值以保证系统继续运行: {default_return}")
                         return default_return
                     
@@ -181,14 +186,18 @@ def with_graceful_retry(config: RetryConfig = None, default_return=None):
                         config.max_delay
                     )
                     
-                    logger.warning(f"非关键API {func.__name__} 第 {attempt + 1} 次尝试失败: {str(e)}")
+                    logger.opt(exception=e).warning(
+                        f"非关键API {func.__name__} 第 {attempt + 1} 次尝试失败: {str(e)}"
+                    )
                     logger.info(f"将在 {delay:.1f} 秒后进行第 {attempt + 2} 次尝试...")
                     
                     time.sleep(delay)
                 
                 except Exception as e:
                     # 不在重试列表中的异常，返回默认值
-                    logger.warning(f"非关键API {func.__name__} 遇到不可重试的异常: {str(e)}")
+                    logger.opt(exception=e).warning(
+                        f"非关键API {func.__name__} 遇到不可重试的异常: {str(e)}"
+                    )
                     logger.info(f"返回默认值以保证系统继续运行: {default_return}")
                     return default_return
             
