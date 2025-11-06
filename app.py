@@ -16,6 +16,7 @@ import requests
 from loguru import logger
 import importlib
 from pathlib import Path
+from MindSpider.main import MindSpider
 
 # 导入ReportEngine
 try:
@@ -220,6 +221,12 @@ def initialize_system_components():
     """启动所有依赖组件（Streamlit 子应用、ForumEngine、ReportEngine）。"""
     logs = []
     errors = []
+    
+    spider = MindSpider()
+    if spider.initialize_database():
+        logger.info("数据库初始化成功")
+    else:
+        logger.error("数据库初始化失败")
 
     try:
         stop_forum_engine()
