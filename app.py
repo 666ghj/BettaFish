@@ -47,6 +47,8 @@ LOG_DIR.mkdir(exist_ok=True)
 CONFIG_MODULE_NAME = 'config'
 CONFIG_FILE_PATH = Path(__file__).resolve().parent / 'config.py'
 CONFIG_KEYS = [
+    'HOST',
+    'PORT',
     'DB_DIALECT',
     'DB_HOST',
     'DB_PORT',
@@ -1018,8 +1020,11 @@ def handle_status_request():
     })
 
 if __name__ == '__main__':
-    HOST = '0.0.0.0'
-    PORT = 5000
+    # 从配置文件读取 HOST 和 PORT
+    from config import settings
+    HOST = settings.HOST
+    PORT = settings.PORT
+    
     logger.info("等待配置确认，系统将在前端指令后启动组件...")
     logger.info(f"Flask服务器已启动，访问地址: http://{HOST}:{PORT}")
     
