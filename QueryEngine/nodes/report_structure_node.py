@@ -52,7 +52,7 @@ class ReportStructureNode(StateMutationNode):
             logger.info(f"正在为查询生成报告结构: {self.query}")
             
             # 调用LLM
-            response = self.llm_client.invoke(SYSTEM_PROMPT_REPORT_STRUCTURE, self.query)
+            response = self.llm_client.stream_invoke_to_string(SYSTEM_PROMPT_REPORT_STRUCTURE, self.query)
             
             # 处理响应
             processed_response = self.process_output(response)

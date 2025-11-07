@@ -68,8 +68,8 @@ class ReportFormattingNode(BaseNode):
             
             logger.info("正在格式化最终报告")
             
-            # 调用LLM生成Markdown格式
-            response = self.llm_client.invoke(
+            # 调用LLM生成Markdown格式（流式，安全拼接UTF-8）
+            response = self.llm_client.stream_invoke_to_string(
                 SYSTEM_PROMPT_REPORT_FORMATTING,
                 message,
             )

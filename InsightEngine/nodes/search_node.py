@@ -65,8 +65,8 @@ class FirstSearchNode(BaseNode):
             
             logger.info("正在生成首次搜索查询")
             
-            # 调用LLM
-            response = self.llm_client.invoke(SYSTEM_PROMPT_FIRST_SEARCH, message)
+            # 调用LLM（流式，安全拼接UTF-8）
+            response = self.llm_client.stream_invoke_to_string(SYSTEM_PROMPT_FIRST_SEARCH, message)
             
             # 处理响应
             processed_response = self.process_output(response)
@@ -200,8 +200,8 @@ class ReflectionNode(BaseNode):
             
             logger.info("正在进行反思并生成新搜索查询")
             
-            # 调用LLM
-            response = self.llm_client.invoke(SYSTEM_PROMPT_REFLECTION, message)
+            # 调用LLM（流式，安全拼接UTF-8）
+            response = self.llm_client.stream_invoke_to_string(SYSTEM_PROMPT_REFLECTION, message)
             
             # 处理响应
             processed_response = self.process_output(response)
