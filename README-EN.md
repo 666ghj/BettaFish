@@ -337,7 +337,7 @@ Recommended LLM API Provider: [Reasoning Era](https://aihubmix.com/?aff=8Ds9)
 ```bash
 # Local MySQL database initialization
 cd MindSpider
-# Project initialization
+# Project initialization, deprecated, initialization is now automatic.
 python main.py --setup
 
 ```
@@ -667,6 +667,7 @@ This project is licensed under the [GPL-2.0 License](LICENSE). Please see the LI
 ### Get Help
 
 - **Project Homepage**: [GitHub Repository](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem)
+- **FAQ**: [Frequently Asked Questions](https://github.com/666ghj/BettaFish/issues/185)
 - **Issue Reporting**: [Issues Page](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/issues)
 - **Feature Requests**: [Discussions Page](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/discussions)
 
