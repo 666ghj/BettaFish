@@ -216,7 +216,7 @@ docker compose up -d
 
 > **⚠️ Note: Slow Image Pull**
 
-> In the original `docker-compose.yml` file, we have provided alternative (or mirror) image addresses as **comments** for you to replace with.
+> In the original `docker-compose.yml` file, we have provided alternative (mirror) image addresses as **comments** for you to replace with.
 
 ### 2. Configuration Instructions
 
