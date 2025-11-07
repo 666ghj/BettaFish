@@ -9,6 +9,7 @@ services:
     restart: unless-stopped
     environment:
       - PYTHONUNBUFFERED=1
+      - STREAMLIT_SERVER_ENABLE_FILE_WATCHER=false
     ports:
       - "5000:5000"
       - "8501:8501"

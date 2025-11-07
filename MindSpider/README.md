@@ -1,10 +1,3 @@
-> [!warning]
-> 好像最近项目中用来请求每日热点新闻的api接口被ban了，可以自己部署一下[newsnow](https://github.com/ourongxing/newsnow)，很快的可以一键部署，然后替换掉这个URL即可，最近一个月我也会commit一版更通用的解决方案。
-> ```python
-> #新闻API基础URL
-> BASE URL = "https://newsnow.busiyi.world"
-> ```
-
 # MindSpider - 专为舆情分析设计的AI爬虫
 
 > 免责声明：
@@ -193,7 +186,7 @@ flowchart TB
    - 记录任务状态、进度、结果等
 
 5. **平台内容表**（继承自MediaCrawler）
-   - xhs_note - 小红书笔记
+   - xhs_note - 小红书笔记（暂时废弃，详情查看：https://github.com/NanmiCoder/MediaCrawler/issues/754）
    - douyin_aweme - 抖音视频
    - kuaishou_video - 快手视频
    - bilibili_video - B站视频
@@ -206,9 +199,10 @@ flowchart TB
 ### 环境要求
 
 - Python 3.9 或更高版本
-- MySQL 5.7 或更高版本
+- MySQL 5.7 或更高版本，或 PostgreSQL
 - Conda环境：pytorch_python11（推荐）
 - 操作系统：Windows/Linux/macOS
+
 
 ### 1. 克隆项目
 
@@ -275,7 +269,7 @@ DB_PASSWORD = "your_password"
 DB_NAME = "mindspider"
 DB_CHARSET = "utf8mb4"
 
-# DeepSeek API密钥
+# MINDSPIDER API密钥
 MINDSPIDER_BASE_URL=your_api_base_url
 MINDSPIDER_API_KEY=sk-your-key
 MINDSPIDER_MODEL_NAME=deepseek-chat
@@ -286,9 +280,6 @@ MINDSPIDER_MODEL_NAME=deepseek-chat
 ```bash
 # 检查系统状态
 python main.py --status
-
-# 初始化数据库表
-python main.py --setup
 ```
 
 ## 使用指南
@@ -325,7 +316,7 @@ python main.py --broad-topic --date 2024-01-15
 
 **首次使用每个平台都需要登录，这是最关键的步骤：**
 
-1. **小红书登录**
+1. **小红书登录**（暂时废弃，详情查看：https://github.com/NanmiCoder/MediaCrawler/issues/754）
 ```bash
 # 测试小红书爬取（会弹出二维码）
 python main.py --deep-sentiment --platforms xhs --test
@@ -369,6 +360,10 @@ python main.py --deep-sentiment --platforms zhihu --test
 3. **手动处理验证**：有些平台可能需要手动滑动验证码
 4. **重新登录**：删除 `DeepSentimentCrawling/MediaCrawler/browser_data/` 目录重新登录
 
+### 其他问题
+
+https://github.com/666ghj/BettaFish/issues/185
+
 ### 爬取参数调整
 
 在实际使用前建议调整爬取参数：
@@ -394,8 +389,8 @@ python main.py --deep-sentiment --date 2024-01-15
 
 #### 2. 指定平台爬取
 ```bash
-# 只爬取小红书和抖音
-python main.py --deep-sentiment --platforms xhs dy --test
+# 只爬取B站和抖音
+python main.py --deep-sentiment --platforms bili dy --test
 
 # 爬取所有平台的特定数量内容
 python main.py --deep-sentiment --max-keywords 30 --max-notes 20
@@ -405,7 +400,7 @@ python main.py --deep-sentiment --max-keywords 30 --max-notes 20
 
 ```bash
 --status              # 检查项目状态
---setup               # 初始化项目
+--setup               # 初始化项目(废弃，已自动初始化)
 --broad-topic         # 话题提取
 --deep-sentiment      # 爬虫模块
 --complete            # 完整流程
