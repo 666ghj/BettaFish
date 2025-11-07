@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     DB_CHARSET: str = Field("utf8mb4", description="数据库字符集，推荐utf8mb4，兼容emoji")
     
     # ======================= LLM 相关 =======================
+    # 我们的LLM模型API赞助商有：https://share.302.ai/P66Qe3、https://aihubmix.com/?aff=8Ds9，提供了非常全面的模型api
+    
     # Insight Agent（推荐Kimi，申请地址：https://platform.moonshot.cn/）
     INSIGHT_ENGINE_API_KEY: Optional[str] = Field(None, description="Insight Agent（推荐Kimi，https://platform.moonshot.cn/）API密钥，用于主LLM。您可以更改每个部分LLM使用的API，🚩只要兼容OpenAI请求格式都可以，定义好KEY、BASE_URL与MODEL_NAME即可正常使用。重要提醒：我们强烈推荐您先使用推荐的配置申请API，先跑通再进行您的更改！")
     INSIGHT_ENGINE_BASE_URL: Optional[str] = Field("https://api.moonshot.cn/v1", description="Insight Agent LLM接口BaseUrl，可自定义厂商API")
