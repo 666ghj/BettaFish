@@ -20,7 +20,7 @@
 
 
 
-[English](./README-EN.md) | [中文文档](./README.md)
+[English](./README-EN.md) | 中文文档
 
 </div>
 
