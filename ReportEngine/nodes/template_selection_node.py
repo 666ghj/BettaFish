@@ -115,7 +115,7 @@ class TemplateSelectionNode(BaseNode):
 请根据查询内容、报告内容和论坛日志的具体情况，选择最合适的模板。"""
         
         # 调用LLM
-        response = self.llm_client.invoke(SYSTEM_PROMPT_TEMPLATE_SELECTION, user_message)
+        response = self.llm_client.stream_invoke_to_string(SYSTEM_PROMPT_TEMPLATE_SELECTION, user_message)
         
         # 检查响应是否为空
         if not response or not response.strip():
