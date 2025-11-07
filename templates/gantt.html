@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>甘特图生成器 - BettaFish</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+
+        .upload-section {
+            text-align: center;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 10px;
+            padding: 60px 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+        }
+
+        .upload-area:hover {
+            background: #e9ecef;
+            border-color: #764ba2;
+        }
+
+        .upload-area.dragover {
+            background: #e7e9ff;
+            border-color: #4c51bf;
+        }
+
+        .upload-icon {
+            font-size: 4em;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        .upload-text {
+            font-size: 1.2em;
+            color: #495057;
+            margin-bottom: 10px;
+        }
+
+        .upload-hint {
+            font-size: 0.9em;
+            color: #6c757d;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .options-section {
+            margin-top: 30px;
+            display: none;
+        }
+
+        .option-group {
+            margin-bottom: 20px;
+        }
+
+        .option-group label {
+            display: block;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 8px;
+            font-size: 0.95em;
+        }
+
+        .option-group input,
+        .option-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s ease;
+        }
+
+        .option-group input:focus,
+        .option-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+            cursor: pointer;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 25px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .btn-link {
+            background: transparent;
+            color: #667eea;
+            text-decoration: underline;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .result-section {
+            display: none;
+            margin-top: 30px;
+        }
+
+        .summary {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .summary h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .summary-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .summary-label {
+            font-size: 0.85em;
+            color: #6c757d;
+            margin-bottom: 5px;
+        }
+
+        .summary-value {
+            font-size: 1.3em;
+            font-weight: 700;
+            color: #2c3e50;
+        }
+
+        .chart-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            min-height: 500px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .chart-list {
+            margin-top: 30px;
+        }
+
+        .chart-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #e9ecef;
+        }
+
+        .chart-item-info {
+            flex: 1;
+        }
+
+        .chart-item-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-sm {
+            padding: 8px 15px;
+            font-size: 0.9em;
+        }
+
+        @media (max-width: 768px) {
+            .summary-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .btn-group {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 甘特图生成器</h1>
+            <p>上传Excel文件，一键生成项目时间轴甘特图</p>
+        </div>
+
+        <div class="card">
+            <div class="upload-section">
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">📤</div>
+                    <div class="upload-text">点击或拖拽Excel文件到此处上传</div>
+                    <div class="upload-hint">支持 .xlsx 和 .xls 格式，最大 10MB</div>
+                    <input type="file" id="fileInput" class="file-input" accept=".xlsx,.xls">
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <a href="/api/gantt/template" class="btn-link" download>📥 下载Excel模板</a>
+                </div>
+            </div>
+
+            <div class="options-section" id="optionsSection">
+                <h3 style="margin-bottom: 20px; color: #2c3e50;">📋 图表设置</h3>
+
+                <div class="option-group">
+                    <label for="chartTitle">图表标题</label>
+                    <input type="text" id="chartTitle" placeholder="例如: 2024年项目计划" value="项目时间轴甘特图">
+                </div>
+
+                <div class="option-group">
+                    <label for="groupBy">分组方式</label>
+                    <select id="groupBy">
+                        <option value="category">按分类分组</option>
+                        <option value="owner">按负责人分组</option>
+                        <option value="none">不分组</option>
+                    </select>
+                </div>
+
+                <div class="option-group">
+                    <label for="colorScheme">颜色方案</label>
+                    <select id="colorScheme">
+                        <option value="default">默认</option>
+                        <option value="pastel">柔和</option>
+                        <option value="bold">鲜艳</option>
+                        <option value="vivid">活力</option>
+                        <option value="safe">安全</option>
+                    </select>
+                </div>
+
+                <div class="option-group checkbox-group">
+                    <input type="checkbox" id="showProgress" checked>
+                    <label for="showProgress" style="margin-bottom: 0;">显示任务进度</label>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-primary" id="generateBtn">🎨 生成甘特图</button>
+                    <button class="btn btn-secondary" id="resetBtn">🔄 重新上传</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>正在生成甘特图，请稍候...</p>
+        </div>
+
+        <div class="result-section" id="resultSection">
+            <div class="card">
+                <div id="alertContainer"></div>
+
+                <div class="summary" id="summary"></div>
+
+                <h3 style="margin-bottom: 15px; color: #2c3e50;">📈 甘特图预览</h3>
+                <div class="chart-container">
+                    <iframe id="chartFrame" style="width: 100%; height: 600px; border: none;"></iframe>
+                </div>
+
+                <div class="btn-group" style="margin-top: 20px;">
+                    <button class="btn btn-primary" id="downloadBtn">💾 下载甘特图</button>
+                    <button class="btn btn-secondary" id="newChartBtn">➕ 生成新图表</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const optionsSection = document.getElementById('optionsSection');
+        const generateBtn = document.getElementById('generateBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const loading = document.getElementById('loading');
+        const resultSection = document.getElementById('resultSection');
+        const chartFrame = document.getElementById('chartFrame');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const newChartBtn = document.getElementById('newChartBtn');
+        const alertContainer = document.getElementById('alertContainer');
+        const summary = document.getElementById('summary');
+
+        let selectedFile = null;
+        let currentFileId = null;
+
+        // 点击上传区域
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // 文件选择
+        fileInput.addEventListener('change', (e) => {
+            handleFileSelect(e.target.files[0]);
+        });
+
+        // 拖拽上传
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            handleFileSelect(e.dataTransfer.files[0]);
+        });
+
+        function handleFileSelect(file) {
+            if (!file) return;
+
+            const validExtensions = ['.xlsx', '.xls'];
+            const fileExtension = '.' + file.name.split('.').pop().toLowerCase();
+
+            if (!validExtensions.includes(fileExtension)) {
+                showAlert('请上传Excel文件（.xlsx或.xls格式）', 'error');
+                return;
+            }
+
+            if (file.size > 10 * 1024 * 1024) {
+                showAlert('文件大小不能超过10MB', 'error');
+                return;
+            }
+
+            selectedFile = file;
+            uploadArea.querySelector('.upload-text').textContent = `已选择: ${file.name}`;
+            uploadArea.querySelector('.upload-icon').textContent = '✅';
+            optionsSection.style.display = 'block';
+        }
+
+        // 生成甘特图
+        generateBtn.addEventListener('click', async () => {
+            if (!selectedFile) {
+                showAlert('请先上传Excel文件', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            formData.append('title', document.getElementById('chartTitle').value);
+            formData.append('group_by', document.getElementById('groupBy').value);
+            formData.append('show_progress', document.getElementById('showProgress').checked);
+            formData.append('color_scheme', document.getElementById('colorScheme').value);
+
+            loading.style.display = 'block';
+            resultSection.style.display = 'none';
+            generateBtn.disabled = true;
+
+            try {
+                const response = await fetch('/api/gantt/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    currentFileId = data.file_id;
+                    displayResult(data);
+                } else {
+                    showAlert(data.error || '生成失败', 'error');
+                }
+            } catch (error) {
+                showAlert('网络错误: ' + error.message, 'error');
+            } finally {
+                loading.style.display = 'none';
+                generateBtn.disabled = false;
+            }
+        });
+
+        function displayResult(data) {
+            // 显示摘要
+            const summaryHTML = `
+                <h3>📊 项目摘要</h3>
+                <div class="summary-grid">
+                    <div class="summary-item">
+                        <div class="summary-label">任务总数</div>
+                        <div class="summary-value">${data.summary.total_tasks}</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">开始日期</div>
+                        <div class="summary-value">${data.summary.start_date}</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">结束日期</div>
+                        <div class="summary-value">${data.summary.end_date}</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">总持续天数</div>
+                        <div class="summary-value">${data.summary.total_days} 天</div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="summary-label">平均进度</div>
+                        <div class="summary-value">${data.summary.avg_progress.toFixed(1)}%</div>
+                    </div>
+                </div>
+            `;
+            summary.innerHTML = summaryHTML;
+
+            // 显示图表
+            chartFrame.src = data.chart_url;
+
+            // 显示成功消息
+            showAlert('✅ ' + data.message, 'success');
+
+            resultSection.style.display = 'block';
+        }
+
+        // 下载
+        downloadBtn.addEventListener('click', () => {
+            if (currentFileId) {
+                window.location.href = `/api/gantt/download/${currentFileId}`;
+            }
+        });
+
+        // 重置
+        resetBtn.addEventListener('click', reset);
+        newChartBtn.addEventListener('click', reset);
+
+        function reset() {
+            selectedFile = null;
+            currentFileId = null;
+            fileInput.value = '';
+            uploadArea.querySelector('.upload-text').textContent = '点击或拖拽Excel文件到此处上传';
+            uploadArea.querySelector('.upload-icon').textContent = '📤';
+            optionsSection.style.display = 'none';
+            resultSection.style.display = 'none';
+            alertContainer.innerHTML = '';
+        }
+
+        function showAlert(message, type) {
+            const alertClass = type === 'error' ? 'alert-error' : 'alert-success';
+            alertContainer.innerHTML = `<div class="alert ${alertClass}">${message}</div>`;
+
+            if (type === 'success') {
+                setTimeout(() => {
+                    alertContainer.innerHTML = '';
+                }, 5000);
+            }
+        }
+    </script>
+</body>
+</html>

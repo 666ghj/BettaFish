@@ -25,6 +25,14 @@ except ImportError as e:
     logger.error(f"ReportEngine导入失败: {e}")
     REPORT_ENGINE_AVAILABLE = False
 
+# 导入GanttEngine
+try:
+    from GanttEngine.flask_interface import gantt_bp
+    GANTT_ENGINE_AVAILABLE = True
+except ImportError as e:
+    logger.error(f"GanttEngine导入失败: {e}")
+    GANTT_ENGINE_AVAILABLE = False
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'Dedicated-to-creating-a-concise-and-versatile-public-opinion-analysis-platform'
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -35,6 +43,13 @@ if REPORT_ENGINE_AVAILABLE:
     logger.info("ReportEngine接口已注册")
 else:
     logger.info("ReportEngine不可用，跳过接口注册")
+
+# 注册GanttEngine Blueprint
+if GANTT_ENGINE_AVAILABLE:
+    app.register_blueprint(gantt_bp)
+    logger.info("GanttEngine接口已注册")
+else:
+    logger.info("GanttEngine不可用，跳过接口注册")
 
 # 设置UTF-8编码环境
 os.environ['PYTHONIOENCODING'] = 'utf-8'
@@ -720,6 +735,11 @@ atexit.register(cleanup_processes)
 def index():
     """主页"""
     return render_template('index.html')
+
+@app.route('/gantt')
+def gantt_page():
+    """甘特图页面"""
+    return render_template('gantt.html')
 
 @app.route('/api/status')
 def get_status():
