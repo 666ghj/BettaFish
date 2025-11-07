@@ -64,7 +64,7 @@ Say goodbye to traditional data dashboards. In "WeiYu", everything starts with a
 LLM Model API Sponsor: <a href="https://aihubmix.com/?aff=8Ds9" target="_blank"><img src="./static/image/logo_aihubmix.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>
 
 <details>
-<summary>Solomon Blog LionCC.ai; Programming Carpool codecodex.ai; Programming Computing Power VibeCodingAPI.ai: <span style="margin-left: 10px"><a href="https://lioncc.ai/" target="_blank"><img src="./static/image/logo_loincc.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a></span></summary>
+<summary>Solomon Blog LionCC.ai; Programming Carpool codecodex.ai; Programming Computing Power VibeCodingAPI.ai: <span style="margin-left: 10px"><a href="https://codecodex.ai/" target="_blank"><img src="./static/image/logo_loincc.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a></span></summary>
 
 1. Solomon Blog LionCC.ai has updated the "BettaFish WeiYu System - LionCC API Deployment Configuration Complete Guide" and is optimizing one-click deployment and cloud server invocation solutions.
 2. VibeCodingapi.ai Lion Computing Platform has adapted to all LLM models of "BettaFish WeiYu System", including Claude Code, OpenAI Codex, and Gemini CLI programming development computing power. The quota price is 1:1 (100 yuan equals 100 USD quota).
