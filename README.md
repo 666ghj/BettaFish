@@ -208,21 +208,15 @@ Weibo_PublicOpinion_AnalysisSystem/
 
 ### 1. 启动项目
 
-本项目使用 `docker compose` 进行多服务管理和运行。
+**运行命令：** 执行以下命令在**后台**启动所有服务：
 
-1.  **定位文件：** 切换到包含项目提供的 `docker-compose.yml` 文件的目录下。
+```bash
+docker compose up -d
+```
 
-2.  **运行命令：** 执行以下命令在**后台**启动所有服务：
+> **⚠️ 注意：镜像拉取速度慢**
 
-    ```bash
-    docker compose up -d
-    ```
-
-    > **⚠️ 注意：镜像拉取速度慢**
-
-    > 如果您在拉取镜像时遇到速度过慢的问题，可以修改 `docker-compose.yml` 文件中对应服务下的 `image` 字段，以使用其他的镜像源。
-
-    > 在原 `docker-compose.yml` 文件中，我们已经通过**注释**的方式提供了备用（或其他）镜像地址供您替换。
+> 在原 `docker-compose.yml` 文件中，我们已经通过**注释**的方式提供了备用（或其他）镜像地址供您替换。
 
 ### 2. 配置说明
 

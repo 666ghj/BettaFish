@@ -208,21 +208,15 @@ Weibo_PublicOpinion_AnalysisSystem/
 
 ### 1. Starting the Project
 
-This project utilizes `docker compose` for managing and running multiple services.
+**Run Command:** Execute the following command to start all services in the **background**:
 
-1.  **Locate File:** Navigate to the directory containing the provided `docker-compose.yml` file.
+```bash
+docker compose up -d
+```
 
-2.  **Run Command:** Execute the following command to start all services in the **background**:
+> **⚠️ Note: Slow Image Pull**
 
-    ```bash
-    docker compose up -d
-    ```
-
-    > **⚠️ Note: Slow Image Pull**
-
-    > If you encounter slow image pulling speeds, you can modify the `image` field under the corresponding service in the `docker-compose.yml` file to use an alternative image source.
-
-    > In the original `docker-compose.yml` file, we have provided alternative (or mirror) image addresses as **comments** for you to replace with.
+> In the original `docker-compose.yml` file, we have provided alternative (or mirror) image addresses as **comments** for you to replace with.
 
 ### 2. Configuration Instructions
 
