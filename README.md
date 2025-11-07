@@ -337,7 +337,7 @@ INSIGHT_ENGINE_MODEL_NAME=
 ```bash
 # 本地MySQL数据库初始化
 cd MindSpider
-# 项目初始化
+# 项目初始化（废弃，已自动初始化）
 python main.py --setup
 
 ```
@@ -665,6 +665,7 @@ class DeepSearchAgent:
 ### 获取帮助
 
 - **项目主页**：[GitHub仓库](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem)
+- **常见问题解答**：[FAQ](https://github.com/666ghj/BettaFish/issues/185)
 - **问题反馈**：[Issues页面](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/issues)
 - **功能建议**：[Discussions页面](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/discussions)
 
