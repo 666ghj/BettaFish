@@ -296,22 +296,32 @@ Copy the `.env.example` file in the project root directory to `.env`
 
 Edit the `.env` file and fill in your API keys (you can also choose your own models and search proxies; see the `.env.example` file in the project root directory or the `config.py` file for details):
 
-```python
-# MySQL Database Configuration
-DB_HOST = "localhost"
-DB_PORT = 3306
-DB_USER = "your_username"
-DB_PASSWORD = "your_password"
-DB_NAME = "your_db_name"
-DB_CHARSET = "utf8mb4"
+```yml
+# ====================== Database Configuration ======================
+# Database host, e.g., localhost or 127.0.0.1
+DB_HOST=your_db_host
+# Database port number, default is 3306
+DB_PORT=3306
+# Database username
+DB_USER=your_db_user
+# Database password
+DB_PASSWORD=your_db_password
+# Database name
+DB_NAME=your_db_name
+# Database character set, utf8mb4 is recommended for emoji compatibility
+DB_CHARSET=utf8mb4
+# Database type: mysql or postgresql
+DB_DIALECT=postgresql
 
 # LLM configuration
 # You can switch each Engine's LLM provider as long as it follows the OpenAI-compatible request format
 
 # Insight Agent
-INSIGHT_ENGINE_API_KEY = "your_api_key"
-INSIGHT_ENGINE_BASE_URL = "https://api.moonshot.cn/v1"
-INSIGHT_ENGINE_MODEL_NAME = "kimi-k2-0711-preview"
+INSIGHT_ENGINE_API_KEY=
+# Insight Agent LLM API BaseUrl, customize API provider
+INSIGHT_ENGINE_BASE_URL=
+# Insight Agent LLM Model Name, e.g., kimi-k2-0711-preview
+INSIGHT_ENGINE_MODEL_NAME=
 # Media Agent
 ...
 ```
@@ -327,7 +337,7 @@ Recommended LLM API Provider: [Reasoning Era](https://aihubmix.com/?aff=8Ds9)
 ```bash
 # Local MySQL database initialization
 cd MindSpider
-# Project initialization
+# Project initialization, deprecated, initialization is now automatic.
 python main.py --setup
 
 ```
@@ -657,6 +667,7 @@ This project is licensed under the [GPL-2.0 License](LICENSE). Please see the LI
 ### Get Help
 
 - **Project Homepage**: [GitHub Repository](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem)
+- **FAQ**: [Frequently Asked Questions](https://github.com/666ghj/BettaFish/issues/185)
 - **Issue Reporting**: [Issues Page](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/issues)
 - **Feature Requests**: [Discussions Page](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/discussions)
 

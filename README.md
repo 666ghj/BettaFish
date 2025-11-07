@@ -297,22 +297,32 @@ playwright install chromium
 
 编辑 `.env` 文件，填入您的API密钥（您也可以选择自己的模型、搜索代理，详情见根目录.env.example文件内或根目录config.py中的说明）：
 
-```python
-# MySQL数据库配置
-DB_HOST = "localhost"
-DB_PORT = 3306
-DB_USER = "your_username"
-DB_PASSWORD = "your_password"
-DB_NAME = "your_db_name"
-DB_CHARSET = "utf8mb4"
+```yml
+# ====================== 数据库配置 ======================
+# 数据库主机，例如localhost 或 127.0.0.1
+DB_HOST=your_db_host
+# 数据库端口号，默认为3306
+DB_PORT=3306
+# 数据库用户名
+DB_USER=your_db_user
+# 数据库密码
+DB_PASSWORD=your_db_password
+# 数据库名称
+DB_NAME=your_db_name
+# 数据库字符集，推荐utf8mb4，兼容emoji
+DB_CHARSET=utf8mb4
+# 数据库类型mysql或postgresql
+DB_DIALECT=postgresql
 
 # LLM配置
 # 您可以更改每个部分LLM使用的API，只要兼容OpenAI请求格式都可以
 
 # Insight Agent
-INSIGHT_ENGINE_API_KEY = "your_api_key"
-INSIGHT_ENGINE_BASE_URL = "https://api.moonshot.cn/v1"
-INSIGHT_ENGINE_MODEL_NAME = "kimi-k2-0711-preview"
+INSIGHT_ENGINE_API_KEY=
+# Insight Agent LLM接口BaseUrl，可自定义厂商API
+INSIGHT_ENGINE_BASE_URL=
+# Insight Agent LLM模型名称，如kimi-k2-0711-preview
+INSIGHT_ENGINE_MODEL_NAME=
 # Media Agent
 ...
 ```
@@ -327,7 +337,7 @@ INSIGHT_ENGINE_MODEL_NAME = "kimi-k2-0711-preview"
 ```bash
 # 本地MySQL数据库初始化
 cd MindSpider
-# 项目初始化
+# 项目初始化（废弃，已自动初始化）
 python main.py --setup
 
 ```
@@ -655,6 +665,7 @@ class DeepSearchAgent:
 ### 获取帮助
 
 - **项目主页**：[GitHub仓库](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem)
+- **常见问题解答**：[FAQ](https://github.com/666ghj/BettaFish/issues/185)
 - **问题反馈**：[Issues页面](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/issues)
 - **功能建议**：[Discussions页面](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/discussions)
 
