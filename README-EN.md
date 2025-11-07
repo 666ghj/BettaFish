@@ -206,124 +206,44 @@ Weibo_PublicOpinion_AnalysisSystem/
 
 ## 🚀 Quick Start
 
-### 1. 🐳 Pulling the Docker Image
+### 1. Starting the Project
 
+This project utilizes `docker compose` for managing and running multiple services.
 
+1.  **Locate File:** Navigate to the directory containing the provided `docker-compose.yml` file.
 
-You can view all available versions of the BettaFish Docker image on the GitHub Container Registry (GHCR) here:
+2.  **Run Command:** Execute the following command to start all services in the **background**:
 
-https://github.com/666ghj/BettaFish/pkgs/container/bettafish
+    ```bash
+    docker compose up -d
+    ```
 
-Use the following command to pull the image:
+    > **⚠️ Note: Slow Image Pull**
 
-Bash
+    > If you encounter slow image pulling speeds, you can modify the `image` field under the corresponding service in the `docker-compose.yml` file to use an alternative image source.
 
-```
-docker pull ghcr.io/666ghj/bettafish:latest
-```
+    > In the original `docker-compose.yml` file, we have provided alternative (or mirror) image addresses as **comments** for you to replace with.
 
-> ⚠️ **Note:** If the pull speed is slow, you can try replacing the registry address `ghcr.io` with `ghcr.nju.edu.cn` for faster download:
->
-> Bash
->
-> ```
-> docker pull ghcr.nju.edu.cn/666ghj/bettafish:latest
-> ```
+### 2. Configuration Instructions
 
+#### Database Configuration
 
+Please configure the database connection information with the following parameters:
 
-### 2. 🚀 Running with Docker Compose
+| Configuration Item | Value to Use | Description |
+| :--- | :--- | :--- |
+| `DB_HOST` | `db` | Database service name (as defined in `docker-compose.yml`) |
+| `DB_PORT` | `5432` | Default PostgreSQL port |
+| `DB_USER` | `bettafish` | Database username |
+| `DB_PASSWORD` | `bettafish` | Database password |
+| `DB_NAME` | `bettafish` | Database name |
+| **Others** | **Keep Default** | Please keep other parameters, such as database connection pool settings, at their default values. |
 
+### Large Language Model (LLM) Configuration
 
+After completing the database configuration, please proceed to configure **all Large Language Model related parameters** to ensure the system can connect to your chosen LLM service.
 
-After pulling the image, you need to use the provided `docker-compose.yml` file to start the service.
-
-
-
-#### A. Modifying `docker-compose.yml`
-
-
-
-Open the `docker-compose.yml` file in your project and modify the `image` field under the `bettafish` service. Replace its value with the **full name of the image** you just pulled.
-
-**Example:**
-
-Change the original configuration:
-
-YAML
-
-```
-services:
-  bettafish:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: bettafish:latest # <-- Replace this image name with the one you pulled
-    container_name: bettafish
-# ... other configurations
-```
-
-To (using `ghcr.io/666ghj/bettafish:latest` as an example:
-
-YAML
-
-```
-services:
-  bettafish:
-    image: ghcr.io/666ghj/bettafish:latest # <-- Replace with the image name you pulled
-    container_name: bettafish
-# ... other configurations
-```
-
-
-
-#### B. Starting the Service
-
-
-
-In the directory containing the modified `docker-compose.yml` file, execute the following command to start the service:
-
-Bash
-
-```
-docker compose up -d
-```
-
-
-
-### 3. ⚙️ System Configuration (Database and Models)
-
-
-
-After the service starts, you need to configure the system.
-
-
-
-#### A. Database Configuration
-
-
-
-Please configure the database connection with the following parameters:
-
-| **Parameter**   | **Value**   | **Description**                                     |
-| --------------- | ----------- | --------------------------------------------------- |
-| **DB_HOST**     | `db`        | Database service name (in `docker-compose` network) |
-| **DB_PORT**     | `5432`      | Database port (PostgreSQL default)                  |
-| **DB_USER**     | `bettafish` | Database username                                   |
-| **DB_PASSWORD** | `bettafish` | Database password                                   |
-| **DB_NAME**     | `bettafish` | Database name                                       |
-
-> **Tip:** You should **keep the default values** for any other database-related parameters.
-
-
-
-#### B. Large Language Model (LLM) Configuration
-
-
-
-After completing the database configuration, proceed to configure all the Large Language Model related parameters that you intend to use.
-
-Once the configuration is complete, the system should start and run normally.
+Upon completing and saving all the configurations above, the system should be ready to run normally.
 
 
 ## 💻 ⚙️ Source Code Startup Guide

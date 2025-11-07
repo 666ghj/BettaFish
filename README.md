@@ -206,122 +206,44 @@ Weibo_PublicOpinion_AnalysisSystem/
 
 ## 🚀 快速开始（docker）
 
-### 1. 🐳 拉取 Docker 镜像
+### 1. 启动项目
 
+本项目使用 `docker compose` 进行多服务管理和运行。
 
+1.  **定位文件：** 切换到包含项目提供的 `docker-compose.yml` 文件的目录下。
 
-您可以从 GitHub Container Registry (GHCR) 查看所有可用的 BettaFish Docker 镜像版本，请访问：
+2.  **运行命令：** 执行以下命令在**后台**启动所有服务：
 
-https://github.com/666ghj/BettaFish/pkgs/container/bettafish
+    ```bash
+    docker compose up -d
+    ```
 
-使用以下命令拉取镜像：
+    > **⚠️ 注意：镜像拉取速度慢**
 
-Bash
+    > 如果您在拉取镜像时遇到速度过慢的问题，可以修改 `docker-compose.yml` 文件中对应服务下的 `image` 字段，以使用其他的镜像源。
 
-```
-docker pull ghcr.io/666ghj/bettafish:latest
-```
+    > 在原 `docker-compose.yml` 文件中，我们已经通过**注释**的方式提供了备用（或其他）镜像地址供您替换。
 
-> ⚠️ **注意：** 如果拉取速度较慢，您可以尝试将镜像仓库地址 `ghcr.io` 替换为 `ghcr.nju.edu.cn` 进行加速：
->
-> Bash
->
-> ```
-> docker pull ghcr.nju.edu.cn/666ghj/bettafish:latest
-> ```
+### 2. 配置说明
 
+#### 数据库配置 (Database Configuration)
 
+请按照以下参数配置数据库连接信息：
 
-### 2. 🚀 使用 Docker Compose 运行
+| 配置项 | 填写值 | 说明 |
+| :--- | :--- | :--- |
+| `DB_HOST` | `db` | 数据库服务名称 (对应 `docker-compose.yml` 中的服务名) |
+| `DB_PORT` | `5432` | 默认 PostgreSQL 端口 |
+| `DB_USER` | `bettafish` | 数据库用户名 |
+| `DB_PASSWORD` | `bettafish` | 数据库密码 |
+| `DB_NAME` | `bettafish` | 数据库名称 |
+| **其他** | **保持默认** | 数据库连接池等其他参数请保持默认设置。 |
 
+#### 大模型配置
 
+在完成数据库配置后，请正常配置**所有大模型相关的参数**，确保系统能够连接到您选择的大模型服务。
 
-拉取镜像后，您需要使用项目代码中提供的 `docker-compose.yml` 文件来启动服务。
-
-
-
-#### A. 修改 `docker-compose.yml`
-
-
-
-打开项目中的 `docker-compose.yml` 文件，并修改 `bettafish` 服务下的 `image` 字段。将其值替换为您刚才拉取的**完整镜像名称**。
-
-**示例：**
-
-将原始配置：
-
-YAML
-
-```
-services:
-  bettafish:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: bettafish:latest # <-- 将此处的镜像名称替换为你拉取的名称
-    container_name: bettafish
-# ... 其他配置
-```
-
-修改为（以 `ghcr.io/666ghj/bettafish:latest` 为例）：
-
-YAML
-
-```
-services:
-  bettafish:
-    image: ghcr.io/666ghj/bettafish:latest # <-- 替换为你拉取的镜像名称
-    container_name: bettafish
-# ... 其他配置
-```
-
-
-
-#### B. 启动服务
-
-
-
-在包含修改后的 `docker-compose.yml` 文件的目录下，执行以下命令启动服务：
-
-Bash
-
-```
-docker compose up -d
-```
-
-
-
-### 3. ⚙️ 系统配置（数据库与模型）
-
-
-
-服务启动后，您需要进入系统进行配置。
-
-
-
-#### A. 数据库配置
-
-
-
-请按照以下参数配置数据库连接：
-
-| **参数**        | **值**      | **说明**                                     |
-| --------------- | ----------- | -------------------------------------------- |
-| **DB_HOST**     | `db`        | 数据库服务名称（在 `docker-compose` 网络中） |
-| **DB_PORT**     | `5432`      | 数据库端口（PostgreSQL 默认）                |
-| **DB_USER**     | `bettafish` | 数据库用户名                                 |
-| **DB_PASSWORD** | `bettafish` | 数据库密码                                   |
-| **DB_NAME**     | `bettafish` | 数据库名称                                   |
-
-> **提示：** 除上述参数外，其他数据库相关配置请**保留默认值**。
-
-
-
-#### B. 大模型配置
-
-完成数据库配置后，请正常配置所有您需要使用的大模型相关参数。
-
-配置完成后，系统即可启动并正常运行。
+完成上述所有配置并保存后，系统即可正常运行。
 
 ------
 
