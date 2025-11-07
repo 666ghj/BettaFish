@@ -238,9 +238,7 @@ All LLM calls use the OpenAI API interface standard. After you finish the databa
 
 Once you complete and save the configurations above, the system will be ready to run normally.
 
-------
-
-## 💻 ⚙️ Source Code Startup Guide
+## 🔧 Source Code Startup Guide
 
 > If you are new to building Agent systems, you can start with a very simple demo: [Deep Search Agent Demo](https://github.com/666ghj/DeepSearchAgent-Demo)
 
