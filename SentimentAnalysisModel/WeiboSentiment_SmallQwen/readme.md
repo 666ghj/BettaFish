@@ -1,6 +1,6 @@
 # 微调Qwen3小参数模型来完成情感分析任务
 
-<img src="https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/blob/main/static/image/logo_Qweb3.jpg" alt="微博情感分析示例" width="25%" />
+<img src="https://github.com/666ghj/BettaFish/blob/main/static/image/logo_Qweb3.jpg" alt="微博情感分析示例" width="25%" />
 
 ## 项目背景
 
