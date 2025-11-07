@@ -206,6 +206,42 @@ Weibo_PublicOpinion_AnalysisSystem/
 
 ## 🚀 Quick Start
 
+### 1. Starting the Project
+
+**Run Command:** Execute the following command to start all services in the **background**:
+
+```bash
+docker compose up -d
+```
+
+> **⚠️ Note: Slow Image Pull**
+
+> In the original `docker-compose.yml` file, we have provided alternative (mirror) image addresses as **comments** for you to replace with.
+
+### 2. Configuration Instructions
+
+#### Database Configuration
+
+Please configure the database connection information with the following parameters:
+
+| Configuration Item | Value to Use | Description |
+| :--- | :--- | :--- |
+| `DB_HOST` | `db` | Database service name (as defined in `docker-compose.yml`) |
+| `DB_PORT` | `5432` | Default PostgreSQL port |
+| `DB_USER` | `bettafish` | Database username |
+| `DB_PASSWORD` | `bettafish` | Database password |
+| `DB_NAME` | `bettafish` | Database name |
+| **Others** | **Keep Default** | Please keep other parameters, such as database connection pool settings, at their default values. |
+
+### Large Language Model (LLM) Configuration
+
+After completing the database configuration, please proceed to configure **all Large Language Model related parameters** to ensure the system can connect to your chosen LLM service.
+
+Upon completing and saving all the configurations above, the system should be ready to run normally.
+
+
+## 💻 ⚙️ Source Code Startup Guide
+
 > If you are new to building Agent systems, you can start with a very simple demo: [Deep Search Agent Demo](https://github.com/666ghj/DeepSearchAgent-Demo)
 
 ### System Requirements
