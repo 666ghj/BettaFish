@@ -2,10 +2,9 @@ version: "3.9"
 
 services:
   bettafish:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: bettafish:latest
+    image: ghcr.io/666ghj/bettafish:latest
+    # Speed up mirror
+    # image: ghcr.nju.edu.cn/666ghj/bettafish:latest
     container_name: bettafish
     restart: unless-stopped
     environment:
