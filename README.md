@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="static/image/logo_compressed.png" alt="Weibo Public Opinion Analysis System Logo" width="100%">
+<img src="static/image/logo_compressed.png" alt="BettaFish Logo" width="100%">
 
 <a href="https://trendshift.io/repositories/15286" target="_blank"><img src="https://trendshift.io/api/badge/repositories/15286" alt="666ghj%2FBettaFish | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
@@ -8,14 +8,14 @@
 <a href="https://lioncc.ai/" target="_blank"><img src="./static/image/logo_loincc.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>&ensp;
 <a href="https://share.302.ai/P66Qe3" target="_blank"><img src="./static/image/logo_302ai.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>
 
-[![GitHub Stars](https://img.shields.io/github/stars/666ghj/Weibo_PublicOpinion_AnalysisSystem?style=flat-square)](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/stargazers)
-[![GitHub Watchers](https://img.shields.io/github/watchers/666ghj/Weibo_PublicOpinion_AnalysisSystem?style=flat-square)](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/watchers)
-[![GitHub Forks](https://img.shields.io/github/forks/666ghj/Weibo_PublicOpinion_AnalysisSystem?style=flat-square)](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/network)
-[![GitHub Issues](https://img.shields.io/github/issues/666ghj/Weibo_PublicOpinion_AnalysisSystem?style=flat-square)](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/issues)
-[![GitHub Pull Requests](https://img.shields.io/github/issues-pr/666ghj/Weibo_PublicOpinion_AnalysisSystem?style=flat-square)](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/pulls)
+[![GitHub Stars](https://img.shields.io/github/stars/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/stargazers)
+[![GitHub Watchers](https://img.shields.io/github/watchers/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/watchers)
+[![GitHub Forks](https://img.shields.io/github/forks/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/network)
+[![GitHub Issues](https://img.shields.io/github/issues/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/issues)
+[![GitHub Pull Requests](https://img.shields.io/github/issues-pr/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/pulls)
 
-[![GitHub License](https://img.shields.io/github/license/666ghj/Weibo_PublicOpinion_AnalysisSystem?style=flat-square)](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/blob/main/LICENSE)
-[![Version](https://img.shields.io/badge/version-v1.0.0-green.svg?style=flat-square)](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem)
+[![GitHub License](https://img.shields.io/github/license/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/blob/main/LICENSE)
+[![Version](https://img.shields.io/badge/version-v1.1.2-green.svg?style=flat-square)](https://github.com/666ghj/BettaFish)
 [![Docker](https://img.shields.io/badge/Docker-Build-2496ED?style=flat-square&logo=docker&logoColor=white)](https://hub.docker.com/)
 
 
@@ -113,7 +113,7 @@ LLM模型API赞助：<a href="https://aihubmix.com/?aff=8Ds9" target="_blank"><i
 ### 项目代码结构树
 
 ```
-Weibo_PublicOpinion_AnalysisSystem/
+BettaFish/
 ├── QueryEngine/                   # 国内外新闻广度搜索Agent
 │   ├── agent.py                   # Agent主逻辑
 │   ├── llms/                      # LLM接口封装
@@ -205,7 +205,7 @@ Weibo_PublicOpinion_AnalysisSystem/
 └── requirements.txt               # Python依赖包清单
 ```
 
-## 🚀 快速开始（docker）
+## 🚀 快速开始（Docker）
 
 ### 1. 启动项目
 
@@ -215,15 +215,13 @@ Weibo_PublicOpinion_AnalysisSystem/
 docker compose up -d
 ```
 
-> **⚠️ 注意：镜像拉取速度慢**
-
-> 在原 `docker-compose.yml` 文件中，我们已经通过**注释**的方式提供了备用镜像地址供您替换。
+> **注：镜像拉取速度慢**，在原 `docker-compose.yml` 文件中，我们已经通过**注释**的方式提供了备用镜像地址供您替换
 
 ### 2. 配置说明
 
-#### 数据库配置 (Database Configuration)
+#### 数据库配置（PostgreSQL）
 
-请按照以下参数配置数据库连接信息：
+请按照以下参数配置数据库连接信息，也支持Mysql可自行修改：
 
 | 配置项 | 填写值 | 说明 |
 | :--- | :--- | :--- |
@@ -236,13 +234,15 @@ docker compose up -d
 
 #### 大模型配置
 
+> 我们所有 LLM 调用使用 OpenAI 的 API 接口标准
+
 在完成数据库配置后，请正常配置**所有大模型相关的参数**，确保系统能够连接到您选择的大模型服务。
 
 完成上述所有配置并保存后，系统即可正常运行。
 
 ------
 
-## 💻 🔧 源码启动指南
+## 🔧 源码启动指南
 
 > 如果你是初次学习一个Agent系统的搭建，可以从一个非常简单的demo开始：[Deep Search Agent Demo](https://github.com/666ghj/DeepSearchAgent-Demo)
 
@@ -251,7 +251,7 @@ docker compose up -d
 - **操作系统**: Windows、Linux、MacOS
 - **Python版本**: 3.9+
 - **Conda**: Anaconda或Miniconda
-- **数据库**: MySQL（可选择我们的云数据库服务）
+- **数据库**: PostgreSQL（推荐）或MySQL
 - **内存**: 建议2GB以上
 
 ### 1. 创建环境
@@ -289,11 +289,9 @@ uv pip install -r requirements.txt
 playwright install chromium
 ```
 
-### 4. 配置系统
+### 4. 配置LLM与数据库
 
-#### 4.1 配置API密钥
-
-复制一份 项目根目录 `.env.example` 文件，命名为 `.env`
+复制一份项目根目录 `.env.example` 文件，命名为 `.env`
 
 编辑 `.env` 文件，填入您的API密钥（您也可以选择自己的模型、搜索代理，详情见根目录.env.example文件内或根目录config.py中的说明）：
 
@@ -311,10 +309,11 @@ DB_PASSWORD=your_db_password
 DB_NAME=your_db_name
 # 数据库字符集，推荐utf8mb4，兼容emoji
 DB_CHARSET=utf8mb4
-# 数据库类型mysql或postgresql
+# 数据库类型postgresql或mysql
 DB_DIALECT=postgresql
+# 数据库不需要初始化，执行app.py时会自动检测
 
-# LLM配置
+# ====================== LLM配置 ======================
 # 您可以更改每个部分LLM使用的API，只要兼容OpenAI请求格式都可以
 
 # Insight Agent
@@ -323,37 +322,11 @@ INSIGHT_ENGINE_API_KEY=
 INSIGHT_ENGINE_BASE_URL=
 # Insight Agent LLM模型名称，如kimi-k2-0711-preview
 INSIGHT_ENGINE_MODEL_NAME=
+
 # Media Agent
 ...
 ```
 推荐LLM API供应商：[推理时代](https://aihubmix.com/?aff=8Ds9)
-
-#### 4.2 数据库初始化
-
-**选择1：使用本地数据库**
-
-> ~~MindSpider爬虫系统跟舆情系统是各自独立的，所以需要再去`MindSpider\config.py`配置一下，复制`MindSpider`文件夹下的 `config.py.example` 文件，命名为 `config.py`~~  
-现版本已更改为基于环境变量配置，请复制项目根目录.env.example文件为.env文件，并在其中填写各项配置
-```bash
-# 本地MySQL数据库初始化
-cd MindSpider
-# 项目初始化
-python main.py --setup
-
-```
-
-**选择2：使用云数据库服务（推荐）**
-
-我们提供便捷的云数据库服务，包含日均10万+真实舆情数据，目前**免费申请**！
-
-- 真实舆情数据，实时更新
-- 多维度标签分类
-- 高可用云端服务
-- 专业技术支持
-
-**联系我们申请免费云数据库访问：📧 670939375@qq.com**
-
-> 为进行数据合规性审查与服务升级，云数据库自2025年10月1日起暂停接收新的使用申请
 
 ### 5. 启动系统
 
@@ -664,9 +637,11 @@ class DeepSearchAgent:
 
 ### 获取帮助
 
-- **项目主页**：[GitHub仓库](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem)
-- **问题反馈**：[Issues页面](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/issues)
-- **功能建议**：[Discussions页面](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/discussions)
+常见问题解答：https://github.com/666ghj/BettaFish/issues/185
+
+- **项目主页**：[GitHub仓库](https://github.com/666ghj/BettaFish)
+- **问题反馈**：[Issues页面](https://github.com/666ghj/BettaFish/issues)
+- **功能建议**：[Discussions页面](https://github.com/666ghj/BettaFish/discussions)
 
 ### 联系方式
 
@@ -683,7 +658,7 @@ class DeepSearchAgent:
 
 感谢以下优秀的贡献者们：
 
-[![Contributors](https://contrib.rocks/image?repo=666ghj/Weibo_PublicOpinion_AnalysisSystem)](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/graphs/contributors)
+[![Contributors](https://contrib.rocks/image?repo=666ghj/BettaFish)](https://github.com/666ghj/BettaFish/graphs/contributors)
 
 ## 📈 项目统计
 
