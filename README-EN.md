@@ -206,6 +206,128 @@ Weibo_PublicOpinion_AnalysisSystem/
 
 ## 🚀 Quick Start
 
+### 1. 🐳 Pulling the Docker Image
+
+
+
+You can view all available versions of the BettaFish Docker image on the GitHub Container Registry (GHCR) here:
+
+https://github.com/666ghj/BettaFish/pkgs/container/bettafish
+
+Use the following command to pull the image:
+
+Bash
+
+```
+docker pull ghcr.io/666ghj/bettafish:latest
+```
+
+> ⚠️ **Note:** If the pull speed is slow, you can try replacing the registry address `ghcr.io` with `ghcr.nju.edu.cn` for faster download:
+>
+> Bash
+>
+> ```
+> docker pull ghcr.nju.edu.cn/666ghj/bettafish:latest
+> ```
+
+
+
+### 2. 🚀 Running with Docker Compose
+
+
+
+After pulling the image, you need to use the provided `docker-compose.yml` file to start the service.
+
+
+
+#### A. Modifying `docker-compose.yml`
+
+
+
+Open the `docker-compose.yml` file in your project and modify the `image` field under the `bettafish` service. Replace its value with the **full name of the image** you just pulled.
+
+**Example:**
+
+Change the original configuration:
+
+YAML
+
+```
+services:
+  bettafish:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: bettafish:latest # <-- Replace this image name with the one you pulled
+    container_name: bettafish
+# ... other configurations
+```
+
+To (using `ghcr.io/666ghj/bettafish:latest` as an example:
+
+YAML
+
+```
+services:
+  bettafish:
+    image: ghcr.io/666ghj/bettafish:latest # <-- Replace with the image name you pulled
+    container_name: bettafish
+# ... other configurations
+```
+
+
+
+#### B. Starting the Service
+
+
+
+In the directory containing the modified `docker-compose.yml` file, execute the following command to start the service:
+
+Bash
+
+```
+docker compose up -d
+```
+
+
+
+### 3. ⚙️ System Configuration (Database and Models)
+
+
+
+After the service starts, you need to configure the system.
+
+
+
+#### A. Database Configuration
+
+
+
+Please configure the database connection with the following parameters:
+
+| **Parameter**   | **Value**   | **Description**                                     |
+| --------------- | ----------- | --------------------------------------------------- |
+| **DB_HOST**     | `db`        | Database service name (in `docker-compose` network) |
+| **DB_PORT**     | `5432`      | Database port (PostgreSQL default)                  |
+| **DB_USER**     | `bettafish` | Database username                                   |
+| **DB_PASSWORD** | `bettafish` | Database password                                   |
+| **DB_NAME**     | `bettafish` | Database name                                       |
+
+> **Tip:** You should **keep the default values** for any other database-related parameters.
+
+
+
+#### B. Large Language Model (LLM) Configuration
+
+
+
+After completing the database configuration, proceed to configure all the Large Language Model related parameters that you intend to use.
+
+Once the configuration is complete, the system should start and run normally.
+
+
+## 💻 ⚙️ Source Code Startup Guide
+
 > If you are new to building Agent systems, you can start with a very simple demo: [Deep Search Agent Demo](https://github.com/666ghj/DeepSearchAgent-Demo)
 
 ### System Requirements
