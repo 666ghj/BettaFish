@@ -31,6 +31,7 @@ from typing import List, Dict, Any, Optional, Literal
 from dataclasses import dataclass, field
 from ..utils.db import fetch_all
 from datetime import datetime, timedelta, date
+from InsightEngine.utils.config import settings
 
 # --- 1. 数据结构定义 ---
 
@@ -183,6 +184,12 @@ class MediaCrawlerDB:
         formatted_results = [QueryResult(platform=r['p'], content_type=r['t'], title_or_content=r['title'], author_nickname=r.get('author'), url=r['url'], publish_time=self._to_datetime(r['ts']), engagement=self._extract_engagement(r), hotness_score=r.get('hotness_score', 0.0), source_keyword=r.get('source_keyword'), source_table=r['tbl']) for r in raw_results]
         return DBResponse("search_hot_content", params_for_log, results=formatted_results, results_count=len(formatted_results))    
 
+    def _wrap_query_field_with_dialect(self, field: str) -> str:
+        """根据数据库方言包装SQL查询"""
+        if settings.DB_DIALECT == 'postgresql':
+            return f'"{field}"'
+        return f'`{field}`'
+
     def search_topic_globally(self, topic: str, limit_per_table: int = 100) -> DBResponse:
         """
         【工具】全局话题搜索: 在数据库中（内容、评论、标签、来源关键字）全面搜索指定话题。
@@ -205,11 +212,11 @@ class MediaCrawlerDB:
             where_clauses = []
             for idx, field in enumerate(config['fields']):
                 pname = f"term_{idx}"
-                where_clauses.append(f'"{field}" LIKE :{pname}')
+                where_clauses.append(f'{self._wrap_query_field_with_dialect(field)} LIKE :{pname}')
                 param_dict[pname] = search_term
             param_dict['limit'] = limit_per_table
             where_clause = " OR ".join(where_clauses)
-            query = f'SELECT * FROM "{table}" WHERE {where_clause} ORDER BY id DESC LIMIT :limit'
+            query = f'SELECT * FROM {self._wrap_query_field_with_dialect(table)} WHERE {where_clause} ORDER BY id DESC LIMIT :limit'
             raw_results = self._execute_query(query, param_dict)
             for row in raw_results:
                 content = (row.get('title') or row.get('content') or row.get('desc') or row.get('content_text', ''))
@@ -260,11 +267,11 @@ class MediaCrawlerDB:
             where_clauses = []
             for idx, field in enumerate(config['fields']):
                 pname = f"term_{idx}"
-                where_clauses.append(f'"{field}" LIKE :{pname}')
+                where_clauses.append(f'{self._wrap_query_field_with_dialect(field)} LIKE :{pname}')
                 param_dict[pname] = search_term
             param_dict['limit'] = limit_per_table
             where_clause = ' OR '.join(where_clauses)
-            query = f'SELECT * FROM "{table}" WHERE {where_clause} ORDER BY id DESC LIMIT :limit'
+            query = f'SELECT * FROM {self._wrap_query_field_with_dialect(table)} WHERE {where_clause} ORDER BY id DESC LIMIT :limit'
             raw_results = self._execute_query(query, param_dict)
             for row in raw_results:
                 content = (row.get('title') or row.get('content') or row.get('desc') or row.get('content_text', ''))
