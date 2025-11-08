@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="static/image/logo_compressed.png" alt="Weibo Public Opinion Analysis System Logo" width="100%">
+<img src="static/image/logo_compressed.png" alt="BettaFish Logo" width="100%">
 
 <a href="https://trendshift.io/repositories/15286" target="_blank"><img src="https://trendshift.io/api/badge/repositories/15286" alt="666ghj%2FBettaFish | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
@@ -8,18 +8,18 @@
 <a href="https://lioncc.ai/" target="_blank"><img src="./static/image/logo_loincc.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>&ensp;
 <a href="https://share.302.ai/P66Qe3" target="_blank"><img src="./static/image/logo_302ai.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>
 
-[![GitHub Stars](https://img.shields.io/github/stars/666ghj/Weibo_PublicOpinion_AnalysisSystem?style=flat-square)](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/stargazers)
-[![GitHub Watchers](https://img.shields.io/github/watchers/666ghj/Weibo_PublicOpinion_AnalysisSystem?style=flat-square)](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/watchers)
-[![GitHub Forks](https://img.shields.io/github/forks/666ghj/Weibo_PublicOpinion_AnalysisSystem?style=flat-square)](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/network)
-[![GitHub Issues](https://img.shields.io/github/issues/666ghj/Weibo_PublicOpinion_AnalysisSystem?style=flat-square)](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/issues)
-[![GitHub Pull Requests](https://img.shields.io/github/issues-pr/666ghj/Weibo_PublicOpinion_AnalysisSystem?style=flat-square)](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/pulls)
+[![GitHub Stars](https://img.shields.io/github/stars/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/stargazers)
+[![GitHub Watchers](https://img.shields.io/github/watchers/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/watchers)
+[![GitHub Forks](https://img.shields.io/github/forks/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/network)
+[![GitHub Issues](https://img.shields.io/github/issues/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/issues)
+[![GitHub Pull Requests](https://img.shields.io/github/issues-pr/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/pulls)
 
-[![GitHub License](https://img.shields.io/github/license/666ghj/Weibo_PublicOpinion_AnalysisSystem?style=flat-square)](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/blob/main/LICENSE)
-[![Version](https://img.shields.io/badge/version-v1.0.0-green.svg?style=flat-square)](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem)
+[![GitHub License](https://img.shields.io/github/license/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/blob/main/LICENSE)
+[![Version](https://img.shields.io/badge/version-v1.1.2-green.svg?style=flat-square)](https://github.com/666ghj/BettaFish)
 [![Docker](https://img.shields.io/badge/Docker-Build-2496ED?style=flat-square&logo=docker&logoColor=white)](https://hub.docker.com/)
 
 
-[English](./README-EN.md) | [中文文档](./README.md)
+English | [中文文档](./README.md)
 
 </div>
 
@@ -113,7 +113,7 @@ Solomon LionCC BettaFish WeiYu Benefits: Open codecodex.ai Lion Programming Chan
 ### Project Code Structure Tree
 
 ```
-Weibo_PublicOpinion_AnalysisSystem/
+BettaFish/
 ├── QueryEngine/                   # Domestic and international news breadth search Agent
 │   ├── agent.py                   # Agent main logic
 │   ├── llms/                      # LLM interface wrapper
@@ -205,7 +205,7 @@ Weibo_PublicOpinion_AnalysisSystem/
 └── requirements.txt               # Python dependency list
 ```
 
-## 🚀 Quick Start
+## 🚀 Quick Start (Docker)
 
 ### 1. Starting the Project
 
@@ -215,15 +215,13 @@ Weibo_PublicOpinion_AnalysisSystem/
 docker compose up -d
 ```
 
-> **⚠️ Note: Slow Image Pull**
-
-> In the original `docker-compose.yml` file, we have provided alternative (mirror) image addresses as **comments** for you to replace with.
+> **Note: Slow image pull speed.** In the original `docker-compose.yml` file, we have provided alternative mirror image addresses as **comments** for you to replace with.
 
 ### 2. Configuration Instructions
 
-#### Database Configuration
+#### Database Configuration (PostgreSQL)
 
-Please configure the database connection information with the following parameters:
+Configure the database connection information with the following parameters. The system also supports MySQL, so you can adjust the settings as needed:
 
 | Configuration Item | Value to Use | Description |
 | :--- | :--- | :--- |
@@ -236,12 +234,11 @@ Please configure the database connection information with the following paramete
 
 ### Large Language Model (LLM) Configuration
 
-After completing the database configuration, please proceed to configure **all Large Language Model related parameters** to ensure the system can connect to your chosen LLM service.
+All LLM calls use the OpenAI API interface standard. After you finish the database configuration, continue to configure **all LLM-related parameters** so the system can connect to your selected LLM service.
 
-Upon completing and saving all the configurations above, the system should be ready to run normally.
+Once you complete and save the configurations above, the system will be ready to run normally.
 
-
-## 💻 ⚙️ Source Code Startup Guide
+## 🔧 Source Code Startup Guide
 
 > If you are new to building Agent systems, you can start with a very simple demo: [Deep Search Agent Demo](https://github.com/666ghj/DeepSearchAgent-Demo)
 
@@ -250,7 +247,7 @@ Upon completing and saving all the configurations above, the system should be re
 - **Operating System**: Windows, Linux, MacOS
 - **Python Version**: 3.9+
 - **Conda**: Anaconda or Miniconda
-- **Database**: MySQL (optional, you can choose our cloud database service)
+- **Database**: PostgreSQL (recommended) or MySQL
 - **Memory**: 2GB+ recommended
 
 ### 1. Create Environment
@@ -288,13 +285,11 @@ uv pip install -r requirements.txt
 playwright install chromium
 ```
 
-### 4. System Configuration
+### 4. Configure LLM and Database
 
-#### 4.1 Configure API Keys
+Copy the `.env.example` file in the project root directory and rename it to `.env`.
 
-Copy the `.env.example` file in the project root directory to `.env`
-
-Edit the `.env` file and fill in your API keys (you can also choose your own models and search proxies; see the `.env.example` file in the project root directory or the `config.py` file for details):
+Edit the `.env` file and fill in your API keys (you can also choose your own models and search proxies; see `.env.example` in the project root directory or `config.py` for details):
 
 ```yml
 # ====================== Database Configuration ======================
@@ -310,8 +305,9 @@ DB_PASSWORD=your_db_password
 DB_NAME=your_db_name
 # Database character set, utf8mb4 is recommended for emoji compatibility
 DB_CHARSET=utf8mb4
-# Database type: mysql or postgresql
+# Database type: postgresql or mysql
 DB_DIALECT=postgresql
+# Database initialization is not required, as it will be checked automatically upon executing app.py
 
 # LLM configuration
 # You can switch each Engine's LLM provider as long as it follows the OpenAI-compatible request format
@@ -325,35 +321,7 @@ INSIGHT_ENGINE_MODEL_NAME=
 # Media Agent
 ...
 ```
-Recommended LLM API Provider: [Reasoning Era](https://aihubmix.com/?aff=8Ds9)
-
-#### 4.2 Database Initialization
-
-**Option 1: Use Local Database**
-
-> ~~The MindSpider crawler system and the public opinion system are independent of each other, so you need to configure `MindSpider\config.py`. Copy the `config.py.example` file in the `MindSpider` folder and rename it to `config.py`.~~
-> Configuration has been changed to be based on environment variables. Please copy the `.env.example` file in the project root directory to `.env` and fill in all configurations in it.
-
-```bash
-# Local MySQL database initialization
-cd MindSpider
-# Project initialization, deprecated, initialization is now automatic.
-python main.py --setup
-
-```
-
-**Option 2: Use Cloud Database Service (Recommended)**
-
-We provide convenient cloud database service with 100,000+ daily real public opinion data, currently **free application**!
-
-- Real public opinion data, updated in real-time
-- Multi-dimensional tag classification
-- High-availability cloud service
-- Professional technical support
-
-**Contact us to apply for free cloud database access: 📧 670939375@qq.com**
-
-> To conduct a data compliance review and service upgrade, we are suspending new applications for the cloud database, effective October 1, 2025.
+Recommended LLM API Provider: [aihubmix](https://aihubmix.com/?aff=8Ds9)
 
 ### 5. Launch System
 
@@ -666,10 +634,11 @@ This project is licensed under the [GPL-2.0 License](LICENSE). Please see the LI
 
 ### Get Help
 
-- **Project Homepage**: [GitHub Repository](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem)
-- **FAQ**: [Frequently Asked Questions](https://github.com/666ghj/BettaFish/issues/185)
-- **Issue Reporting**: [Issues Page](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/issues)
-- **Feature Requests**: [Discussions Page](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/discussions)
+  FAQ: https://github.com/666ghj/BettaFish/issues/185
+
+- **Project Homepage**: [GitHub Repository](https://github.com/666ghj/BettaFish)
+- **Issue Reporting**: [Issues Page](https://github.com/666ghj/BettaFish/issues)
+- **Feature Requests**: [Discussions Page](https://github.com/666ghj/BettaFish/discussions)
 
 ### Contact Information
 
@@ -686,7 +655,7 @@ This project is licensed under the [GPL-2.0 License](LICENSE). Please see the LI
 
 Thanks to these excellent contributors:
 
-[![Contributors](https://contrib.rocks/image?repo=666ghj/Weibo_PublicOpinion_AnalysisSystem)](https://github.com/666ghj/Weibo_PublicOpinion_AnalysisSystem/graphs/contributors)
+[![Contributors](https://contrib.rocks/image?repo=666ghj/BettaFish)](https://github.com/666ghj/BettaFish/graphs/contributors)
 
 ## 📈 Project Statistics
 
