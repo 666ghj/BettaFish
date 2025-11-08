@@ -19,7 +19,7 @@ from .nodes import (
     ReportFormattingNode
 )
 from .state import State
-from .tools import TavilyNewsAgency, TavilyResponse
+from .tools import TavilyNewsAgency, TavilyResponse, SearchResult, ImageResult
 from .utils import Settings, format_search_results_for_prompt
 from loguru import logger
 
@@ -97,6 +97,121 @@ class DeepSearchAgent:
         except ValueError:
             return False
     
+    def _normalize_search_response(self, search_response: Any) -> Optional[TavilyResponse]:
+        """
+        规范化搜索响应，处理不同类型的返回值
+        
+        此方法解决了当搜索API返回dict而不是TavilyResponse对象时的类型错误问题。
+        同时提供错误恢复机制，确保系统在异常情况下仍能继续运行。
+        
+        Args:
+            search_response: 可能是TavilyResponse对象、dict或None
+            
+        Returns:
+            规范化后的TavilyResponse对象，如果无法规范化则返回None
+        """
+        if search_response is None:
+            return None
+        
+        # 如果已经是TavilyResponse对象，直接返回
+        if isinstance(search_response, TavilyResponse):
+            return search_response
+        
+        # 如果是dict，尝试转换为TavilyResponse对象
+        if isinstance(search_response, dict):
+            try:
+                # 从dict中提取结果
+                results = []
+                if 'results' in search_response:
+                    for item in search_response['results']:
+                        if isinstance(item, dict):
+                            results.append(SearchResult(
+                                title=item.get('title', ''),
+                                url=item.get('url', ''),
+                                content=item.get('content', ''),
+                                score=item.get('score'),
+                                raw_content=item.get('raw_content'),
+                                published_date=item.get('published_date')
+                            ))
+                        elif hasattr(item, '__dict__'):
+                            # 如果已经是SearchResult对象
+                            results.append(item)
+                
+                images = []
+                if 'images' in search_response:
+                    for item in search_response['images']:
+                        if isinstance(item, dict):
+                            images.append(ImageResult(
+                                url=item.get('url', ''),
+                                description=item.get('description')
+                            ))
+                        elif hasattr(item, '__dict__'):
+                            images.append(item)
+                
+                return TavilyResponse(
+                    query=search_response.get('query', ''),
+                    answer=search_response.get('answer'),
+                    results=results,
+                    images=images,
+                    response_time=search_response.get('response_time')
+                )
+            except Exception as e:
+                logger.warning(f"无法规范化搜索响应为TavilyResponse对象: {str(e)}")
+                logger.debug(f"原始响应类型: {type(search_response)}, 内容: {search_response}")
+                return None
+        
+        # 其他类型，记录警告并返回None
+        logger.warning(f"未知的搜索响应类型: {type(search_response)}")
+        return None
+    
+    def _validate_and_filter_search_results(self, results: List[SearchResult], query: str) -> List[SearchResult]:
+        """
+        验证和过滤搜索结果，防止幻觉问题
+        
+        此方法实现了搜索结果验证机制，通过以下方式防止AI生成虚假引用：
+        1. 验证URL有效性
+        2. 检查内容相关性
+        3. 过滤空结果和无效数据
+        
+        Args:
+            results: 原始搜索结果列表
+            query: 搜索查询，用于相关性验证
+            
+        Returns:
+            验证和过滤后的搜索结果列表
+        """
+        if not results:
+            return []
+        
+        validated_results = []
+        query_lower = query.lower()
+        query_keywords = set(query_lower.split())
+        
+        for result in results:
+            # 跳过空结果
+            if not result or not result.title:
+                continue
+            
+            # 验证URL格式
+            if result.url and not (result.url.startswith('http://') or result.url.startswith('https://')):
+                logger.debug(f"跳过无效URL: {result.url}")
+                continue
+            
+            # 基本相关性检查：至少包含一个查询关键词
+            title_lower = result.title.lower()
+            content_lower = (result.content or '').lower()
+            
+            # 检查标题或内容中是否包含查询关键词
+            has_relevance = any(keyword in title_lower or keyword in content_lower 
+                              for keyword in query_keywords if len(keyword) > 2)
+            
+            if has_relevance or len(query_keywords) == 0:
+                validated_results.append(result)
+            else:
+                logger.debug(f"过滤低相关性结果: {result.title[:50]}...")
+        
+        return validated_results
+
     def execute_search_tool(self, tool_name: str, query: str, **kwargs) -> TavilyResponse:
         """
         执行指定的搜索工具
@@ -260,12 +375,20 @@ class DeepSearchAgent:
         
         search_response = self.execute_search_tool(search_tool, search_query, **search_kwargs)
         
+        # 规范化搜索响应，处理dict类型返回值
+        normalized_response = self._normalize_search_response(search_response)
+        
         # 转换为兼容格式
         search_results = []
-        if search_response and search_response.results:
+        if normalized_response and normalized_response.results:
+            # 验证和过滤搜索结果，防止幻觉问题
+            validated_results = self._validate_and_filter_search_results(
+                normalized_response.results, search_query
+            )
+            
             # 每种搜索工具都有其特定的结果数量，这里取前10个作为上限
-            max_results = min(len(search_response.results), 10)
-            for result in search_response.results[:max_results]:
+            max_results = min(len(validated_results), 10)
+            for result in validated_results[:max_results]:
                 search_results.append({
                     'title': result.title,
                     'url': result.url,
@@ -351,12 +474,20 @@ class DeepSearchAgent:
             
             search_response = self.execute_search_tool(search_tool, search_query, **search_kwargs)
             
+            # 规范化搜索响应，处理dict类型返回值
+            normalized_response = self._normalize_search_response(search_response)
+            
             # 转换为兼容格式
             search_results = []
-            if search_response and search_response.results:
+            if normalized_response and normalized_response.results:
+                # 验证和过滤搜索结果，防止幻觉问题
+                validated_results = self._validate_and_filter_search_results(
+                    normalized_response.results, search_query
+                )
+                
                 # 每种搜索工具都有其特定的结果数量，这里取前10个作为上限
-                max_results = min(len(search_response.results), 10)
-                for result in search_response.results[:max_results]:
+                max_results = min(len(validated_results), 10)
+                for result in validated_results[:max_results]:
                     search_results.append({
                         'title': result.title,
                         'url': result.url,
