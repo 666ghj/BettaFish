@@ -52,6 +52,8 @@ Beyond just report quality, compared to similar products, we have 🚀 six major
 > For example, you only need to simply modify the API parameters and prompts of the Agent toolset to transform it into a financial market analysis system.
 >
 > Here's a relatively active Linux.do project discussion thread: https://linux.do/t/topic/1009280
+>
+> Check out the comparison by a Linux.do fellow: [Open Source Project (BettaFish) vs manus|minimax|ChatGPT Comparison](https://linux.do/t/topic/1148040)
 
 <div align="center">
 <img src="static/image/system_schematic.png" alt="banner" width="800">
