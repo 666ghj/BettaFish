@@ -1,0 +1,363 @@
+<mxfile host="app.diagrams.net" modified="2025-11-09T00:00:00.000Z" agent="BettaFish USA Architecture" version="22.0.0">
+  <diagram name="Crawler Architecture" id="crawler-arch">
+    <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="BettaFish USA - Platform Crawler Architecture" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=24;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="300" y="20" width="1000" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Crawler Factory Layer -->
+        <mxCell id="factory-layer" value="Crawler Orchestration Layer" style="swimlane;fontSize=16;fontStyle=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="100" y="80" width="1400" height="160" as="geometry" />
+        </mxCell>
+
+        <mxCell id="crawler-factory" value="Crawler Factory" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=14;fontStyle=1" vertex="1" parent="factory-layer">
+          <mxGeometry x="580" y="40" width="240" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="task-queue" value="Task Queue&#xa;(Celery + Redis)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;fontStyle=1" vertex="1" parent="factory-layer">
+          <mxGeometry x="200" y="45" width="140" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="rate-limiter" value="Rate Limiter&#xa;(Redis)" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;fontStyle=1" vertex="1" parent="factory-layer">
+          <mxGeometry x="1000" y="50" width="160" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-queue-factory" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#6c8ebf;" edge="1" parent="factory-layer" source="task-queue" target="crawler-factory">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-factory-limiter" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#9673a6;" edge="1" parent="factory-layer" source="crawler-factory" target="rate-limiter">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Platform Crawlers Layer -->
+        <mxCell id="crawlers-layer" value="Platform-Specific Crawlers" style="swimlane;fontSize=16;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="100" y="280" width="1400" height="380" as="geometry" />
+        </mxCell>
+
+        <!-- Twitter Crawler -->
+        <mxCell id="twitter-crawler-box" value="Twitter/X Crawler" style="swimlane;fontSize=13;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="crawlers-layer">
+          <mxGeometry x="40" y="40" width="420" height="320" as="geometry" />
+        </mxCell>
+
+        <mxCell id="twitter-client" value="Twitter Client (tweepy)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="twitter-crawler-box">
+          <mxGeometry x="20" y="30" width="380" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="twitter-auth" value="Authentication:&#xa;API Key + Bearer Token" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=10;align=left" vertex="1" parent="twitter-crawler-box">
+          <mxGeometry x="20" y="70" width="180" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="twitter-rate" value="Rate Limits:&#xa;450 requests / 15 min" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=10;align=left" vertex="1" parent="twitter-crawler-box">
+          <mxGeometry x="220" y="70" width="180" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="twitter-funcs" value="Functions:" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1" vertex="1" parent="twitter-crawler-box">
+          <mxGeometry x="20" y="120" width="380" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="twitter-search" value="• search_tweets(keyword, date_range)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e3f2fd;strokeColor=#6c8ebf;fontSize=10;align=left" vertex="1" parent="twitter-crawler-box">
+          <mxGeometry x="20" y="140" width="380" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="twitter-thread" value="• get_tweet_replies(tweet_id, depth)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e3f2fd;strokeColor=#6c8ebf;fontSize=10;align=left" vertex="1" parent="twitter-crawler-box">
+          <mxGeometry x="20" y="170" width="380" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="twitter-user" value="• get_user_profile(user_id)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e3f2fd;strokeColor=#6c8ebf;fontSize=10;align=left" vertex="1" parent="twitter-crawler-box">
+          <mxGeometry x="20" y="200" width="380" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="twitter-metrics" value="• extract_engagement_metrics(tweet)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e3f2fd;strokeColor=#6c8ebf;fontSize=10;align=left" vertex="1" parent="twitter-crawler-box">
+          <mxGeometry x="20" y="230" width="380" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="twitter-output" value="Output: tweets table&#xa;Fields: tweet_id, text, user_id, likes, retweets,&#xa;replies, timestamp, hashtags, mentions" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;align=left;fontStyle=1" vertex="1" parent="twitter-crawler-box">
+          <mxGeometry x="20" y="265" width="380" height="45" as="geometry" />
+        </mxCell>
+
+        <!-- Reddit Crawler -->
+        <mxCell id="reddit-crawler-box" value="Reddit Crawler" style="swimlane;fontSize=13;fontStyle=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="crawlers-layer">
+          <mxGeometry x="500" y="40" width="420" height="320" as="geometry" />
+        </mxCell>
+
+        <mxCell id="reddit-client" value="Reddit Client (PRAW)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="reddit-crawler-box">
+          <mxGeometry x="20" y="30" width="380" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="reddit-auth" value="Authentication:&#xa;Client ID + Secret" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d79b00;fontSize=10;align=left" vertex="1" parent="reddit-crawler-box">
+          <mxGeometry x="20" y="70" width="180" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="reddit-rate" value="Rate Limits:&#xa;60 requests / minute" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d79b00;fontSize=10;align=left" vertex="1" parent="reddit-crawler-box">
+          <mxGeometry x="220" y="70" width="180" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="reddit-funcs" value="Functions:" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1" vertex="1" parent="reddit-crawler-box">
+          <mxGeometry x="20" y="120" width="380" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="reddit-search" value="• search_subreddits(keyword, subreddits[])" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff4e6;strokeColor=#d79b00;fontSize=10;align=left" vertex="1" parent="reddit-crawler-box">
+          <mxGeometry x="20" y="140" width="380" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="reddit-thread" value="• get_comments(submission_id, depth)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff4e6;strokeColor=#d79b00;fontSize=10;align=left" vertex="1" parent="reddit-crawler-box">
+          <mxGeometry x="20" y="170" width="380" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="reddit-hot" value="• get_hot_posts(subreddit, limit)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff4e6;strokeColor=#d79b00;fontSize=10;align=left" vertex="1" parent="reddit-crawler-box">
+          <mxGeometry x="20" y="200" width="380" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="reddit-metrics" value="• extract_karma_metrics(post)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff4e6;strokeColor=#d79b00;fontSize=10;align=left" vertex="1" parent="reddit-crawler-box">
+          <mxGeometry x="20" y="230" width="380" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="reddit-output" value="Output: reddit_posts table&#xa;Fields: post_id, title, text, subreddit, author,&#xa;upvotes, comments_count, awards, timestamp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;align=left;fontStyle=1" vertex="1" parent="reddit-crawler-box">
+          <mxGeometry x="20" y="265" width="380" height="45" as="geometry" />
+        </mxCell>
+
+        <!-- YouTube Crawler -->
+        <mxCell id="youtube-crawler-box" value="YouTube Crawler" style="swimlane;fontSize=13;fontStyle=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="crawlers-layer">
+          <mxGeometry x="960" y="40" width="420" height="320" as="geometry" />
+        </mxCell>
+
+        <mxCell id="youtube-client" value="YouTube Client (google-api-python-client)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="youtube-crawler-box">
+          <mxGeometry x="20" y="30" width="380" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="youtube-auth" value="Authentication:&#xa;API Key (OAuth optional)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;fontSize=10;align=left" vertex="1" parent="youtube-crawler-box">
+          <mxGeometry x="20" y="70" width="180" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="youtube-quota" value="Quota Limits:&#xa;10,000 units / day" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;fontSize=10;align=left" vertex="1" parent="youtube-crawler-box">
+          <mxGeometry x="220" y="70" width="180" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="youtube-funcs" value="Functions:" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=1" vertex="1" parent="youtube-crawler-box">
+          <mxGeometry x="20" y="120" width="380" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="youtube-search" value="• search_videos(keyword, date_range)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6e6;strokeColor=#b85450;fontSize=10;align=left" vertex="1" parent="youtube-crawler-box">
+          <mxGeometry x="20" y="140" width="380" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="youtube-comments" value="• get_video_comments(video_id, max_results)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6e6;strokeColor=#b85450;fontSize=10;align=left" vertex="1" parent="youtube-crawler-box">
+          <mxGeometry x="20" y="170" width="380" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="youtube-transcript" value="• get_video_transcript(video_id)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6e6;strokeColor=#b85450;fontSize=10;align=left" vertex="1" parent="youtube-crawler-box">
+          <mxGeometry x="20" y="200" width="380" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="youtube-metrics" value="• extract_video_metrics(video)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6e6;strokeColor=#b85450;fontSize=10;align=left" vertex="1" parent="youtube-crawler-box">
+          <mxGeometry x="20" y="230" width="380" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="youtube-output" value="Output: youtube_videos table&#xa;Fields: video_id, title, channel, views, likes,&#xa;comments_count, duration, tags, timestamp" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;align=left;fontStyle=1" vertex="1" parent="youtube-crawler-box">
+          <mxGeometry x="20" y="265" width="380" height="45" as="geometry" />
+        </mxCell>
+
+        <!-- Common Components Layer -->
+        <mxCell id="common-layer" value="Common Crawler Components" style="swimlane;fontSize=16;fontStyle=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="100" y="700" width="1400" height="200" as="geometry" />
+        </mxCell>
+
+        <mxCell id="base-crawler" value="BaseCrawler&#xa;(Abstract Class)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=12;fontStyle=1" vertex="1" parent="common-layer">
+          <mxGeometry x="40" y="40" width="200" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="retry-logic" value="Retry Logic&#xa;&#xa;• Exponential backoff&#xa;• Max 5 retries&#xa;• Error classification" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left" vertex="1" parent="common-layer">
+          <mxGeometry x="280" y="40" width="220" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="error-handler" value="Error Handling&#xa;&#xa;• API errors (401, 429, 500)&#xa;• Network timeouts&#xa;• Data validation&#xa;• Logging to Sentry" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;align=left" vertex="1" parent="common-layer">
+          <mxGeometry x="540" y="40" width="220" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="data-validator" value="Data Validation&#xa;&#xa;• Schema validation&#xa;• Deduplication&#xa;• Text sanitization&#xa;• Encoding fixes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;align=left" vertex="1" parent="common-layer">
+          <mxGeometry x="800" y="40" width="220" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="db-writer" value="Database Writer&#xa;&#xa;• Batch inserts (100/batch)&#xa;• Transaction safety&#xa;• Connection pooling&#xa;• Async writes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;align=left" vertex="1" parent="common-layer">
+          <mxGeometry x="1060" y="40" width="220" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="metrics-collector" value="Metrics Collector:&#xa;• Crawl success rate&#xa;• API response times&#xa;• Error rates&#xa;• Data volume per platform" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;align=left" vertex="1" parent="common-layer">
+          <mxGeometry x="40" y="130" width="1240" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Database Layer -->
+        <mxCell id="database-layer" value="Data Storage Layer" style="swimlane;fontSize=16;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="100" y="940" width="1400" height="180" as="geometry" />
+        </mxCell>
+
+        <mxCell id="postgres" value="PostgreSQL Database" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;fontStyle=1" vertex="1" parent="database-layer">
+          <mxGeometry x="620" y="50" width="180" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="twitter-table" value="tweets" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e3f2fd;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="database-layer">
+          <mxGeometry x="100" y="60" width="120" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="reddit-table" value="reddit_posts" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff4e6;strokeColor=#d79b00;fontSize=11;" vertex="1" parent="database-layer">
+          <mxGeometry x="100" y="100" width="120" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="youtube-table" value="youtube_videos" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6e6;strokeColor=#b85450;fontSize=11;" vertex="1" parent="database-layer">
+          <mxGeometry x="250" y="60" width="120" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="comments-table" value="comments" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;" vertex="1" parent="database-layer">
+          <mxGeometry x="250" y="100" width="120" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="users-table" value="users" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;" vertex="1" parent="database-layer">
+          <mxGeometry x="400" y="60" width="120" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="metrics-table" value="crawl_metrics" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;" vertex="1" parent="database-layer">
+          <mxGeometry x="400" y="100" width="120" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="instagram-table" value="instagram_posts" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;dashed=1;" vertex="1" parent="database-layer">
+          <mxGeometry x="900" y="60" width="120" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="linkedin-table" value="linkedin_posts" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;dashed=1;" vertex="1" parent="database-layer">
+          <mxGeometry x="900" y="100" width="120" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="db-note" value="Dashed = Future" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#666666;" vertex="1" parent="database-layer">
+          <mxGeometry x="1040" y="75" width="120" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- Arrows from crawlers to db -->
+        <mxCell id="arrow-twitter-db" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.25;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;strokeWidth=2;strokeColor=#6c8ebf;" edge="1" parent="1" source="twitter-crawler-box" target="postgres">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-reddit-db" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;strokeWidth=2;strokeColor=#d79b00;" edge="1" parent="1" source="reddit-crawler-box" target="postgres">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-youtube-db" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.75;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;strokeWidth=2;strokeColor=#b85450;" edge="1" parent="1" source="youtube-crawler-box" target="postgres">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Arrows from factory to crawlers -->
+        <mxCell id="arrow-factory-twitter" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#6c8ebf;dashed=1;" edge="1" parent="1" source="crawler-factory" target="twitter-crawler-box">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-factory-reddit" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#d79b00;dashed=1;" edge="1" parent="1" source="crawler-factory" target="reddit-crawler-box">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-factory-youtube" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#b85450;dashed=1;" edge="1" parent="1" source="crawler-factory" target="youtube-crawler-box">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Legend -->
+        <mxCell id="legend" value="Key Features" style="swimlane;fontSize=14;fontStyle=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="1550" y="80" width="280" height="520" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend-text1" value="Performance Targets:" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=1" vertex="1" parent="legend">
+          <mxGeometry x="10" y="30" width="260" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="perf1" value="• 10,000+ posts/hour throughput" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="legend">
+          <mxGeometry x="10" y="50" width="260" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="perf2" value="• 98%+ API success rate" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="legend">
+          <mxGeometry x="10" y="70" width="260" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="perf3" value="• <500ms database writes" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="legend">
+          <mxGeometry x="10" y="90" width="260" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="perf4" value="• Auto-retry on failures" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="legend">
+          <mxGeometry x="10" y="110" width="260" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend-text2" value="API Cost Estimates:" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=1" vertex="1" parent="legend">
+          <mxGeometry x="10" y="150" width="260" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="cost1" value="• Twitter: $100-5,000/month" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="legend">
+          <mxGeometry x="10" y="170" width="260" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="cost2" value="• Reddit: Free (rate limited)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="legend">
+          <mxGeometry x="10" y="190" width="260" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="cost3" value="• YouTube: Free (quota limited)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="legend">
+          <mxGeometry x="10" y="210" width="260" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="cost4" value="• Instagram: Free (limited access)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="legend">
+          <mxGeometry x="10" y="230" width="260" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend-text3" value="Data Flow:" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=1" vertex="1" parent="legend">
+          <mxGeometry x="10" y="270" width="260" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="flow1" value="1. Task Queue receives crawl job" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="legend">
+          <mxGeometry x="10" y="290" width="260" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="flow2" value="2. Factory dispatches to crawler" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="legend">
+          <mxGeometry x="10" y="310" width="260" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="flow3" value="3. Rate limiter checks quota" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="legend">
+          <mxGeometry x="10" y="330" width="260" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="flow4" value="4. Crawler calls platform API" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="legend">
+          <mxGeometry x="10" y="350" width="260" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="flow5" value="5. Data validated &amp; sanitized" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="legend">
+          <mxGeometry x="10" y="370" width="260" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="flow6" value="6. Batch insert to PostgreSQL" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="legend">
+          <mxGeometry x="10" y="390" width="260" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="flow7" value="7. Metrics collected &amp; logged" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="legend">
+          <mxGeometry x="10" y="410" width="260" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend-text4" value="Tech Stack:" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=1" vertex="1" parent="legend">
+          <mxGeometry x="10" y="450" width="260" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="tech1" value="• Python 3.11+ (async/await)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="legend">
+          <mxGeometry x="10" y="470" width="260" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="tech2" value="• Celery + Redis (task queue)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="legend">
+          <mxGeometry x="10" y="490" width="260" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- Footer -->
+        <mxCell id="footer" value="BettaFish USA Crawler Architecture | Version 1.0 | 2025-11-09" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="100" y="1140" width="1400" height="20" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

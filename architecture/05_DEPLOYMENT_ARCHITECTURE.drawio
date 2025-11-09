@@ -1,0 +1,276 @@
+<mxfile host="app.diagrams.net" modified="2025-11-09T00:00:00.000Z" agent="BettaFish USA Architecture" version="22.0.0">
+  <diagram name="Deployment Architecture" id="deployment-arch">
+    <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1400" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="BettaFish USA - Production Deployment Architecture (AWS/GCP)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=24;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="200" y="20" width="1400" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Users Layer -->
+        <mxCell id="users-layer" value="Users &amp; Clients" style="swimlane;fontSize=16;fontStyle=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="80" y="80" width="1640" height="120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="end-users" value="End Users&#xa;(Web/Mobile)" style="shape=actor;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12" vertex="1" parent="users-layer">
+          <mxGeometry x="300" y="35" width="100" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="api-consumers" value="API Consumers&#xa;(Developers)" style="shape=actor;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12" vertex="1" parent="users-layer">
+          <mxGeometry x="600" y="35" width="100" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="admins" value="System Admins&#xa;(DevOps)" style="shape=actor;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12" vertex="1" parent="users-layer">
+          <mxGeometry x="900" y="35" width="100" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="monitoring-users" value="Monitoring&#xa;(PagerDuty)" style="shape=actor;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12" vertex="1" parent="users-layer">
+          <mxGeometry x="1200" y="35" width="100" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- CDN & Load Balancer Layer -->
+        <mxCell id="cdn-layer" value="CDN &amp; Load Balancing" style="swimlane;fontSize=16;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="80" y="240" width="1640" height="140" as="geometry" />
+        </mxCell>
+
+        <mxCell id="cloudflare" value="CloudFlare CDN&#xa;&#xa;• Static assets&#xa;• DDoS protection&#xa;• SSL/TLS termination" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=left" vertex="1" parent="cdn-layer">
+          <mxGeometry x="80" y="40" width="240" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="load-balancer" value="Application Load Balancer&#xa;(AWS ALB / GCP GCLB)&#xa;&#xa;• Health checks&#xa;• SSL termination&#xa;• Path-based routing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=left;fontStyle=1" vertex="1" parent="cdn-layer">
+          <mxGeometry x="700" y="40" width="280" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="waf" value="Web Application Firewall&#xa;(AWS WAF / Cloud Armor)&#xa;&#xa;• SQL injection protection&#xa;• Rate limiting&#xa;• Geo-blocking" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;align=left" vertex="1" parent="cdn-layer">
+          <mxGeometry x="1040" y="40" width="280" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Application Tier -->
+        <mxCell id="app-tier" value="Application Tier (Auto-Scaling)" style="swimlane;fontSize=16;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="80" y="420" width="1640" height="280" as="geometry" />
+        </mxCell>
+
+        <!-- Flask Servers -->
+        <mxCell id="flask-cluster" value="Flask Web Servers (Kubernetes Pods)" style="swimlane;fontSize=13;fontStyle=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="app-tier">
+          <mxGeometry x="40" y="40" width="460" height="220" as="geometry" />
+        </mxCell>
+
+        <mxCell id="flask-pod1" value="Flask Pod 1&#xa;2 CPU | 4GB RAM" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="flask-cluster">
+          <mxGeometry x="20" y="30" width="130" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="flask-pod2" value="Flask Pod 2&#xa;2 CPU | 4GB RAM" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="flask-cluster">
+          <mxGeometry x="170" y="30" width="130" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="flask-pod3" value="Flask Pod 3&#xa;2 CPU | 4GB RAM" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="flask-cluster">
+          <mxGeometry x="320" y="30" width="130" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="flask-hpa" value="Horizontal Pod Autoscaler:&#xa;Min: 3 pods | Max: 10 pods&#xa;Target CPU: 70%" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;align=left;fontStyle=1" vertex="1" parent="flask-cluster">
+          <mxGeometry x="20" y="95" width="430" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="flask-features" value="Features:&#xa;• Gunicorn workers (4 per pod)&#xa;• Graceful shutdown (30s drain)&#xa;• Liveness + Readiness probes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=9;align=left" vertex="1" parent="flask-cluster">
+          <mxGeometry x="20" y="155" width="430" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Worker Nodes -->
+        <mxCell id="worker-cluster" value="Celery Workers (Crawler Tasks)" style="swimlane;fontSize=13;fontStyle=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="app-tier">
+          <mxGeometry x="540" y="40" width="460" height="220" as="geometry" />
+        </mxCell>
+
+        <mxCell id="worker-pod1" value="Worker Pod 1&#xa;4 CPU | 8GB RAM" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="worker-cluster">
+          <mxGeometry x="20" y="30" width="130" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="worker-pod2" value="Worker Pod 2&#xa;4 CPU | 8GB RAM" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="worker-cluster">
+          <mxGeometry x="170" y="30" width="130" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="worker-pod3" value="Worker Pod 3&#xa;4 CPU | 8GB RAM" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="worker-cluster">
+          <mxGeometry x="320" y="30" width="130" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="worker-hpa" value="Horizontal Pod Autoscaler:&#xa;Min: 3 pods | Max: 20 pods&#xa;Target: Queue depth > 100" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;align=left;fontStyle=1" vertex="1" parent="worker-cluster">
+          <mxGeometry x="20" y="95" width="430" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="worker-features" value="Features:&#xa;• Concurrent tasks: 10 per worker&#xa;• Auto-retry on failure (3x)&#xa;• Task timeout: 5 minutes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=9;align=left" vertex="1" parent="worker-cluster">
+          <mxGeometry x="20" y="155" width="430" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ML Service -->
+        <mxCell id="ml-service" value="ML Service (Sentiment)&#xa;&#xa;2 CPU | 8GB RAM&#xa;GPU: Optional (T4)&#xa;&#xa;• Sentiment model&#xa;• NER model&#xa;• Topic classifier" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;align=left;fontStyle=1" vertex="1" parent="app-tier">
+          <mxGeometry x="1040" y="40" width="280" height="150" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ml-replicas" value="Replicas: 2-5 (auto-scale)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=10;align=center;fontStyle=1" vertex="1" parent="app-tier">
+          <mxGeometry x="1040" y="200" width="280" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Data Tier -->
+        <mxCell id="data-tier" value="Data Tier (Managed Services)" style="swimlane;fontSize=16;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="80" y="740" width="1640" height="240" as="geometry" />
+        </mxCell>
+
+        <mxCell id="postgres-managed" value="PostgreSQL&#xa;(AWS RDS / Cloud SQL)&#xa;&#xa;Instance: db.m5.xlarge&#xa;4 vCPU | 16GB RAM&#xa;500GB SSD (gp3)&#xa;&#xa;• Multi-AZ deployment&#xa;• Automated backups (7 days)&#xa;• Read replicas: 2&#xa;• Connection pool: 200" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;align=left;fontStyle=1" vertex="1" parent="data-tier">
+          <mxGeometry x="60" y="50" width="340" height="170" as="geometry" />
+        </mxCell>
+
+        <mxCell id="redis-managed" value="Redis&#xa;(AWS ElastiCache / Memorystore)&#xa;&#xa;Instance: cache.m5.large&#xa;2 vCPU | 6.4GB RAM&#xa;&#xa;• Cluster mode enabled&#xa;• 3 shards | 3 replicas&#xa;• Automatic failover&#xa;• Persistence: AOF + RDB" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;fontStyle=1" vertex="1" parent="data-tier">
+          <mxGeometry x="440" y="50" width="340" height="170" as="geometry" />
+        </mxCell>
+
+        <mxCell id="s3-storage" value="Object Storage&#xa;(AWS S3 / Cloud Storage)&#xa;&#xa;• Report HTML files&#xa;• Image/video cache&#xa;• Log archives&#xa;• Model artifacts&#xa;&#xa;Lifecycle: 90 days → Glacier&#xa;Versioning: Enabled" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;align=left;fontStyle=1" vertex="1" parent="data-tier">
+          <mxGeometry x="820" y="50" width="340" height="170" as="geometry" />
+        </mxCell>
+
+        <mxCell id="secrets" value="Secrets Manager&#xa;(AWS Secrets / Secret Manager)&#xa;&#xa;• API keys&#xa;• Database credentials&#xa;• OAuth tokens&#xa;• Encryption keys&#xa;&#xa;Auto-rotation: 90 days" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;align=left;fontStyle=1" vertex="1" parent="data-tier">
+          <mxGeometry x="1200" y="50" width="340" height="170" as="geometry" />
+        </mxCell>
+
+        <!-- Monitoring & Logging -->
+        <mxCell id="monitoring-tier" value="Monitoring, Logging &amp; Alerting" style="swimlane;fontSize=16;fontStyle=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="80" y="1020" width="1640" height="200" as="geometry" />
+        </mxCell>
+
+        <mxCell id="prometheus" value="Prometheus&#xa;&#xa;• Metrics collection&#xa;• Time-series DB&#xa;• PromQL queries&#xa;&#xa;Retention: 15 days" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left" vertex="1" parent="monitoring-tier">
+          <mxGeometry x="60" y="50" width="240" height="130" as="geometry" />
+        </mxCell>
+
+        <mxCell id="grafana" value="Grafana&#xa;&#xa;• Dashboards&#xa;• Visualization&#xa;• Alerts&#xa;&#xa;7 dashboards" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;align=left" vertex="1" parent="monitoring-tier">
+          <mxGeometry x="340" y="50" width="240" height="130" as="geometry" />
+        </mxCell>
+
+        <mxCell id="elk" value="ELK Stack&#xa;(Elasticsearch + Logstash + Kibana)&#xa;&#xa;• Centralized logging&#xa;• Log aggregation&#xa;• Search &amp; analysis&#xa;&#xa;Retention: 30 days" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;align=left" vertex="1" parent="monitoring-tier">
+          <mxGeometry x="620" y="50" width="340" height="130" as="geometry" />
+        </mxCell>
+
+        <mxCell id="sentry" value="Sentry&#xa;&#xa;• Error tracking&#xa;• Performance monitoring&#xa;• Release tracking&#xa;&#xa;Alert threshold: P1 errors" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;align=left" vertex="1" parent="monitoring-tier">
+          <mxGeometry x="1000" y="50" width="240" height="130" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pagerduty" value="PagerDuty&#xa;&#xa;• Incident mgmt&#xa;• On-call rotation&#xa;• Escalation policy&#xa;&#xa;Response SLA: 15 min" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;align=left" vertex="1" parent="monitoring-tier">
+          <mxGeometry x="1280" y="50" width="280" height="130" as="geometry" />
+        </mxCell>
+
+        <!-- CI/CD Pipeline -->
+        <mxCell id="cicd-tier" value="CI/CD Pipeline" style="swimlane;fontSize=16;fontStyle=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="80" y="1260" width="1640" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="github-actions" value="GitHub Actions&#xa;&#xa;• Unit tests&#xa;• Integration tests&#xa;• Security scans&#xa;• Docker build" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;align=left" vertex="1" parent="cicd-tier">
+          <mxGeometry x="80" y="40" width="280" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="docker-registry" value="Container Registry&#xa;(ECR / GCR)&#xa;&#xa;• Docker images&#xa;• Vulnerability scanning" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left" vertex="1" parent="cicd-tier">
+          <mxGeometry x="400" y="40" width="280" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="argocd" value="ArgoCD&#xa;(GitOps)&#xa;&#xa;• Kubernetes deployment&#xa;• Auto-sync from Git" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;align=left" vertex="1" parent="cicd-tier">
+          <mxGeometry x="720" y="40" width="280" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="deployment-strategy" value="Deployment: Blue-Green&#xa;&#xa;• Zero-downtime&#xa;• Instant rollback" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;align=left;fontStyle=1" vertex="1" parent="cicd-tier">
+          <mxGeometry x="1040" y="40" width="280" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Connection Arrows -->
+        <mxCell id="arrow-users-cdn" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#d6b656;" edge="1" parent="1" source="end-users" target="cloudflare">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-cdn-lb" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#6c8ebf;" edge="1" parent="1" source="cloudflare" target="load-balancer">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-lb-waf" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#b85450;" edge="1" parent="1" source="load-balancer" target="waf">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-lb-flask" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#d6b656;" edge="1" parent="1" source="load-balancer" target="flask-cluster">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-flask-workers" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#9673a6;dashed=1;" edge="1" parent="1" source="flask-cluster" target="worker-cluster">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-flask-db" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.25;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#6c8ebf;" edge="1" parent="1" source="flask-cluster" target="postgres-managed">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-workers-redis" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#d6b656;" edge="1" parent="1" source="worker-cluster" target="redis-managed">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-workers-ml" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#b85450;dashed=1;" edge="1" parent="1" source="worker-cluster" target="ml-service">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Legend -->
+        <mxCell id="legend-box" value="Infrastructure Details" style="swimlane;fontSize=14;fontStyle=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="1760" y="80" width="320" height="700" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend-title1" value="Compute Resources:" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=1" vertex="1" parent="legend-box">
+          <mxGeometry x="10" y="30" width="300" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend-compute" value="• Flask pods: 3-10 (2 CPU, 4GB each)&#xa;• Worker pods: 3-20 (4 CPU, 8GB each)&#xa;• ML pods: 2-5 (2 CPU, 8GB, GPU optional)&#xa;• Total peak: ~200 CPU, 500GB RAM" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="legend-box">
+          <mxGeometry x="10" y="50" width="300" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend-title2" value="Data Storage:" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=1" vertex="1" parent="legend-box">
+          <mxGeometry x="10" y="120" width="300" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend-storage" value="• PostgreSQL: 500GB SSD&#xa;• Redis: 6.4GB RAM cache&#xa;• S3: Unlimited (pay-per-use)&#xa;• Backup retention: 7 days&#xa;• Estimated monthly: 1TB storage" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="legend-box">
+          <mxGeometry x="10" y="140" width="300" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend-title3" value="Network:" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=1" vertex="1" parent="legend-box">
+          <mxGeometry x="10" y="220" width="300" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend-network" value="• VPC: Private subnets for all services&#xa;• NAT Gateway: 2 (multi-AZ)&#xa;• Internet Gateway: 1&#xa;• Security Groups: Layer-based isolation&#xa;• Bandwidth: 100 Gbps burst" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="legend-box">
+          <mxGeometry x="10" y="240" width="300" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend-title4" value="Availability & DR:" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=1" vertex="1" parent="legend-box">
+          <mxGeometry x="10" y="320" width="300" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend-avail" value="• Multi-AZ: 3 availability zones&#xa;• Database: Multi-AZ with read replicas&#xa;• Redis: Cluster mode with failover&#xa;• RTO: <1 hour | RPO: <15 minutes&#xa;• Uptime SLA: 99.9% (8.7h downtime/year)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="legend-box">
+          <mxGeometry x="10" y="340" width="300" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend-title5" value="Security:" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=1" vertex="1" parent="legend-box">
+          <mxGeometry x="10" y="430" width="300" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend-security" value="• TLS 1.3 end-to-end encryption&#xa;• Secrets rotation: 90 days&#xa;• IAM roles for service auth&#xa;• WAF rules: OWASP Top 10&#xa;• Network isolation: Zero trust model&#xa;• Audit logs: CloudTrail / Cloud Audit" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="legend-box">
+          <mxGeometry x="10" y="450" width="300" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend-title6" value="Cost Estimate (Monthly):" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=1" vertex="1" parent="legend-box">
+          <mxGeometry x="10" y="550" width="300" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend-cost" value="• Compute (Kubernetes): $500-1,500&#xa;• Database (RDS): $300-600&#xa;• Redis (ElastiCache): $100-200&#xa;• Storage (S3): $50-150&#xa;• Networking: $100-300&#xa;• Monitoring: $50-100&#xa;• Total: $1,100-2,850/month" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="legend-box">
+          <mxGeometry x="10" y="570" width="300" height="110" as="geometry" />
+        </mxCell>
+
+        <!-- Footer -->
+        <mxCell id="footer" value="BettaFish USA Production Deployment Architecture | Version 1.0 | 2025-11-09 | Cloud-agnostic (AWS/GCP/Azure)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="80" y="1380" width="1640" height="20" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

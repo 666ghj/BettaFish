@@ -1,0 +1,306 @@
+<mxfile host="app.diagrams.net" modified="2025-11-09T00:00:00.000Z" agent="BettaFish USA Architecture" version="22.0.0">
+  <diagram name="Multi-Agent Workflow" id="agent-workflow">
+    <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1400" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="BettaFish USA - Multi-Agent Workflow &amp; Collaboration" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=24;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="300" y="20" width="1000" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Step 1: User Query -->
+        <mxCell id="step1" value="Step 1: User Query" style="swimlane;fontSize=16;fontStyle=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="100" y="80" width="1400" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="user-query" value="User submits query:&#xa;&quot;Analyze sentiment about Tesla on social media&quot;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;fontStyle=1" vertex="1" parent="step1">
+          <mxGeometry x="450" y="35" width="500" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Step 2: Parallel Agent Launch -->
+        <mxCell id="step2" value="Step 2: Parallel Agent Launch" style="swimlane;fontSize=16;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="100" y="220" width="1400" height="160" as="geometry" />
+        </mxCell>
+
+        <mxCell id="orchestrator" value="Flask Orchestrator" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=14;fontStyle=1" vertex="1" parent="step2">
+          <mxGeometry x="570" y="40" width="260" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="launch-query" value="Launch Query Agent" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;" vertex="1" parent="step2">
+          <mxGeometry x="100" y="100" width="160" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="launch-media" value="Launch Media Agent" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="step2">
+          <mxGeometry x="300" y="100" width="160" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="launch-insight" value="Launch Insight Agent" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;" vertex="1" parent="step2">
+          <mxGeometry x="500" y="100" width="160" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="launch-report" value="Launch Report Agent" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="step2">
+          <mxGeometry x="700" y="100" width="160" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="launch-forum" value="Start Forum Engine" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1" vertex="1" parent="step2">
+          <mxGeometry x="1040" y="100" width="160" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Arrows from orchestrator -->
+        <mxCell id="arrow-orch-query" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#82b366;" edge="1" parent="step2" source="orchestrator" target="launch-query">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-orch-media" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.25;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#6c8ebf;" edge="1" parent="step2" source="orchestrator" target="launch-media">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-orch-insight" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#9673a6;" edge="1" parent="step2" source="orchestrator" target="launch-insight">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-orch-report" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.75;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#d6b656;" edge="1" parent="step2" source="orchestrator" target="launch-report">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-orch-forum" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#b85450;" edge="1" parent="step2" source="orchestrator" target="launch-forum">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Step 3: Initial Research -->
+        <mxCell id="step3" value="Step 3: Initial Research Phase (Parallel Execution)" style="swimlane;fontSize=16;fontStyle=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="100" y="420" width="1400" height="220" as="geometry" />
+        </mxCell>
+
+        <!-- Query Agent Research -->
+        <mxCell id="query-research" value="Query Agent" style="swimlane;fontSize=13;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="step3">
+          <mxGeometry x="40" y="40" width="300" height="160" as="geometry" />
+        </mxCell>
+
+        <mxCell id="query-task1" value="1. Search Twitter for &quot;Tesla&quot;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=11;" vertex="1" parent="query-research">
+          <mxGeometry x="10" y="30" width="280" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="query-task2" value="2. Search news articles" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=11;" vertex="1" parent="query-research">
+          <mxGeometry x="10" y="60" width="280" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="query-task3" value="3. Get trending hashtags" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=11;" vertex="1" parent="query-research">
+          <mxGeometry x="10" y="90" width="280" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="query-result" value="Result: 500+ recent posts" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;fontStyle=1" vertex="1" parent="query-research">
+          <mxGeometry x="10" y="125" width="280" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- Media Agent Research -->
+        <mxCell id="media-research" value="Media Agent" style="swimlane;fontSize=13;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="step3">
+          <mxGeometry x="380" y="40" width="300" height="160" as="geometry" />
+        </mxCell>
+
+        <mxCell id="media-task1" value="1. Search YouTube videos" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="media-research">
+          <mxGeometry x="10" y="30" width="280" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="media-task2" value="2. Analyze video thumbnails" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="media-research">
+          <mxGeometry x="10" y="60" width="280" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="media-task3" value="3. Extract video transcripts" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="media-research">
+          <mxGeometry x="10" y="90" width="280" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="media-result" value="Result: 150+ videos analyzed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;fontStyle=1" vertex="1" parent="media-research">
+          <mxGeometry x="10" y="125" width="280" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- Insight Agent Research -->
+        <mxCell id="insight-research" value="Insight Agent" style="swimlane;fontSize=13;fontStyle=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="step3">
+          <mxGeometry x="720" y="40" width="300" height="160" as="geometry" />
+        </mxCell>
+
+        <mxCell id="insight-task1" value="1. Query database for Tesla posts" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="insight-research">
+          <mxGeometry x="10" y="30" width="280" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="insight-task2" value="2. Extract Reddit discussions" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="insight-research">
+          <mxGeometry x="10" y="60" width="280" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="insight-task3" value="3. Run sentiment analysis" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="insight-research">
+          <mxGeometry x="10" y="90" width="280" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="insight-result" value="Result: 2,000+ analyzed posts" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;fontStyle=1" vertex="1" parent="insight-research">
+          <mxGeometry x="10" y="125" width="280" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- Report Agent Monitoring -->
+        <mxCell id="report-monitor" value="Report Agent (Monitoring)" style="swimlane;fontSize=13;fontStyle=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="step3">
+          <mxGeometry x="1060" y="40" width="300" height="160" as="geometry" />
+        </mxCell>
+
+        <mxCell id="report-task1" value="Select appropriate template" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="report-monitor">
+          <mxGeometry x="10" y="30" width="280" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="report-task2" value="Prepare visualization framework" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="report-monitor">
+          <mxGeometry x="10" y="70" width="280" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="report-status" value="Status: Waiting for agent results" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontStyle=1" vertex="1" parent="report-monitor">
+          <mxGeometry x="10" y="115" width="280" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Step 4: Forum Collaboration -->
+        <mxCell id="step4" value="Step 4: Forum Collaboration (Multi-Round Debate)" style="swimlane;fontSize=16;fontStyle=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="100" y="680" width="1400" height="320" as="geometry" />
+        </mxCell>
+
+        <!-- Round 1 -->
+        <mxCell id="round1" value="Round 1: Initial Findings" style="swimlane;fontSize=13;fontStyle=1;fillColor=#ffffff;strokeColor=#b85450;" vertex="1" parent="step4">
+          <mxGeometry x="40" y="40" width="1320" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="r1-query" value="Query Agent:&#xa;&quot;Twitter shows 60% positive mentions&quot;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="round1">
+          <mxGeometry x="20" y="30" width="240" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="r1-media" value="Media Agent:&#xa;&quot;YouTube reviews are mixed&quot;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="round1">
+          <mxGeometry x="300" y="30" width="240" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="r1-insight" value="Insight Agent:&#xa;&quot;Reddit discussions critical of price&quot;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="round1">
+          <mxGeometry x="580" y="30" width="240" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="r1-host" value="Forum Host:&#xa;&quot;Need deeper analysis on pricing concerns&quot;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;fontStyle=1" vertex="1" parent="round1">
+          <mxGeometry x="860" y="30" width="440" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Round 2 -->
+        <mxCell id="round2" value="Round 2: Deep Dive" style="swimlane;fontSize=13;fontStyle=1;fillColor=#ffffff;strokeColor=#b85450;" vertex="1" parent="step4">
+          <mxGeometry x="40" y="140" width="1320" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="r2-query" value="Query Agent:&#xa;&quot;Found spike after price cut announcement&quot;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="round2">
+          <mxGeometry x="20" y="30" width="240" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="r2-media" value="Media Agent:&#xa;&quot;Influencers discussing affordability&quot;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="round2">
+          <mxGeometry x="300" y="30" width="240" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="r2-insight" value="Insight Agent:&#xa;&quot;Sentiment improved 15% after cut&quot;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="round2">
+          <mxGeometry x="580" y="30" width="240" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="r2-host" value="Forum Host:&#xa;&quot;Consensus: Pricing is key factor. Generate report.&quot;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;fontStyle=1" vertex="1" parent="round2">
+          <mxGeometry x="860" y="30" width="440" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Forum Summary -->
+        <mxCell id="forum-summary" value="Forum Summary:&#xa;&#xa;Consensus reached: Tesla sentiment driven by pricing strategy&#xa;60% positive overall, with 15% improvement after price reduction&#xa;Key themes: affordability, value proposition, market competition" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontStyle=1;align=left" vertex="1" parent="step4">
+          <mxGeometry x="40" y="240" width="1320" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- Step 5: Report Generation -->
+        <mxCell id="step5" value="Step 5: Report Generation" style="swimlane;fontSize=16;fontStyle=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="100" y="1040" width="1400" height="200" as="geometry" />
+        </mxCell>
+
+        <mxCell id="report-gen" value="Report Agent" style="swimlane;fontSize=14;fontStyle=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="step5">
+          <mxGeometry x="40" y="40" width="1320" height="140" as="geometry" />
+        </mxCell>
+
+        <mxCell id="rg-collect" value="Collect Results:&#xa;• 500+ Twitter posts&#xa;• 150+ YouTube videos&#xa;• 2,000+ Reddit posts&#xa;• Forum debate transcript" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=11;align=left" vertex="1" parent="report-gen">
+          <mxGeometry x="20" y="30" width="280" height="95" as="geometry" />
+        </mxCell>
+
+        <mxCell id="rg-analyze" value="Synthesize Insights:&#xa;• Overall sentiment: 60% positive&#xa;• Key themes: pricing, value&#xa;• Trend: improving after price cut&#xa;• Platform breakdown" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=11;align=left" vertex="1" parent="report-gen">
+          <mxGeometry x="330" y="30" width="280" height="95" as="geometry" />
+        </mxCell>
+
+        <mxCell id="rg-visualize" value="Create Visualizations:&#xa;• Sentiment timeline chart&#xa;• Platform comparison graph&#xa;• Word cloud of key themes&#xa;• Influencer network map" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=11;align=left" vertex="1" parent="report-gen">
+          <mxGeometry x="640" y="30" width="280" height="95" as="geometry" />
+        </mxCell>
+
+        <mxCell id="rg-generate" value="Generate HTML Report:&#xa;• Executive summary&#xa;• Detailed analysis&#xa;• Interactive charts&#xa;• Recommendations" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=left;fontStyle=1" vertex="1" parent="report-gen">
+          <mxGeometry x="950" y="30" width="280" height="95" as="geometry" />
+        </mxCell>
+
+        <!-- Arrows in report flow -->
+        <mxCell id="arrow-rg1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#d6b656;" edge="1" parent="report-gen" source="rg-collect" target="rg-analyze">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-rg2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#d6b656;" edge="1" parent="report-gen" source="rg-analyze" target="rg-visualize">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-rg3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#d6b656;" edge="1" parent="report-gen" source="rg-visualize" target="rg-generate">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Step 6: Delivery -->
+        <mxCell id="step6" value="Step 6: Report Delivery" style="swimlane;fontSize=16;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="100" y="1280" width="1400" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="final-report" value="Interactive HTML Report Delivered to User&#xa;Response Time: 4 minutes 32 seconds | Data Points Analyzed: 2,650+ | Sentiment Accuracy: 87%" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;fontStyle=1" vertex="1" parent="step6">
+          <mxGeometry x="200" y="35" width="1000" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Timeline indicator -->
+        <mxCell id="timeline" value="Total Elapsed Time: ~5 minutes" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=16;fontStyle=1;fontColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="1550" y="680" width="200" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Key Features Box -->
+        <mxCell id="features-box" value="Key Features" style="swimlane;fontSize=14;fontStyle=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="1550" y="80" width="280" height="560" as="geometry" />
+        </mxCell>
+
+        <mxCell id="feature1" value="✓ Parallel Processing:&#xa;All agents work simultaneously" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=left" vertex="1" parent="features-box">
+          <mxGeometry x="10" y="30" width="260" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="feature2" value="✓ Forum Collaboration:&#xa;Agents debate &amp; reach consensus" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;align=left" vertex="1" parent="features-box">
+          <mxGeometry x="10" y="80" width="260" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="feature3" value="✓ Multi-Round Refinement:&#xa;Iterative deep dives based on gaps" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;align=left" vertex="1" parent="features-box">
+          <mxGeometry x="10" y="130" width="260" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="feature4" value="✓ Real-time Sentiment:&#xa;85%+ accuracy on English text" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=left" vertex="1" parent="features-box">
+          <mxGeometry x="10" y="180" width="260" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="feature5" value="✓ Cross-Platform Analysis:&#xa;Twitter + Reddit + YouTube + more" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=left" vertex="1" parent="features-box">
+          <mxGeometry x="10" y="230" width="260" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="feature6" value="✓ Beautiful Reports:&#xa;Interactive charts &amp; visualizations" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=left" vertex="1" parent="features-box">
+          <mxGeometry x="10" y="280" width="260" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="feature7" value="Data Sources:&#xa;• Twitter/X&#xa;• Reddit&#xa;• YouTube&#xa;• Instagram&#xa;• LinkedIn&#xa;• News APIs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=10;align=left" vertex="1" parent="features-box">
+          <mxGeometry x="10" y="340" width="260" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="feature8" value="Performance:&#xa;• 10,000+ posts/hour&#xa;• <5 min response time&#xa;• 99.5%+ uptime&#xa;• 85%+ accuracy" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=10;align=left" vertex="1" parent="features-box">
+          <mxGeometry x="10" y="450" width="260" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- Footer -->
+        <mxCell id="footer" value="BettaFish USA Multi-Agent Workflow | Version 1.0 | 2025-11-09" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="100" y="1400" width="1400" height="20" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

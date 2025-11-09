@@ -1,0 +1,359 @@
+<mxfile host="app.diagrams.net" modified="2025-11-09T00:00:00.000Z" agent="BettaFish USA Architecture" version="22.0.0">
+  <diagram name="Data Flow Pipeline" id="data-flow">
+    <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="BettaFish USA - Data Flow Pipeline" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=24;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="400" y="20" width="1000" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Stage 1: Data Ingestion -->
+        <mxCell id="stage1" value="Stage 1: Data Ingestion (Raw Data Collection)" style="swimlane;fontSize=16;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="80" y="80" width="1640" height="180" as="geometry" />
+        </mxCell>
+
+        <mxCell id="twitter-api-box" value="Twitter API" style="ellipse;whiteSpace=wrap;html=1;fillColor=#1DA1F2;strokeColor=#000000;fontSize=12;fontColor=#FFFFFF;fontStyle=1" vertex="1" parent="stage1">
+          <mxGeometry x="60" y="50" width="120" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="reddit-api-box" value="Reddit API" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FF4500;strokeColor=#000000;fontSize=12;fontColor=#FFFFFF;fontStyle=1" vertex="1" parent="stage1">
+          <mxGeometry x="220" y="50" width="120" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="youtube-api-box" value="YouTube API" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FF0000;strokeColor=#000000;fontSize=12;fontColor=#FFFFFF;fontStyle=1" vertex="1" parent="stage1">
+          <mxGeometry x="380" y="50" width="120" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="instagram-api-box" value="Instagram API" style="ellipse;whiteSpace=wrap;html=1;fillColor=#E4405F;strokeColor=#000000;fontSize=12;fontColor=#FFFFFF;fontStyle=1" vertex="1" parent="stage1">
+          <mxGeometry x="540" y="50" width="120" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="linkedin-api-box" value="LinkedIn API" style="ellipse;whiteSpace=wrap;html=1;fillColor=#0077B5;strokeColor=#000000;fontSize=12;fontColor=#FFFFFF;fontStyle=1" vertex="1" parent="stage1">
+          <mxGeometry x="700" y="50" width="120" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="raw-data" value="Raw JSON Data:&#xa;• Posts&#xa;• Comments&#xa;• User profiles&#xa;• Engagement metrics&#xa;• Timestamps" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=left;fontStyle=1" vertex="1" parent="stage1">
+          <mxGeometry x="1020" y="50" width="560" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="rate-info" value="Rate Limits Enforced:&#xa;Twitter: 450/15min | Reddit: 60/min | YouTube: 10K units/day" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#666666;" vertex="1" parent="stage1">
+          <mxGeometry x="60" y="145" width="760" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- Arrows from APIs to raw data -->
+        <mxCell id="arrow-twitter-raw" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.2;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#1DA1F2;" edge="1" parent="stage1" source="twitter-api-box" target="raw-data">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-reddit-raw" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.35;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#FF4500;" edge="1" parent="stage1" source="reddit-api-box" target="raw-data">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-youtube-raw" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#FF0000;" edge="1" parent="stage1" source="youtube-api-box" target="raw-data">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-instagram-raw" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.65;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#E4405F;" edge="1" parent="stage1" source="instagram-api-box" target="raw-data">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-linkedin-raw" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.8;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#0077B5;" edge="1" parent="stage1" source="linkedin-api-box" target="raw-data">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Stage 2: Data Processing -->
+        <mxCell id="stage2" value="Stage 2: Data Processing &amp; Enrichment" style="swimlane;fontSize=16;fontStyle=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="80" y="300" width="1640" height="220" as="geometry" />
+        </mxCell>
+
+        <mxCell id="validation" value="Validation Pipeline" style="swimlane;fontSize=13;fontStyle=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="stage2">
+          <mxGeometry x="40" y="40" width="340" height="160" as="geometry" />
+        </mxCell>
+
+        <mxCell id="val1" value="✓ Schema validation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;fontSize=10;align=left" vertex="1" parent="validation">
+          <mxGeometry x="10" y="30" width="320" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="val2" value="✓ Deduplication (hash-based)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;fontSize=10;align=left" vertex="1" parent="validation">
+          <mxGeometry x="10" y="60" width="320" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="val3" value="✓ Text sanitization &amp; encoding" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;fontSize=10;align=left" vertex="1" parent="validation">
+          <mxGeometry x="10" y="90" width="320" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="val4" value="✓ Data type conversion" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;fontSize=10;align=left" vertex="1" parent="validation">
+          <mxGeometry x="10" y="120" width="320" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="enrichment" value="Enrichment Pipeline" style="swimlane;fontSize=13;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="stage2">
+          <mxGeometry x="420" y="40" width="380" height="160" as="geometry" />
+        </mxCell>
+
+        <mxCell id="enr1" value="• Language detection (EN/ES/etc.)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=10;align=left" vertex="1" parent="enrichment">
+          <mxGeometry x="10" y="30" width="360" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="enr2" value="• Sentiment analysis (85%+ accuracy)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=10;align=left" vertex="1" parent="enrichment">
+          <mxGeometry x="10" y="60" width="360" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="enr3" value="• Entity extraction (people, brands, places)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=10;align=left" vertex="1" parent="enrichment">
+          <mxGeometry x="10" y="90" width="360" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="enr4" value="• Topic categorization" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#82b366;fontSize=10;align=left" vertex="1" parent="enrichment">
+          <mxGeometry x="10" y="120" width="360" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="mlmodels" value="ML Models" style="swimlane;fontSize=13;fontStyle=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="stage2">
+          <mxGeometry x="840" y="40" width="380" height="160" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ml1" value="Multilingual Sentiment Model" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;fontSize=10;align=center" vertex="1" parent="mlmodels">
+          <mxGeometry x="10" y="30" width="360" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ml2" value="Named Entity Recognition (NER)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;fontSize=10;align=center" vertex="1" parent="mlmodels">
+          <mxGeometry x="10" y="60" width="360" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ml3" value="Topic Classification" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;fontSize=10;align=center" vertex="1" parent="mlmodels">
+          <mxGeometry x="10" y="90" width="360" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ml4" value="Sarcasm Detection" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;fontSize=10;align=center" vertex="1" parent="mlmodels">
+          <mxGeometry x="10" y="120" width="360" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="processed-data" value="Processed &amp; Enriched Data:&#xa;• Validated structure&#xa;• Sentiment scores&#xa;• Entity tags&#xa;• Topic labels" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=left;fontStyle=1" vertex="1" parent="stage2">
+          <mxGeometry x="1260" y="65" width="340" height="110" as="geometry" />
+        </mxCell>
+
+        <!-- Stage 3: Data Storage -->
+        <mxCell id="stage3" value="Stage 3: Data Storage &amp; Indexing" style="swimlane;fontSize=16;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="80" y="560" width="1640" height="200" as="geometry" />
+        </mxCell>
+
+        <mxCell id="postgres-db" value="PostgreSQL Database" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;fontStyle=1" vertex="1" parent="stage3">
+          <mxGeometry x="200" y="50" width="180" height="120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="db-tables" value="Tables:&#xa;• tweets&#xa;• reddit_posts&#xa;• youtube_videos&#xa;• instagram_posts&#xa;• linkedin_posts&#xa;• comments&#xa;• users&#xa;• sentiment_scores" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#6c8ebf;fontSize=10;align=left" vertex="1" parent="stage3">
+          <mxGeometry x="420" y="50" width="240" height="120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="indexes" value="Indexes:&#xa;• Full-text search (GIN)&#xa;• User ID index&#xa;• Timestamp index&#xa;• Platform + date composite&#xa;• Sentiment score index" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;fontStyle=1" vertex="1" parent="stage3">
+          <mxGeometry x="700" y="50" width="280" height="120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="redis-cache-db" value="Redis Cache" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=14;fontStyle=1" vertex="1" parent="stage3">
+          <mxGeometry x="1040" y="50" width="160" height="120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="cache-uses" value="Caching:&#xa;• Frequent queries&#xa;• API responses (TTL: 15min)&#xa;• Rate limit counters&#xa;• Session data" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=10;align=left" vertex="1" parent="stage3">
+          <mxGeometry x="1240" y="50" width="320" height="120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="storage-perf" value="Performance: <500ms writes | <100ms reads | 10K+ inserts/sec capacity" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#666666;" vertex="1" parent="stage3">
+          <mxGeometry x="40" y="175" width="600" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- Stage 4: Data Analysis -->
+        <mxCell id="stage4" value="Stage 4: Multi-Agent Analysis" style="swimlane;fontSize=16;fontStyle=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="80" y="800" width="1640" height="180" as="geometry" />
+        </mxCell>
+
+        <mxCell id="query-agent-box" value="Query Agent&#xa;&#xa;Web search + Twitter&#xa;Real-time trends" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=center" vertex="1" parent="stage4">
+          <mxGeometry x="80" y="50" width="240" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="media-agent-box" value="Media Agent&#xa;&#xa;YouTube + Instagram&#xa;Multimodal analysis" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=center" vertex="1" parent="stage4">
+          <mxGeometry x="360" y="50" width="240" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="insight-agent-box" value="Insight Agent&#xa;&#xa;Database mining&#xa;Deep sentiment analysis" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;align=center" vertex="1" parent="stage4">
+          <mxGeometry x="640" y="50" width="240" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="forum-engine-box" value="Forum Engine&#xa;&#xa;Agent collaboration&#xa;Debate &amp; synthesis" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;align=center;fontStyle=1" vertex="1" parent="stage4">
+          <mxGeometry x="920" y="50" width="240" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="analysis-output" value="Analysis Results:&#xa;• Aggregated insights&#xa;• Sentiment trends&#xa;• Key themes&#xa;• Platform comparison&#xa;• Influencer data" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=left;fontStyle=1" vertex="1" parent="stage4">
+          <mxGeometry x="1200" y="50" width="380" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- Stage 5: Report Generation -->
+        <mxCell id="stage5" value="Stage 5: Report Generation &amp; Visualization" style="swimlane;fontSize=16;fontStyle=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="80" y="1020" width="1640" height="140" as="geometry" />
+        </mxCell>
+
+        <mxCell id="report-agent-box" value="Report Agent" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;fontStyle=1" vertex="1" parent="stage5">
+          <mxGeometry x="80" y="50" width="200" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="templates" value="Report Templates:&#xa;• Brand reputation&#xa;• Political sentiment&#xa;• Crisis monitoring&#xa;• Market research" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=10;align=left" vertex="1" parent="stage5">
+          <mxGeometry x="320" y="40" width="280" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="visualizations" value="Visualizations:&#xa;• Sentiment timeline charts&#xa;• Platform comparison graphs&#xa;• Word clouds&#xa;• Network graphs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=10;align=left" vertex="1" parent="stage5">
+          <mxGeometry x="640" y="40" width="280" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="html-report" value="Interactive HTML Report:&#xa;• Executive summary&#xa;• Detailed findings&#xa;• Interactive charts&#xa;• Downloadable (PDF/JSON)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=left;fontStyle=1" vertex="1" parent="stage5">
+          <mxGeometry x="960" y="40" width="620" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Final Delivery -->
+        <mxCell id="final-box" value="User Receives Report (~5 minutes from query submission)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=16;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="580" y="1100" width="640" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Connecting arrows between stages -->
+        <mxCell id="arrow-stage1-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=3;strokeColor=#d6b656;" edge="1" parent="1" source="raw-data" target="stage2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="label-stage1-2" value="10K+ posts/hour" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;fontStyle=1" vertex="1" connectable="0" parent="arrow-stage1-2">
+          <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="arrow-stage2-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=3;strokeColor=#82b366;" edge="1" parent="1" source="processed-data" target="stage3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="label-stage2-3" value="Enriched data" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;fontStyle=1" vertex="1" connectable="0" parent="arrow-stage2-3">
+          <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="arrow-stage3-4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.3;entryY=0;entryDx=0;entryDy=0;strokeWidth=3;strokeColor=#6c8ebf;" edge="1" parent="1" source="postgres-db" target="stage4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="label-stage3-4" value="Query data" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;fontStyle=1" vertex="1" connectable="0" parent="arrow-stage3-4">
+          <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="arrow-stage4-5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=3;strokeColor=#9673a6;" edge="1" parent="1" source="analysis-output" target="stage5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="label-stage4-5" value="Insights" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;fontStyle=1" vertex="1" connectable="0" parent="arrow-stage4-5">
+          <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="arrow-stage5-final" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=3;strokeColor=#82b366;" edge="1" parent="1" source="html-report" target="final-box">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="label-stage5-final" value="HTML report" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=10;fontStyle=1" vertex="1" connectable="0" parent="arrow-stage5-final">
+          <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Metrics Panel -->
+        <mxCell id="metrics-panel" value="Data Flow Metrics" style="swimlane;fontSize=14;fontStyle=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="1760" y="80" width="280" height="480" as="geometry" />
+        </mxCell>
+
+        <mxCell id="metric1" value="Throughput:" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=1" vertex="1" parent="metrics-panel">
+          <mxGeometry x="10" y="30" width="260" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="metric1-data" value="• 10,000+ posts/hour ingestion&#xa;• 8,500+ posts/hour processing&#xa;• 95%+ data quality rate&#xa;• 2-3% deduplication rate" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="metrics-panel">
+          <mxGeometry x="10" y="50" width="260" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="metric2" value="Latency:" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=1" vertex="1" parent="metrics-panel">
+          <mxGeometry x="10" y="120" width="260" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="metric2-data" value="• API ingestion: 1-2 sec/request&#xa;• Processing: 50-100ms/post&#xa;• ML inference: <100ms/text&#xa;• Database write: <500ms/batch&#xa;• Total pipeline: 2-5 sec/post" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="metrics-panel">
+          <mxGeometry x="10" y="140" width="260" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="metric3" value="Accuracy:" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=1" vertex="1" parent="metrics-panel">
+          <mxGeometry x="10" y="230" width="260" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="metric3-data" value="• Sentiment: 85%+ accuracy&#xa;• Entity extraction: 80%+&#xa;• Topic classification: 75%+&#xa;• Language detection: 98%+" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="metrics-panel">
+          <mxGeometry x="10" y="250" width="260" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="metric4" value="Reliability:" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=1" vertex="1" parent="metrics-panel">
+          <mxGeometry x="10" y="320" width="260" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="metric4-data" value="• API success rate: 98%+&#xa;• Retry success rate: 95%+&#xa;• Data validation pass: 97%+&#xa;• Database uptime: 99.9%+" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="metrics-panel">
+          <mxGeometry x="10" y="340" width="260" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="metric5" value="Cost Efficiency:" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=1" vertex="1" parent="metrics-panel">
+          <mxGeometry x="10" y="410" width="260" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="metric5-data" value="• $0.001-0.01 per post analyzed&#xa;• Cache hit rate: 30-40%&#xa;• API cost optimization: 50%+ savings" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="metrics-panel">
+          <mxGeometry x="10" y="430" width="260" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Legend -->
+        <mxCell id="legend-box" value="Data Types" style="swimlane;fontSize=14;fontStyle=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="1760" y="600" width="280" height="280" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend1" value="Raw Data" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="legend-box">
+          <mxGeometry x="10" y="30" width="120" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="legend1-text" value="Unprocessed JSON" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=9;" vertex="1" parent="legend-box">
+          <mxGeometry x="140" y="30" width="130" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend2" value="Enriched Data" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="legend-box">
+          <mxGeometry x="10" y="70" width="120" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="legend2-text" value="ML-processed" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=9;" vertex="1" parent="legend-box">
+          <mxGeometry x="140" y="70" width="130" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend3" value="Storage" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=10;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="legend-box">
+          <mxGeometry x="10" y="110" width="120" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="legend3-text" value="Persistent DB" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=9;" vertex="1" parent="legend-box">
+          <mxGeometry x="140" y="120" width="130" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend4" value="Analysis" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="legend-box">
+          <mxGeometry x="10" y="170" width="120" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="legend4-text" value="AI agent output" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=9;" vertex="1" parent="legend-box">
+          <mxGeometry x="140" y="170" width="130" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend5" value="Final Output" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;fontStyle=1" vertex="1" parent="legend-box">
+          <mxGeometry x="10" y="210" width="120" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="legend5-text" value="User-facing report" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=9;" vertex="1" parent="legend-box">
+          <mxGeometry x="140" y="210" width="130" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend-note" value="Total Pipeline: 3-5 minutes&#xa;from query to report delivery" style="text;html=1;strokeColor=#82b366;fillColor=#d5e8d4;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=1;fontSize=10;fontStyle=1" vertex="1" parent="legend-box">
+          <mxGeometry x="10" y="250" width="260" height="25" as="geometry" />
+        </mxCell>
+
+        <!-- Footer -->
+        <mxCell id="footer" value="BettaFish USA Data Flow Pipeline | Version 1.0 | 2025-11-09" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="80" y="1180" width="1640" height="20" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

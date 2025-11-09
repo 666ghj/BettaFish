@@ -1,0 +1,300 @@
+<mxfile host="app.diagrams.net" modified="2025-11-09T00:00:00.000Z" agent="BettaFish USA Architecture" version="22.0.0">
+  <diagram name="Overall System Architecture" id="system-arch">
+    <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="BettaFish USA - Overall System Architecture" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=24;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="400" y="20" width="800" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- User Layer -->
+        <mxCell id="user-layer" value="User Layer" style="swimlane;fontSize=16;fontStyle=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="100" y="100" width="1400" height="120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="web-browser" value="Web Browser" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=14;" vertex="1" parent="user-layer">
+          <mxGeometry x="200" y="40" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="mobile-app" value="Mobile App&#xa;(Future)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=14;dashed=1;" vertex="1" parent="user-layer">
+          <mxGeometry x="400" y="40" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="api-clients" value="API Clients&#xa;(Developers)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=14;" vertex="1" parent="user-layer">
+          <mxGeometry x="600" y="40" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="slack-webhooks" value="Slack/Email&#xa;Alerts" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;" vertex="1" parent="user-layer">
+          <mxGeometry x="800" y="40" width="150" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Application Layer -->
+        <mxCell id="app-layer" value="Application Layer (Flask + Multi-Agent System)" style="swimlane;fontSize=16;fontStyle=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="100" y="260" width="1400" height="320" as="geometry" />
+        </mxCell>
+
+        <!-- Flask Web Server -->
+        <mxCell id="flask-server" value="Flask Web Server" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=14;fontStyle=1" vertex="1" parent="app-layer">
+          <mxGeometry x="40" y="50" width="180" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Agents Container -->
+        <mxCell id="agents-container" value="Multi-Agent Orchestration" style="swimlane;fontSize=14;fontStyle=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="app-layer">
+          <mxGeometry x="260" y="40" width="1100" height="260" as="geometry" />
+        </mxCell>
+
+        <mxCell id="query-agent" value="Query Agent&#xa;&#xa;Web Search&#xa;News Analysis&#xa;Real-time Events" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;align=center;" vertex="1" parent="agents-container">
+          <mxGeometry x="40" y="40" width="180" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="media-agent" value="Media Agent&#xa;&#xa;Video Analysis&#xa;Image Recognition&#xa;Multimodal Content" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;align=center;" vertex="1" parent="agents-container">
+          <mxGeometry x="260" y="40" width="180" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="insight-agent" value="Insight Agent&#xa;&#xa;Database Mining&#xa;Deep Analysis&#xa;Sentiment Processing" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;align=center;" vertex="1" parent="agents-container">
+          <mxGeometry x="480" y="40" width="180" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="report-agent" value="Report Agent&#xa;&#xa;Report Generation&#xa;Template Selection&#xa;Visualization" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;align=center;" vertex="1" parent="agents-container">
+          <mxGeometry x="700" y="40" width="180" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="forum-engine" value="Forum Engine&#xa;&#xa;Agent Coordination&#xa;Debate Facilitation&#xa;Consensus Building" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;align=center;fontStyle=1" vertex="1" parent="agents-container">
+          <mxGeometry x="400" y="160" width="280" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Connections between agents and forum -->
+        <mxCell id="qa-to-forum" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.25;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;" edge="1" parent="agents-container" source="query-agent" target="forum-engine">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ma-to-forum" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;" edge="1" parent="agents-container" source="media-agent" target="forum-engine">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ia-to-forum" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.75;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;" edge="1" parent="agents-container" source="insight-agent" target="forum-engine">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Data Processing Layer -->
+        <mxCell id="data-layer" value="Data Processing &amp; Storage Layer" style="swimlane;fontSize=16;fontStyle=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="100" y="620" width="1400" height="240" as="geometry" />
+        </mxCell>
+
+        <mxCell id="crawler-system" value="Crawler System&#xa;(MindSpider)" style="swimlane;fontSize=14;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="data-layer">
+          <mxGeometry x="40" y="50" width="600" height="160" as="geometry" />
+        </mxCell>
+
+        <mxCell id="twitter-crawler" value="Twitter&#xa;Crawler" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="crawler-system">
+          <mxGeometry x="20" y="40" width="100" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="reddit-crawler" value="Reddit&#xa;Crawler" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="crawler-system">
+          <mxGeometry x="140" y="40" width="100" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="youtube-crawler" value="YouTube&#xa;Crawler" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="crawler-system">
+          <mxGeometry x="260" y="40" width="100" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="instagram-crawler" value="Instagram&#xa;Crawler" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="crawler-system">
+          <mxGeometry x="380" y="40" width="100" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="linkedin-crawler" value="LinkedIn&#xa;Crawler" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="crawler-system">
+          <mxGeometry x="20" y="100" width="100" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="news-crawler" value="News&#xa;APIs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="crawler-system">
+          <mxGeometry x="140" y="100" width="100" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="crawler-factory" value="Crawler Factory&#xa;&amp; Orchestrator" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;fontStyle=1" vertex="1" parent="crawler-system">
+          <mxGeometry x="380" y="100" width="180" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="database" value="PostgreSQL&#xa;Database&#xa;&#xa;• Posts &amp; Comments&#xa;• User Profiles&#xa;• Metrics &amp; Analytics" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;fontStyle=1" vertex="1" parent="data-layer">
+          <mxGeometry x="680" y="60" width="160" height="140" as="geometry" />
+        </mxCell>
+
+        <mxCell id="redis-cache" value="Redis Cache&#xa;&#xa;• Rate Limiting&#xa;• Session Storage&#xa;• Queue Management" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;fontStyle=1" vertex="1" parent="data-layer">
+          <mxGeometry x="880" y="60" width="160" height="140" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ml-models" value="ML Models&#xa;&#xa;• Sentiment Analysis&#xa;• Entity Recognition&#xa;• Topic Extraction" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;fontStyle=1" vertex="1" parent="data-layer">
+          <mxGeometry x="1080" y="60" width="180" height="140" as="geometry" />
+        </mxCell>
+
+        <!-- External Services Layer -->
+        <mxCell id="external-layer" value="External Services &amp; APIs" style="swimlane;fontSize=16;fontStyle=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="100" y="900" width="1400" height="180" as="geometry" />
+        </mxCell>
+
+        <mxCell id="twitter-api" value="Twitter API" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1DA1F2;strokeColor=#000000;fontSize=12;fontColor=#FFFFFF;fontStyle=1" vertex="1" parent="external-layer">
+          <mxGeometry x="80" y="50" width="130" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="reddit-api" value="Reddit API" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FF4500;strokeColor=#000000;fontSize=12;fontColor=#FFFFFF;fontStyle=1" vertex="1" parent="external-layer">
+          <mxGeometry x="240" y="50" width="130" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="youtube-api" value="YouTube API" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FF0000;strokeColor=#000000;fontSize=12;fontColor=#FFFFFF;fontStyle=1" vertex="1" parent="external-layer">
+          <mxGeometry x="400" y="50" width="130" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="openai-api" value="OpenAI /&#xa;Claude API" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#10A37F;strokeColor=#000000;fontSize=12;fontColor=#FFFFFF;fontStyle=1" vertex="1" parent="external-layer">
+          <mxGeometry x="720" y="50" width="130" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="gemini-api" value="Gemini API" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4285F4;strokeColor=#000000;fontSize=12;fontColor=#FFFFFF;fontStyle=1" vertex="1" parent="external-layer">
+          <mxGeometry x="880" y="50" width="130" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="search-apis" value="Tavily /&#xa;Bocha Search" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EA4335;strokeColor=#000000;fontSize=12;fontColor=#FFFFFF;fontStyle=1" vertex="1" parent="external-layer">
+          <mxGeometry x="1040" y="50" width="130" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="instagram-api" value="Instagram API" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E4405F;strokeColor=#000000;fontSize=12;fontColor=#FFFFFF;fontStyle=1" vertex="1" parent="external-layer">
+          <mxGeometry x="560" y="50" width="130" height="50" as="geometry" />
+        </mxCell>
+
+        <mxCell id="monitoring" value="Monitoring&#xa;(Sentry/Prometheus)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;" vertex="1" parent="external-layer">
+          <mxGeometry x="1200" y="50" width="140" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Arrows from User to App -->
+        <mxCell id="arrow-user-flask1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.25;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#d79b00;" edge="1" parent="1" source="web-browser" target="flask-server">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-user-flask2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#d79b00;dashed=1;" edge="1" parent="1" source="mobile-app" target="flask-server">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-user-flask3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.75;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#d79b00;" edge="1" parent="1" source="api-clients" target="flask-server">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow from Flask to Agents -->
+        <mxCell id="arrow-flask-agents" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#b85450;" edge="1" parent="1" source="flask-server" target="agents-container">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Arrows from Agents to Data Layer -->
+        <mxCell id="arrow-agents-db" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;strokeWidth=2;strokeColor=#6c8ebf;" edge="1" parent="1" source="insight-agent" target="database">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-agents-cache" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;strokeWidth=2;strokeColor=#d6b656;" edge="1" parent="1" source="query-agent" target="redis-cache">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-agents-ml" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#9673a6;" edge="1" parent="1" source="insight-agent" target="ml-models">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Arrows from Crawlers to External APIs -->
+        <mxCell id="arrow-crawler-twitter" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#1DA1F2;" edge="1" parent="1" source="twitter-crawler" target="twitter-api">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-crawler-reddit" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#FF4500;" edge="1" parent="1" source="reddit-crawler" target="reddit-api">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="arrow-crawler-youtube" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;strokeColor=#FF0000;" edge="1" parent="1" source="youtube-crawler" target="youtube-api">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Arrows from Agents to LLM APIs -->
+        <mxCell id="arrow-query-llm" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=1;strokeColor=#10A37F;dashed=1;" edge="1" parent="1" source="query-agent" target="openai-api">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="430" y="700" />
+              <mxPoint x="880" y="700" />
+              <mxPoint x="880" y="880" />
+              <mxPoint x="885" y="880" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <mxCell id="arrow-media-llm" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=1;strokeColor=#4285F4;dashed=1;" edge="1" parent="1" source="media-agent" target="gemini-api">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="650" y="700" />
+              <mxPoint x="1040" y="700" />
+              <mxPoint x="1040" y="880" />
+              <mxPoint x="1045" y="880" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Legend -->
+        <mxCell id="legend" value="Legend" style="swimlane;fontSize=14;fontStyle=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="1550" y="100" width="300" height="400" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend-text1" value="Core Components:" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=1" vertex="1" parent="legend">
+          <mxGeometry x="10" y="30" width="280" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend-flask" value="Flask Server" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="legend">
+          <mxGeometry x="10" y="55" width="100" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend-agent" value="AI Agent" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="legend">
+          <mxGeometry x="10" y="95" width="100" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend-crawler" value="Crawler" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="legend">
+          <mxGeometry x="10" y="135" width="100" height="30" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend-db" value="Database" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=8;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="legend">
+          <mxGeometry x="10" y="175" width="100" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend-text2" value="Data Flow:" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=1" vertex="1" parent="legend">
+          <mxGeometry x="10" y="230" width="280" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend-solid" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#000000;" edge="1" parent="legend">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="10" y="265" as="sourcePoint" />
+            <mxPoint x="60" y="265" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend-solid-text" value="Synchronous" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="legend">
+          <mxGeometry x="65" y="255" width="100" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend-dashed" value="" style="endArrow=classic;html=1;strokeWidth=2;strokeColor=#000000;dashed=1;" edge="1" parent="legend">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="10" y="295" as="sourcePoint" />
+            <mxPoint x="60" y="295" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="legend-dashed-text" value="Asynchronous" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="legend">
+          <mxGeometry x="65" y="285" width="100" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend-text3" value="Key Features:" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=12;fontStyle=1" vertex="1" parent="legend">
+          <mxGeometry x="10" y="320" width="280" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend-features" value="• Multi-Agent Collaboration&#xa;• 5 USA Platform Crawlers&#xa;• Real-time Sentiment Analysis&#xa;• 10K+ posts/hour capacity" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=top;whiteSpace=wrap;rounded=0;fontSize=10;" vertex="1" parent="legend">
+          <mxGeometry x="10" y="340" width="280" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Footer -->
+        <mxCell id="footer" value="BettaFish USA System Architecture | Version 1.0 | 2025-11-09" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="100" y="1100" width="1400" height="20" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
