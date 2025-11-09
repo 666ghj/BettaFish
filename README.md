@@ -53,6 +53,8 @@
 > 举个例子. 你只需简单修改Agent工具集的api参数与prompt，就可以把他变成一个金融领域的市场分析系统
 >
 > 附一个比较活跃的L站项目讨论帖：https://linux.do/t/topic/1009280
+>
+> 查看L站佬友做的测评 [开源项目(微舆)与manus|minimax|ChatGPT对比](https://linux.do/t/topic/1148040)
 
 <div align="center">
 <img src="static/image/system_schematic.png" alt="banner" width="800">
