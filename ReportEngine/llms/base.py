@@ -76,7 +76,6 @@ class LLMClient:
             return self.validate_response(response.choices[0].message.content)
         return ""
 
-    @with_retry(LLM_RETRY_CONFIG)
     def stream_invoke(self, system_prompt: str, user_prompt: str, **kwargs) -> Generator[str, None, None]:
         """
         流式调用LLM，逐步返回响应内容
@@ -118,6 +117,7 @@ class LLMClient:
             logger.error(f"流式请求失败: {str(e)}")
             raise e
     
+    @with_retry(LLM_RETRY_CONFIG)
     def stream_invoke_to_string(self, system_prompt: str, user_prompt: str, **kwargs) -> str:
         """
         流式调用LLM并安全地拼接为完整字符串（避免UTF-8多字节字符截断）

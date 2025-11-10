@@ -15,12 +15,19 @@
 [![GitHub Pull Requests](https://img.shields.io/github/issues-pr/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/pulls)
 
 [![GitHub License](https://img.shields.io/github/license/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/blob/main/LICENSE)
-[![Version](https://img.shields.io/badge/version-v1.1.2-green.svg?style=flat-square)](https://github.com/666ghj/BettaFish)
+[![Version](https://img.shields.io/badge/version-v1.2.1-green.svg?style=flat-square)](https://github.com/666ghj/BettaFish)
 [![Docker](https://img.shields.io/badge/Docker-Build-2496ED?style=flat-square&logo=docker&logoColor=white)](https://hub.docker.com/)
 
 
 English | [中文文档](./README.md)
 
+</div>
+
+## 🌟 Join Our Official Community
+
+<div align="center">
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&height=200&section=header&text=Scan%20to%20Join%20Our%20QQ%20Group&fontSize=40&fontAlignY=35&desc=Welcome%20to%20Our%20Community!&descAlignY=55" alt="Welcome%20to%20Our%20Community!" style="width:60%; max-width:900px; display:block; margin:0 auto;">
+  <img src="static/image/QQ_Light_Horizenal.png" alt="BettaFish QQ Group QR Code" style="width:60%; max-width:360px; display:block; margin:20px auto 0;">
 </div>
 
 ## ⚡ Project Overview
@@ -52,6 +59,8 @@ Beyond just report quality, compared to similar products, we have 🚀 six major
 > For example, you only need to simply modify the API parameters and prompts of the Agent toolset to transform it into a financial market analysis system.
 >
 > Here's a relatively active Linux.do project discussion thread: https://linux.do/t/topic/1009280
+>
+> Check out the comparison by a Linux.do fellow: [Open Source Project (BettaFish) vs manus|minimax|ChatGPT Comparison](https://linux.do/t/topic/1148040)
 
 <div align="center">
 <img src="static/image/system_schematic.png" alt="banner" width="800">
