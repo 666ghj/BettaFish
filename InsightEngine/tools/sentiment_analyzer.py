@@ -13,6 +13,7 @@ try:
     import torch
 
     TORCH_AVAILABLE = True
+    torch.classes.__path__ = []
 except ImportError:
     torch = None  # type: ignore
     TORCH_AVAILABLE = False
