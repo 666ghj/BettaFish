@@ -24,6 +24,13 @@
 
 </div>
 
+## 🌟 加入官方交流群
+
+<div align="center">
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&height=200&section=header&text=欢迎加入我们的技术交流QQ群！&fontSize=40&fontAlignY=35&desc=扫描下方二维码加入群聊&descAlignY=55" alt="欢迎加入我们的技术交流QQ群！" style="width:60%; max-width:900px; display:block; margin:0 auto;">
+  <img src="static/image/QQ_Light_Horizenal.png" alt="BettaFish 技术交流群二维码" style="width:60%; max-width:360px; display:block; margin:20px auto 0;">
+</div>
+
 ## ⚡ 项目概述
 
 “**微舆**” 是一个从0实现的创新型 多智能体 舆情分析系统，帮助大家破除信息茧房，还原舆情原貌，预测未来走向，辅助决策。用户只需像聊天一样提出分析需求，智能体开始全自动分析 国内外30+主流社媒 与 数百万条大众评论。
