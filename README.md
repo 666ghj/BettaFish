@@ -240,6 +240,13 @@ docker compose up -d
 
 完成上述所有配置并保存后，系统即可正常运行。
 
+### 3. 运行时健康检查与智能日志
+
+- **容器级健康检查**：`docker compose` 会先等待数据库通过 `pg_isready`，随后在应用容器内执行 `python -c "from utils.health_check import run_health_check; run_health_check(force=True)"`。任何关键依赖（数据库、大模型 API 等）不可用时，容器会报告 `unhealthy` 并自动重试。
+- **本地启动自检**：直接运行 `python app.py` 时也会在真正启动前执行一次健康检查。需要跳过时，可设置环境变量 `BETTAFISH_SKIP_HEALTH_CHECK=1`。
+- **压缩日志输出**：新增 `utils/smart_logger.py`，自动汇总“内容一致仅时间戳不同”的日志，压缩写入 `logs/compressed/` 目录，例如 `logs/compressed/insight_2025-11-10.log`。同时保留原始日志文件，便于实时追踪。
+- **API 查看**：新增接口 `GET /api/output-compressed/<app_name>?date=YYYY-MM-DD` 可快速查看压缩后的日志，默认返回当日数据。`app_name` 可为 `core`（主进程日志）、`insight`、`media`、`query`、`forum` 等。
+
 ## 🔧 源码启动指南
 
 > 如果你是初次学习一个Agent系统的搭建，可以从一个非常简单的demo开始：[Deep Search Agent Demo](https://github.com/666ghj/DeepSearchAgent-Demo)
