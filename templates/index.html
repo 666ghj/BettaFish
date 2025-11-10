@@ -98,6 +98,35 @@
             color: #ffffff;
         }
 
+        .config-apikey-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            position: relative;
+        }
+
+        .config-apikey-wrapper .config-field-input {
+            flex: 1;
+        }
+
+        .config-apikey-toggle {
+            padding: 8px 14px;
+            border: 2px solid #000000;
+            background-color: #ffffff;
+            cursor: pointer;
+            font-size: 18px;
+            transition: all 0.3s ease;
+            min-width: 45px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .config-apikey-toggle:hover {
+            background-color: #000000;
+            color: #ffffff;
+        }
+
         .search-box {
             display: flex;
             flex: 1;
@@ -304,7 +333,7 @@
             overflow-x: hidden;
             white-space: pre-wrap;
             word-break: break-all;
-            min-height: 0; /* 允许内容缩小 */
+            min-height: 0; 
         }
 
         .console-line {
@@ -1163,7 +1192,7 @@
                 title: 'Insight Agent',
                 subtitle: '负责洞察分析的模型配置',
                 fields: [
-                    { key: 'INSIGHT_ENGINE_API_KEY', label: 'API Key' },
+                    { key: 'INSIGHT_ENGINE_API_KEY', label: 'API Key', type: 'apikey' },
                     { key: 'INSIGHT_ENGINE_BASE_URL', label: 'Base URL' },
                     { key: 'INSIGHT_ENGINE_MODEL_NAME', label: '模型名称' }
                 ]
@@ -1172,7 +1201,7 @@
                 title: 'Media Agent',
                 subtitle: '媒体内容理解与生成模型',
                 fields: [
-                    { key: 'MEDIA_ENGINE_API_KEY', label: 'API Key' },
+                    { key: 'MEDIA_ENGINE_API_KEY', label: 'API Key', type: 'apikey' },
                     { key: 'MEDIA_ENGINE_BASE_URL', label: 'Base URL' },
                     { key: 'MEDIA_ENGINE_MODEL_NAME', label: '模型名称' }
                 ]
@@ -1181,7 +1210,7 @@
                 title: 'Query Agent',
                 subtitle: '负责搜索与信息汇总的模型配置',
                 fields: [
-                    { key: 'QUERY_ENGINE_API_KEY', label: 'API Key' },
+                    { key: 'QUERY_ENGINE_API_KEY', label: 'API Key', type: 'apikey' },
                     { key: 'QUERY_ENGINE_BASE_URL', label: 'Base URL' },
                     { key: 'QUERY_ENGINE_MODEL_NAME', label: '模型名称' }
                 ]
@@ -1190,7 +1219,7 @@
                 title: 'Report Agent',
                 subtitle: '报告生成使用的模型配置',
                 fields: [
-                    { key: 'REPORT_ENGINE_API_KEY', label: 'API Key' },
+                    { key: 'REPORT_ENGINE_API_KEY', label: 'API Key', type: 'apikey' },
                     { key: 'REPORT_ENGINE_BASE_URL', label: 'Base URL' },
                     { key: 'REPORT_ENGINE_MODEL_NAME', label: '模型名称' }
                 ]
@@ -1199,7 +1228,7 @@
                 title: 'Forum Host',
                 subtitle: '多智能体协同使用的模型配置',
                 fields: [
-                    { key: 'FORUM_HOST_API_KEY', label: 'API Key' },
+                    { key: 'FORUM_HOST_API_KEY', label: 'API Key', type: 'apikey' },
                     { key: 'FORUM_HOST_BASE_URL', label: 'Base URL' },
                     { key: 'FORUM_HOST_MODEL_NAME', label: '模型名称' }
                 ]
@@ -1208,7 +1237,7 @@
                 title: 'Keyword Optimizer',
                 subtitle: 'SQL / 关键词优化模型配置',
                 fields: [
-                    { key: 'KEYWORD_OPTIMIZER_API_KEY', label: 'API Key' },
+                    { key: 'KEYWORD_OPTIMIZER_API_KEY', label: 'API Key', type: 'apikey' },
                     { key: 'KEYWORD_OPTIMIZER_BASE_URL', label: 'Base URL' },
                     { key: 'KEYWORD_OPTIMIZER_MODEL_NAME', label: '模型名称' }
                 ]
@@ -1217,8 +1246,8 @@
                 title: '外部检索工具',
                 subtitle: '联动搜索引擎、网站抓取等在线服务',
                 fields: [
-                    { key: 'TAVILY_API_KEY', label: 'Tavily API Key' },
-                    { key: 'BOCHA_WEB_SEARCH_API_KEY', label: 'Bocha API Key' }
+                    { key: 'TAVILY_API_KEY', label: 'Tavily API Key', type: 'apikey' },
+                    { key: 'BOCHA_WEB_SEARCH_API_KEY', label: 'Bocha API Key', type: 'apikey' }
                 ]
             }
         ];
@@ -1507,6 +1536,25 @@
                                 ${optionsHtml}
                             </select>
                         `;
+                    } else if (field.type === 'apikey') {
+                        const inputElement = `
+                            <input
+                                type="text"
+                                class="config-field-input"
+                                data-config-key="${field.key}"
+                                data-field-type="apikey"
+                                data-original-value="${safeValue}"
+                                value="${safeValue}"
+                                placeholder="填写${field.label}"
+                                autocomplete="off"
+                            >
+                        `;
+                        control = `
+                            <div class="config-apikey-wrapper">
+                                ${inputElement}
+                                <button type="button" class="config-apikey-toggle" data-target="${field.key}">👁</button>
+                            </div>
+                        `;
                     } else if (field.type === 'password') {
                         // 密码输入框
                         const inputElement = `
@@ -1563,6 +1611,7 @@
 
             container.innerHTML = sections;
             attachConfigPasswordToggles();
+            attachConfigApiKeyToggles();
         }
 
         function attachConfigPasswordToggles() {
@@ -1582,6 +1631,64 @@
             });
         }
 
+        function maskApiKey(apiKey) {
+            if (!apiKey || apiKey.length <= 9) {
+                return '●'.repeat(apiKey.length);
+            }
+            const prefix = apiKey.substring(0, 5);
+            const suffix = apiKey.substring(apiKey.length - 4);
+            const middleLength = apiKey.length - 9;
+            const masked = '●'.repeat(middleLength);
+            return prefix + masked + suffix;
+        }
+
+        function attachConfigApiKeyToggles() {
+            const toggles = document.querySelectorAll('.config-apikey-toggle');
+            toggles.forEach(toggle => {
+                const key = toggle.dataset.target;
+                const input = document.querySelector(`.config-field-input[data-config-key="${key}"]`);
+                if (!input) {
+                    return;
+                }
+                
+                const originalValue = input.dataset.originalValue || input.value;
+                if (originalValue) {
+                    input.dataset.originalValue = originalValue;
+                    input.value = maskApiKey(originalValue);
+                    input.dataset.masked = 'true';
+                }
+                
+                toggle.addEventListener('click', () => {
+                    const isMasked = input.dataset.masked === 'true';
+                    const originalValue = input.dataset.originalValue || '';
+                    
+                    if (isMasked) {
+                        input.value = originalValue;
+                        input.dataset.masked = 'false';
+                    } else {
+                        input.value = maskApiKey(originalValue);
+                        input.dataset.masked = 'true';
+                    }
+                });
+                
+                input.addEventListener('input', () => {
+                    if (input.dataset.masked === 'true') {
+                        input.dataset.masked = 'false';
+                    }
+                    input.dataset.originalValue = input.value;
+                });
+                
+                input.addEventListener('blur', () => {
+                    const currentValue = input.value;
+                    if (currentValue) {
+                        input.dataset.originalValue = currentValue;
+                        input.value = maskApiKey(currentValue);
+                        input.dataset.masked = 'true';
+                    }
+                });
+            });
+        }
+
         function collectConfigUpdates() {
             const inputs = document.querySelectorAll('#configFormContainer [data-config-key]');
             const updates = {};
@@ -1591,8 +1698,15 @@
                     return;
                 }
                 const fieldType = input.dataset.fieldType || 'text';
-                let value = input.value;
-                if (fieldType !== 'password' && typeof value === 'string') {
+                let value;
+                
+                if (fieldType === 'apikey') {
+                    value = input.dataset.originalValue || input.value;
+                } else {
+                    value = input.value;
+                }
+                
+                if (fieldType !== 'password' && fieldType !== 'apikey' && typeof value === 'string') {
                     value = value.trim();
                 }
 
@@ -3096,19 +3210,16 @@
                             
                             console.log(`报告iframe高度已调整为: ${finalHeight}px (内容高度: ${contentHeight}px)`);
                             
-                            // 确保父容器也能正确显示
                             reportPreview.style.minHeight = finalHeight + 'px';
                             
                         } catch (error) {
                             console.error('调整iframe高度失败:', error);
-                            // 如果调整失败，使用更大的默认高度
                             iframe.style.height = '1200px';
                             reportPreview.style.minHeight = '1200px';
                         }
-                    }, 1000); // 延迟1秒等待内容完全渲染
+                    }, 1000); 
                 };
                 
-                // 备用方案：如果onload没有触发，延迟调整高度
                 setTimeout(() => {
                     if (iframe.style.height === 'auto' || iframe.style.height === '') {
                         iframe.style.height = '1200px';
