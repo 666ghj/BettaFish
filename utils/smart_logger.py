@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import atexit
-import re
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -16,7 +15,6 @@ from typing import Dict, List, Optional, Tuple
 
 from loguru import logger
 
-_MANUAL_TIME_PATTERN = re.compile(r"^\[(?P<ts>[^\]]+)\]\s*(?P<content>.*)$")
 _TIMESTAMP_FORMATS = ("%Y-%m-%d %H:%M:%S", "%H:%M:%S")
 
 
@@ -32,6 +30,28 @@ def _parse_timestamp(ts_str: str) -> datetime:
         except ValueError:
             continue
     return datetime.now()
+
+
+def _safe_extract_timestamp(line: str) -> Optional[Tuple[str, str]]:
+    """
+    尝试从类似 `[timestamp] content` 的文本中解析时间戳。
+
+    为避免使用复杂正则导致的灾难性回溯，改用简单的字符串查找。
+    返回 (timestamp_str, remaining_content)，若格式不符合则返回 None。
+    """
+    if not line.startswith("["):
+        return None
+
+    closing = line.find("]")
+    if closing <= 1:  # 至少需要 "[x]"
+        return None
+
+    ts_part = line[1:closing].strip()
+    remaining = line[closing + 1 :].lstrip()
+    if not ts_part or not remaining:
+        return None
+
+    return ts_part, remaining
 
 
 @dataclass
@@ -112,14 +132,13 @@ class SmartLogManager:
         if not line:
             return
 
-        match = _MANUAL_TIME_PATTERN.match(line)
-        if match:
-            ts_str = match.group("ts").strip()
-            message = match.group("content").strip()
-            dt = _parse_timestamp(ts_str)
-        else:
+        parsed = _safe_extract_timestamp(line)
+        if parsed is None:
             message = line
             dt = datetime.now()
+        else:
+            ts_str, message = parsed
+            dt = _parse_timestamp(ts_str)
 
         level = "ERROR" if "error" in message.lower() else "INFO"
         self.record(level, message, timestamp=dt, source=source)
