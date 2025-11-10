@@ -580,8 +580,7 @@ class DeepSearchAgent:
 我们欢迎所有形式的贡献！
 
 **请阅读以下贡献指南：**  
-- [CONTRIBUTING.md](./CONTRIBUTING.md)（中文）  
-- [CONTRIBUTING-EN.md](./CONTRIBUTING-EN.md)（English）
+- [CONTRIBUTING.md](./CONTRIBUTING.md)
 
 ## 🦖 下一步开发计划
 
