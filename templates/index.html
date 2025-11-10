@@ -680,6 +680,13 @@
             font-size: 13px;
         }
 
+        .task-actions {
+            margin-top: 15px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
@@ -2314,6 +2321,7 @@
         // Report Engine 相关函数
         let reportLogLineCount = 0;
         let reportLockCheckInterval = null;
+        let lastCompletedReportTask = null;
 
         // 实时刷新论坛消息（适用于所有页面）
         function refreshForumMessages() {
@@ -2719,6 +2727,12 @@
                         <div>正在初始化...</div>
                     </div>
                 </div>
+
+                <!-- 控制按钮区域 -->
+                <div class="report-controls">
+                    <button class="report-button primary" id="generateReportButton">生成最终报告</button>
+                    <button class="report-button" id="downloadReportButton" disabled>下载HTML</button>
+                </div>
                 
                 <!-- 任务进度区域 -->
                 <div id="taskProgressArea"></div>
@@ -2732,17 +2746,144 @@
             `;
             
             reportContent.innerHTML = interfaceHTML;
+            initializeReportControls();
             
             // 立即更新状态信息
             updateEngineStatusDisplay(statusData);
             
             // 如果有当前任务，显示任务状态
             if (statusData.current_task) {
-                const taskArea = document.getElementById('taskProgressArea');
-                if (taskArea) {
-                    taskArea.innerHTML = renderTaskStatus(statusData.current_task);
+                updateTaskProgressStatus(statusData.current_task);
+            } else {
+                updateDownloadButtonState(null);
+            }
+        }
+
+        function initializeReportControls() {
+            const generateButton = document.getElementById('generateReportButton');
+            if (generateButton && !generateButton.dataset.bound) {
+                generateButton.dataset.bound = 'true';
+                generateButton.addEventListener('click', () => {
+                    if (reportTaskId) {
+                        showMessage('已有报告生成任务在运行', 'info');
+                        return;
+                    }
+                    const reportButton = document.querySelector('[data-app="report"]');
+                    if (reportButton && reportButton.classList.contains('locked')) {
+                        showMessage('需等待三个Agent完成最新分析后才能生成最终报告', 'error');
+                        return;
+                    }
+                    generateReport();
+                });
+            }
+
+            const downloadButton = document.getElementById('downloadReportButton');
+            if (downloadButton && !downloadButton.dataset.bound) {
+                downloadButton.dataset.bound = 'true';
+                downloadButton.addEventListener('click', () => downloadReport());
+            }
+
+            if (reportTaskId) {
+                setGenerateButtonState(true);
+            } else {
+                setGenerateButtonState(false);
+            }
+
+            if (lastCompletedReportTask) {
+                updateDownloadButtonState(lastCompletedReportTask);
+            }
+        }
+
+        function setGenerateButtonState(forceLoading = false) {
+            const generateButton = document.getElementById('generateReportButton');
+            if (!generateButton) return;
+
+            if (forceLoading || reportTaskId) {
+                if (!generateButton.dataset.originalText) {
+                    generateButton.dataset.originalText = generateButton.textContent || '生成最终报告';
+                }
+                generateButton.disabled = true;
+                generateButton.textContent = '生成中...';
+            } else {
+                const originalText = generateButton.dataset.originalText || '生成最终报告';
+                generateButton.disabled = false;
+                generateButton.textContent = originalText;
+            }
+        }
+
+        function updateDownloadButtonState(task) {
+            const downloadButton = document.getElementById('downloadReportButton');
+            if (!downloadButton) return;
+
+            if (task && task.status === 'completed' && (task.report_file_ready || task.report_file_path)) {
+                downloadButton.disabled = false;
+                downloadButton.dataset.taskId = task.task_id;
+                downloadButton.dataset.filename = task.report_file_name || '';
+                const label = task.report_file_name ? `下载HTML (${task.report_file_name})` : '下载HTML';
+                downloadButton.textContent = label;
+                lastCompletedReportTask = task;
+            } else if (!lastCompletedReportTask || (task && task.status !== 'completed')) {
+                downloadButton.disabled = true;
+                downloadButton.dataset.taskId = '';
+                downloadButton.dataset.filename = '';
+                downloadButton.textContent = '下载HTML';
+                if (!reportTaskId) {
+                    lastCompletedReportTask = null;
                 }
             }
+        }
+
+        function downloadReport(taskId = null) {
+            const downloadButton = document.getElementById('downloadReportButton');
+            const targetTaskId = taskId || (downloadButton ? downloadButton.dataset.taskId : '');
+
+            if (!targetTaskId) {
+                showMessage('暂无可下载的报告，请先生成最终报告', 'error');
+                return;
+            }
+
+            let preferredFileName = '';
+            if (downloadButton && downloadButton.dataset.filename) {
+                preferredFileName = downloadButton.dataset.filename;
+            } else if (lastCompletedReportTask && lastCompletedReportTask.task_id === targetTaskId) {
+                preferredFileName = lastCompletedReportTask.report_file_name || '';
+            }
+
+            fetch(`/api/report/download/${targetTaskId}`)
+            .then(response => {
+                if (!response.ok) {
+                    const contentType = response.headers.get('Content-Type') || '';
+                    if (contentType.includes('application/json')) {
+                        return response.json().then(err => {
+                            throw new Error(err.error || '下载失败');
+                        });
+                    }
+                    throw new Error('下载失败');
+                }
+                const disposition = response.headers.get('Content-Disposition') || '';
+                return response.blob().then(blob => ({ blob, disposition }));
+            })
+            .then(({ blob, disposition }) => {
+                let filename = preferredFileName;
+                if (!filename) {
+                    const match = disposition.match(/filename="?([^";]+)"?/i);
+                    filename = match ? match[1] : `final_report_${targetTaskId}.html`;
+                }
+
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = filename || 'final_report.html';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+                showMessage('报告文件已开始下载', 'success');
+            })
+            .catch(error => {
+                console.error('下载报告失败:', error);
+                showMessage('下载报告失败: ' + error.message, 'error');
+            });
         }
 
         // 渲染任务状态（使用新的进度条样式）
@@ -2799,7 +2940,18 @@
                         </div>
                     </div>
             `;
-            
+
+            if (task.report_file_path) {
+                statusHTML += `
+                    <div class="task-info-line">
+                        <div class="task-info-item">
+                            <span class="task-info-label">保存路径:</span>
+                            <span class="task-info-value">${task.report_file_path}</span>
+                        </div>
+                    </div>
+                `;
+            }
+
             if (task.error_message) {
                 statusHTML += `
                     <div class="task-error-message">
@@ -2807,13 +2959,33 @@
                     </div>
                 `;
             }
-            
+
+            if (task.status === 'completed') {
+                statusHTML += `
+                    <div class="task-actions">
+                        <button class="report-button primary" onclick="viewReport('${task.task_id}')">重新加载</button>
+                        ${task.report_file_ready ? `<button class="report-button" onclick="downloadReport('${task.task_id}')">下载HTML</button>` : ''}
+                    </div>
+                `;
+            }
+
             statusHTML += '</div>';
             return statusHTML;
         }
 
         // 生成报告
         function generateReport() {
+            if (reportTaskId) {
+                showMessage('已有报告生成任务在运行', 'info');
+                return;
+            }
+
+            const reportButton = document.querySelector('[data-app="report"]');
+            if (reportButton && reportButton.classList.contains('locked')) {
+                showMessage('需等待三个Agent完成最新分析后才能生成最终报告', 'error');
+                return;
+            }
+
             const query = document.getElementById('searchInput').value.trim() || '智能舆情分析报告';
             
             // 重置日志计数器，因为后台会清空日志文件
@@ -2823,8 +2995,8 @@
             const consoleOutput = document.getElementById('consoleOutput');
             consoleOutput.innerHTML = '<div class="console-line">[系统] 开始生成报告，日志已重置</div>';
             
-            // 按钮已移除，无需操作按钮状态
-            
+            setGenerateButtonState(true);
+
             // 在现有状态信息后添加任务进度状态，而不是替换
             addTaskProgressStatus('正在启动报告生成任务...', 'loading');
             
@@ -2870,6 +3042,7 @@
                     // 重置标志允许重新尝试
                     autoGenerateTriggered = false;
                     reportTaskId = null;
+                    setGenerateButtonState(false);
                 }
             })
             .catch(error => {
@@ -2878,6 +3051,7 @@
                 // 重置标志允许重新尝试
                 autoGenerateTriggered = false;
                 reportTaskId = null;
+                setGenerateButtonState(false);
             });
         }
 
@@ -2913,6 +3087,7 @@
                         // 重置自动生成标志，允许下次有新内容时自动生成
                         autoGenerateTriggered = false;
                         reportTaskId = null;
+                        setGenerateButtonState(false);
                     } else if (data.task.status === 'error') {
                         clearInterval(reportPollingInterval);
                         showMessage('报告生成失败: ' + data.task.error_message, 'error');
@@ -2920,6 +3095,7 @@
                         // 重置自动生成标志，允许重新尝试
                         autoGenerateTriggered = false;
                         reportTaskId = null;
+                        setGenerateButtonState(false);
                     }
                 }
             })
@@ -2956,11 +3132,17 @@
             
             if (task) {
                 taskArea.innerHTML = renderTaskStatus(task);
+                if (task.status === 'completed') {
+                    lastCompletedReportTask = task;
+                } else if (task.status === 'running') {
+                    lastCompletedReportTask = null;
+                }
+                updateDownloadButtonState(task);
             } else if (status && errorMessage) {
                 const loadingIndicator = status === 'loading' ? '<span class="report-loading-spinner"></span>' : '';
                 const statusBadgeClass = status === 'error' ? 'task-status-error' : 'task-status-running';
                 const statusText = status === 'error' ? '错误' : '处理中';
-                
+
                 taskArea.innerHTML = `
                     <div class="task-progress-container">
                         <div class="task-progress-header">
