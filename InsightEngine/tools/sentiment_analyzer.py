@@ -12,6 +12,8 @@ import re
 try:
     import torch
     TORCH_AVAILABLE = True
+    if torch.__path__ and torch.classes.__file__:
+        torch.classes.__path__ = [os.path.join(torch.__path__[0], torch.classes.__file__)]
 except ImportError:
     torch = None  # type: ignore
     TORCH_AVAILABLE = False
