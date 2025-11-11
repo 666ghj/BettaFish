@@ -20,6 +20,7 @@ cd <repository-name>
 
 ```bash
 git checkout dev
+git pull origin dev     # Synchronize the latest code from the remote dev branch.
 ```
 
 > ⚠️ Always create your feature branch from **`dev`**, not `main`.
