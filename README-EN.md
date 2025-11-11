@@ -579,7 +579,8 @@ Create new templates in the `ReportEngine/report_template/` directory, and our A
 We welcome all forms of contributions!
 
 **Please read the following contribution guidelines:**  
-- [CONTRIBUTING-EN.md](./CONTRIBUTING-EN.md)
+- [CONTRIBUTING.md](./CONTRIBUTING.md) (Chinese)  
+- [CONTRIBUTING-EN.md](./CONTRIBUTING-EN.md) (English)
 
 ## 🦖 Next Development Plan
 
