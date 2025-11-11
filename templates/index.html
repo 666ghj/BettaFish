@@ -83,19 +83,38 @@
         }
 
         .config-password-toggle {
-            padding: 8px 14px;
+            padding: 8px 12px;
             border: 2px solid #000000;
             background-color: #ffffff;
             cursor: pointer;
-            font-size: 12px;
-            font-weight: bold;
+            font-size: 0;
             transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 44px;
+            min-height: 38px;
+        }
+
+        .config-password-toggle svg {
+            width: 20px;
+            height: 20px;
+            stroke: #000000;
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            transition: stroke 0.3s ease;
         }
 
         .config-password-toggle:hover,
         .config-password-toggle.revealed {
             background-color: #000000;
-            color: #ffffff;
+        }
+
+        .config-password-toggle:hover svg,
+        .config-password-toggle.revealed svg {
+            stroke: #ffffff;
         }
 
         .search-box {
@@ -1163,7 +1182,7 @@
                 title: 'Insight Agent',
                 subtitle: '负责洞察分析的模型配置',
                 fields: [
-                    { key: 'INSIGHT_ENGINE_API_KEY', label: 'API Key' },
+                    { key: 'INSIGHT_ENGINE_API_KEY', label: 'API Key', type: 'password' },
                     { key: 'INSIGHT_ENGINE_BASE_URL', label: 'Base URL' },
                     { key: 'INSIGHT_ENGINE_MODEL_NAME', label: '模型名称' }
                 ]
@@ -1172,7 +1191,7 @@
                 title: 'Media Agent',
                 subtitle: '媒体内容理解与生成模型',
                 fields: [
-                    { key: 'MEDIA_ENGINE_API_KEY', label: 'API Key' },
+                    { key: 'MEDIA_ENGINE_API_KEY', label: 'API Key', type: 'password' },
                     { key: 'MEDIA_ENGINE_BASE_URL', label: 'Base URL' },
                     { key: 'MEDIA_ENGINE_MODEL_NAME', label: '模型名称' }
                 ]
@@ -1181,7 +1200,7 @@
                 title: 'Query Agent',
                 subtitle: '负责搜索与信息汇总的模型配置',
                 fields: [
-                    { key: 'QUERY_ENGINE_API_KEY', label: 'API Key' },
+                    { key: 'QUERY_ENGINE_API_KEY', label: 'API Key', type: 'password' },
                     { key: 'QUERY_ENGINE_BASE_URL', label: 'Base URL' },
                     { key: 'QUERY_ENGINE_MODEL_NAME', label: '模型名称' }
                 ]
@@ -1190,7 +1209,7 @@
                 title: 'Report Agent',
                 subtitle: '报告生成使用的模型配置',
                 fields: [
-                    { key: 'REPORT_ENGINE_API_KEY', label: 'API Key' },
+                    { key: 'REPORT_ENGINE_API_KEY', label: 'API Key', type: 'password' },
                     { key: 'REPORT_ENGINE_BASE_URL', label: 'Base URL' },
                     { key: 'REPORT_ENGINE_MODEL_NAME', label: '模型名称' }
                 ]
@@ -1199,7 +1218,7 @@
                 title: 'Forum Host',
                 subtitle: '多智能体协同使用的模型配置',
                 fields: [
-                    { key: 'FORUM_HOST_API_KEY', label: 'API Key' },
+                    { key: 'FORUM_HOST_API_KEY', label: 'API Key', type: 'password' },
                     { key: 'FORUM_HOST_BASE_URL', label: 'Base URL' },
                     { key: 'FORUM_HOST_MODEL_NAME', label: '模型名称' }
                 ]
@@ -1208,7 +1227,7 @@
                 title: 'Keyword Optimizer',
                 subtitle: 'SQL / 关键词优化模型配置',
                 fields: [
-                    { key: 'KEYWORD_OPTIMIZER_API_KEY', label: 'API Key' },
+                    { key: 'KEYWORD_OPTIMIZER_API_KEY', label: 'API Key', type: 'password' },
                     { key: 'KEYWORD_OPTIMIZER_BASE_URL', label: 'Base URL' },
                     { key: 'KEYWORD_OPTIMIZER_MODEL_NAME', label: '模型名称' }
                 ]
@@ -1217,8 +1236,8 @@
                 title: '外部检索工具',
                 subtitle: '联动搜索引擎、网站抓取等在线服务',
                 fields: [
-                    { key: 'TAVILY_API_KEY', label: 'Tavily API Key' },
-                    { key: 'BOCHA_WEB_SEARCH_API_KEY', label: 'Bocha API Key' }
+                    { key: 'TAVILY_API_KEY', label: 'Tavily API Key', type: 'password' },
+                    { key: 'BOCHA_WEB_SEARCH_API_KEY', label: 'Bocha API Key', type: 'password' }
                 ]
             }
         ];
@@ -1250,6 +1269,9 @@
             setInterval(updateTime, 1000);
             checkStatus();
             setInterval(checkStatus, 5000);
+            
+            // 初始化密码切换功能（事件委托，只需调用一次）
+            attachConfigPasswordToggles();
             
             // 初始化Report Engine锁定状态检查
             checkReportLockStatus();
@@ -1520,10 +1542,19 @@
                                 autocomplete="off"
                             >
                         `;
+                        // 眼睛图标 - 闭眼状态（默认隐藏密码）
+                        const eyeOffIcon = `
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                                <line x1="1" y1="1" x2="23" y2="23"></line>
+                            </svg>
+                        `;
                         control = `
                             <div class="config-password-wrapper">
                                 ${inputElement}
-                                <button type="button" class="config-password-toggle" data-target="${field.key}">显示</button>
+                                <button type="button" class="config-password-toggle" data-target="${field.key}" title="显示/隐藏密码">
+                                    ${eyeOffIcon}
+                                </button>
                             </div>
                         `;
                     } else {
@@ -1562,24 +1593,57 @@
             }).join('');
 
             container.innerHTML = sections;
-            attachConfigPasswordToggles();
+            // 不再需要每次调用 attachConfigPasswordToggles
+            // 事件委托已在页面初始化时设置
         }
 
         function attachConfigPasswordToggles() {
-            const toggles = document.querySelectorAll('.config-password-toggle');
-            toggles.forEach(toggle => {
+            // 定义眼睛图标的SVG
+            const eyeOffIcon = `
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                    <line x1="1" y1="1" x2="23" y2="23"></line>
+                </svg>
+            `;
+            const eyeOnIcon = `
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                    <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+            `;
+            
+            // 使用事件委托，只在容器上绑定一次事件
+            const container = document.getElementById('configFormContainer');
+            if (!container) {
+                return;
+            }
+            
+            // 防止重复绑定
+            if (container.dataset.passwordToggleAttached === 'true') {
+                return;
+            }
+            
+            container.addEventListener('click', (event) => {
+                // 查找是否点击了密码切换按钮或其内部的SVG
+                const toggle = event.target.closest('.config-password-toggle');
+                if (!toggle) {
+                    return;
+                }
+                
                 const key = toggle.dataset.target;
-                const input = document.querySelector(`.config-field-input[data-config-key="${key}"]`);
+                const input = container.querySelector(`.config-field-input[data-config-key="${key}"]`);
                 if (!input) {
                     return;
                 }
-                toggle.addEventListener('click', () => {
-                    const reveal = input.getAttribute('type') === 'password';
-                    input.setAttribute('type', reveal ? 'text' : 'password');
-                    toggle.textContent = reveal ? '隐藏' : '显示';
-                    toggle.classList.toggle('revealed', reveal);
-                });
+                
+                const reveal = input.getAttribute('type') === 'password';
+                input.setAttribute('type', reveal ? 'text' : 'password');
+                toggle.innerHTML = reveal ? eyeOnIcon : eyeOffIcon;
+                toggle.classList.toggle('revealed', reveal);
             });
+            
+            // 标记已绑定，防止重复
+            container.dataset.passwordToggleAttached = 'true';
         }
 
         function collectConfigUpdates() {
