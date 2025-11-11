@@ -20,6 +20,7 @@ cd <仓库名>
 
 ```bash
 git checkout dev
+git pull origin dev     # 同步远程 dev 分支的最新代码
 ```
 
 > ⚠️ 请务必从 **`dev` 分支** 创建你的功能分支，而不是从 `main`。
