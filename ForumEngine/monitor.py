@@ -677,7 +677,7 @@ class LogMonitor:
                     elif not any_growth and not captured_any:
                         # 没有增长也没有捕获内容，增加非活跃计数
                         self.search_inactive_count += 1
-                        if self.search_inactive_count >= 900:  # 15分钟无活动才结束
+                        if self.search_inactive_count >= 7200:  # 超时无活动自动结束
                             logger.info("ForumEngine: 长时间无活动，结束论坛")
                             self.is_searching = False
                             self.search_inactive_count = 0
