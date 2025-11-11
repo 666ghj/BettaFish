@@ -655,6 +655,14 @@ def stop_streamlit_app(app_name):
     except Exception as e:
         return False, f"停止失败: {str(e)}"
 
+HEALTHCHECK_PATH = "/_stcore/health"
+HEALTHCHECK_PROXIES = {'http': None, 'https': None}
+
+
+def _build_healthcheck_url(port):
+    return f"http://127.0.0.1:{port}{HEALTHCHECK_PATH}"
+
+
 def check_app_status():
     """检查应用状态"""
     for app_name, info in processes.items():
@@ -662,21 +670,24 @@ def check_app_status():
             if info['process'].poll() is None:
                 # 进程仍在运行，检查端口是否可访问
                 try:
-                    response = requests.get(f"http://localhost:{info['port']}", timeout=2)
+                    response = requests.get(
+                        _build_healthcheck_url(info['port']),
+                        timeout=2,
+                        proxies=HEALTHCHECK_PROXIES
+                    )
                     if response.status_code == 200:
                         info['status'] = 'running'
                     else:
                         info['status'] = 'starting'
-                except requests.exceptions.RequestException:
-                    info['status'] = 'starting'
-                except Exception:
+                except Exception as exc:
+                    logger.warning(f"{app_name} 健康检查失败: {exc}")
                     info['status'] = 'starting'
             else:
                 # 进程已结束
                 info['process'] = None
                 info['status'] = 'stopped'
 
-def wait_for_app_startup(app_name, max_wait_time=30):
+def wait_for_app_startup(app_name, max_wait_time=90):
     """等待应用启动完成"""
     import time
     start_time = time.time()
@@ -689,15 +700,19 @@ def wait_for_app_startup(app_name, max_wait_time=30):
             return False, "进程启动失败"
         
         try:
-            response = requests.get(f"http://localhost:{info['port']}", timeout=2)
+            response = requests.get(
+                _build_healthcheck_url(info['port']),
+                timeout=2,
+                proxies=HEALTHCHECK_PROXIES
+            )
             if response.status_code == 200:
                 info['status'] = 'running'
                 return True, "启动成功"
-        except:
-            pass
-        
+        except Exception as exc:
+            logger.warning(f"{app_name} 健康检查失败: {exc}")
+
         time.sleep(1)
-    
+
     return False, "启动超时"
 
 def cleanup_processes():
