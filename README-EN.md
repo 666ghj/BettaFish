@@ -578,20 +578,8 @@ Create new templates in the `ReportEngine/report_template/` directory, and our A
 
 We welcome all forms of contributions!
 
-### How to Contribute
-
-1. **Fork the project** to your GitHub account
-2. **Create Feature branch**: `git checkout -b feature/AmazingFeature`
-3. **Commit changes**: `git commit -m 'Add some AmazingFeature'`
-4. **Push to branch**: `git push origin feature/AmazingFeature`
-5. **Open Pull Request**
-
-### Development Standards
-
-- Code follows PEP8 standards
-- Commit messages use clear Chinese/English descriptions
-- New features need corresponding test cases
-- Update related documentation
+**Please read the following contribution guidelines:**  
+- [CONTRIBUTING-EN.md](./CONTRIBUTING-EN.md)
 
 ## 🦖 Next Development Plan
 

@@ -554,7 +554,8 @@ def read_process_output(process, app_name):
                             })
                             
         except Exception as e:
-            logger.exception(f"Error reading output for {app_name}: {e}")
+            error_msg = f"Error reading output for {app_name}: {e}"
+            logger.exception(error_msg)
             write_log_to_file(app_name, f"[{datetime.now().strftime('%H:%M:%S')}] {error_msg}")
             break
 
