@@ -19,7 +19,7 @@
 [![Docker](https://img.shields.io/badge/Docker-Build-2496ED?style=flat-square&logo=docker&logoColor=white)](https://hub.docker.com/)
 
 
-[English](./README-EN.md) | [中文文档](./README.md)
+English | [中文文档](./README.md)
 
 </div>
 
@@ -579,7 +579,8 @@ Create new templates in the `ReportEngine/report_template/` directory, and our A
 We welcome all forms of contributions!
 
 **Please read the following contribution guidelines:**  
-- [CONTRIBUTING-EN.md](./CONTRIBUTING-EN.md)
+- [CONTRIBUTING.md](./CONTRIBUTING.md) (Chinese)  
+- [CONTRIBUTING-EN.md](./CONTRIBUTING-EN.md) (English)
 
 ## 🦖 Next Development Plan
 
