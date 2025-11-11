@@ -1,65 +1,54 @@
 # Contribution Guide
 
-Thank you for contributing to this project!
-To maintain code quality and a clean version history, please follow the steps below when submitting your changes.
+Thank you for your interest in contributing to this project!
+To maintain high code quality and clear version management, please follow the steps below when submitting your changes.
 
 # 🪄 How to Submit a Pull Request (PR)
 
 ## 1️⃣ Fork the Repository
 
-Fork this repository to your GitHub account.
+Fork this repository to your own GitHub account.
 
-## 2️⃣ Clone to Your Local Machine
+## 2️⃣ Clone to Local
 
 ```bash
 git clone https://github.com/<your-username>/<repository-name>.git
 cd <repository-name>
 ```
 
-## 3️⃣ Switch to the `dev` Branch (Make Sure You Base Your Work on the Latest Code)
-
-```bash
-git checkout dev
-git pull origin dev     # Synchronize the latest code from the remote dev branch.
-```
-
-> ⚠️ Always create your feature branch from **`dev`**, not `main`.
-
-## 4️⃣ Create a Feature Branch
+## 3️⃣ Create a Feature Branch
 
 ```bash
 git checkout -b feature/your-feature-name
 ```
 
-> Recommended branch naming conventions: `feature/xxx` or `fix/xxx` for easy identification of features or bug fixes.
+> Recommended naming convention: `feature/xxx` or `fix/xxx`, to easily distinguish between new features and bug fixes.
 
-## 5️⃣ Develop and Test
+## 4️⃣ Develop and Test
 
 * Make your code changes while keeping the project’s coding style consistent.
-* Ensure that new features or fixes pass all tests.
+* Ensure that all new features or fixes pass the necessary tests.
 
-## 6️⃣ Commit Your Changes
+## 5️⃣ Commit Your Changes
 
 ```bash
 git add .
 git commit -m "type: short description"
 ```
 
-> It is recommended to follow [Conventional Commits](https://www.conventionalcommits.org/), keeping the commit history clear.
+> It’s recommended to follow the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification to keep commit history clean and readable.
 
-## 7️⃣ Push to Your Remote Repository
+## 6️⃣ Push to Remote
 
 ```bash
 git push origin feature/your-feature-name
 ```
 
-## 8️⃣ Open a Pull Request
+## 7️⃣ Open a Pull Request
 
-1. Click **New Pull Request** on GitHub.
-2. **The target branch must be this repository’s `dev` branch**.
+1. On GitHub, click **New Pull Request**.
+2. **The target branch must be the `main` branch** of this repository.
 3. Fill in the PR description:
 
-   * Explain the main changes.
-   * Link any related issues if applicable.
-
-> ⚠️ Do **not** target the `main` branch with your PR to avoid affecting the stable mainline.
+   * Describe the main changes you made.
+   * If related issues exist, please link them in the PR.
