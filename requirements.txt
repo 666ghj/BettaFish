@@ -32,6 +32,7 @@ jieba==0.42.1
 # ===== 数据库 =====
 pymysql==1.1.0
 aiomysql==0.2.0
+asyncmy==0.2.9
 aiosqlite==0.21.0
 redis>=4.6.0
 SQLAlchemy==2.0.35
