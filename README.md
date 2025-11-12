@@ -104,6 +104,8 @@ LLM模型API赞助：<a href="https://aihubmix.com/?aff=8Ds9" target="_blank"><i
 <img src="static/image/framework.png" alt="banner" width="800">
 </div>
 
+![系统架构图](./微舆架构图.svg)
+
 ### 一次完整分析流程
 
 | 步骤 | 阶段名称 | 主要操作 | 参与组件 | 循环特性 |
