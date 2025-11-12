@@ -8,7 +8,7 @@ import json
 import threading
 import time
 from datetime import datetime
-from flask import Blueprint, request, jsonify, Response
+from flask import Blueprint, request, jsonify, Response, send_file
 from typing import Dict, Any
 from loguru import logger
 from .agent import ReportAgent, create_agent
@@ -50,6 +50,11 @@ class ReportTask:
         self.created_at = datetime.now()
         self.updated_at = datetime.now()
         self.html_content = ""
+        self.report_file_path = ""
+        self.report_file_relative_path = ""
+        self.report_file_name = ""
+        self.state_file_path = ""
+        self.state_file_relative_path = ""
 
     def update_status(self, status: str, progress: int = None, error_message: str = ""):
         """更新任务状态"""
@@ -70,7 +75,10 @@ class ReportTask:
             'error_message': self.error_message,
             'created_at': self.created_at.isoformat(),
             'updated_at': self.updated_at.isoformat(),
-            'has_result': bool(self.html_content)
+            'has_result': bool(self.html_content),
+            'report_file_ready': bool(self.report_file_path),
+            'report_file_name': self.report_file_name,
+            'report_file_path': self.report_file_relative_path
         }
 
 
@@ -119,7 +127,7 @@ def run_report_generation(task: ReportTask, query: str, custom_template: str = "
         task.update_status("running", 50)
 
         # 生成报告
-        html_report = report_agent.generate_report(
+        generation_result = report_agent.generate_report(
             query=query,
             reports=content['reports'],
             forum_logs=content['forum_logs'],
@@ -127,10 +135,17 @@ def run_report_generation(task: ReportTask, query: str, custom_template: str = "
             save_report=True
         )
 
+        html_report = generation_result.get('html_content', '')
+
         task.update_status("running", 90)
 
         # 保存结果
         task.html_content = html_report
+        task.report_file_path = generation_result.get('report_filepath', '')
+        task.report_file_relative_path = generation_result.get('report_relative_path', '')
+        task.report_file_name = generation_result.get('report_filename', '')
+        task.state_file_path = generation_result.get('state_filepath', '')
+        task.state_file_relative_path = generation_result.get('state_relative_path', '')
         task.update_status("completed", 100)
 
     except Exception as e:
@@ -251,7 +266,10 @@ def get_progress(task_id: str):
                     'status': 'completed',
                     'progress': 100,
                     'error_message': '',
-                    'has_result': True
+                    'has_result': True,
+                    'report_file_ready': False,
+                    'report_file_name': '',
+                    'report_file_path': ''
                 }
             })
 
@@ -323,6 +341,44 @@ def get_result_json(task_id: str):
 
     except Exception as e:
         logger.exception(f"获取报告生成结果失败: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@report_bp.route('/download/<task_id>', methods=['GET'])
+def download_report(task_id: str):
+    """下载已生成的报告HTML文件"""
+    try:
+        if not current_task or current_task.task_id != task_id:
+            return jsonify({
+                'success': False,
+                'error': '任务不存在'
+            }), 404
+
+        if current_task.status != "completed" or not current_task.report_file_path:
+            return jsonify({
+                'success': False,
+                'error': '报告尚未完成或尚未保存'
+            }), 400
+
+        if not os.path.exists(current_task.report_file_path):
+            return jsonify({
+                'success': False,
+                'error': '报告文件不存在或已被删除'
+            }), 404
+
+        download_name = current_task.report_file_name or os.path.basename(current_task.report_file_path)
+        return send_file(
+            current_task.report_file_path,
+            mimetype='text/html',
+            as_attachment=True,
+            download_name=download_name
+        )
+
+    except Exception as e:
+        logger.exception(f"下载报告失败: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
