@@ -642,7 +642,7 @@ class DeepSearchAgent:
 
 ### 联系方式
 
-- 📧 **邮箱**：670939375@qq.com
+- 📧 **邮箱**：hangjiang@bupt.edu.cn
 
 ### 商务合作
 
