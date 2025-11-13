@@ -5,15 +5,28 @@ Report Agent主类
 
 import json
 import os
-from loguru import logger
+from pathlib import Path
+from uuid import uuid4
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 
+from loguru import logger
+
+from .core import (
+    ChapterStorage,
+    DocumentComposer,
+    TemplateSection,
+    parse_template_sections,
+)
+from .ir import IRValidator
 from .llms import LLMClient
 from .nodes import (
     TemplateSelectionNode,
-    HTMLGenerationNode
+    ChapterGenerationNode,
+    DocumentLayoutNode,
+    WordBudgetNode,
 )
+from .renderers import HTMLRenderer
 from .state import ReportState
 from .utils.config import settings, Settings
 
@@ -128,6 +141,12 @@ class ReportAgent:
         # 初始化LLM客户端
         self.llm_client = self._initialize_llm()
         
+        # 初始化章级存储/校验/渲染组件
+        self.chapter_storage = ChapterStorage(self.config.CHAPTER_OUTPUT_DIR)
+        self.document_composer = DocumentComposer()
+        self.validator = IRValidator()
+        self.renderer = HTMLRenderer()
+        
         # 初始化节点
         self._initialize_nodes()
         
@@ -139,6 +158,7 @@ class ReportAgent:
         
         # 确保输出目录存在
         os.makedirs(self.config.OUTPUT_DIR, exist_ok=True)
+        os.makedirs(self.config.DOCUMENT_IR_OUTPUT_DIR, exist_ok=True)
         
         logger.info("Report Agent已初始化")
         logger.info(f"使用LLM: {self.llm_client.get_model_info()}")
@@ -175,61 +195,144 @@ class ReportAgent:
             self.llm_client,
             self.config.TEMPLATE_DIR
         )
-        self.html_generation_node = HTMLGenerationNode(self.llm_client)
+        self.document_layout_node = DocumentLayoutNode(self.llm_client)
+        self.word_budget_node = WordBudgetNode(self.llm_client)
+        self.chapter_generation_node = ChapterGenerationNode(
+            self.llm_client,
+            self.validator,
+            self.chapter_storage
+        )
     
-    def generate_report(self, query: str, reports: List[Any], forum_logs: str = "", 
-                       custom_template: str = "", save_report: bool = True) -> str:
+    def generate_report(self, query: str, reports: List[Any], forum_logs: str = "",
+                        custom_template: str = "", save_report: bool = True) -> str:
         """
-        生成综合报告
+        生成综合报告（章节JSON → IR → HTML）
         
-        Args:
-            query: 原始查询
-            reports: 三个子agent的报告列表（按顺序：QueryEngine, MediaEngine, InsightEngine）
-            forum_logs: 论坛日志内容
-            custom_template: 用户自定义模板（可选）
-            save_report: 是否保存报告到文件
-            
         Returns:
-            dict: 包含HTML内容与保存文件信息
+            dict: HTML内容以及保存的文件路径信息
         """
         start_time = datetime.now()
-        
-        # 为新的查询重置状态，确保文件命名信息完整
-        self.state = ReportState(query=query)
-        self.state.metadata.query = query
+        report_id = f"report-{uuid4().hex[:8]}"
+        self.state.task_id = report_id
         self.state.query = query
+        self.state.metadata.query = query
         self.state.mark_processing()
-        
-        logger.info(f"开始生成报告: {query}")
-        logger.info(f"输入数据 - 报告数量: {len(reports)}, 论坛日志长度: {len(forum_logs)}")
-        
+
+        normalized_reports = self._normalize_reports(reports)
+        logger.info(f"开始生成报告 {report_id}: {query}")
+        logger.info(f"输入数据 - 报告数量: {len(reports)}, 论坛日志长度: {len(str(forum_logs))}")
+
         try:
-            # Step 1: 模板选择
             template_result = self._select_template(query, reports, forum_logs, custom_template)
-            
-            # Step 2: 直接生成HTML报告
-            html_report = self._generate_html_report(query, reports, forum_logs, template_result)
-            
-            # Step 3: 保存报告
+            self.state.metadata.template_used = template_result.get('template_name', '')
+            sections = self._slice_template(template_result.get('template_content', ''))
+            if not sections:
+                raise ValueError("模板无法解析出章节，请检查模板内容。")
+
+            template_text = template_result.get('template_content', '')
+            template_overview = self._build_template_overview(template_text, sections)
+            # 基于模板骨架+三引擎内容设计全局标题、目录与视觉主题
+            layout_design = self.document_layout_node.run(
+                sections,
+                template_text,
+                normalized_reports,
+                forum_logs,
+                query,
+                template_overview,
+            )
+            # 使用刚生成的设计稿对全书进行篇幅规划，约束各章字数与重点
+            word_plan = self.word_budget_node.run(
+                sections,
+                layout_design,
+                normalized_reports,
+                forum_logs,
+                query,
+                template_overview,
+            )
+            # 记录每个章节的目标字数/强调点，后续传给章节LLM
+            chapter_targets = {
+                entry.get("chapterId"): entry
+                for entry in word_plan.get("chapters", [])
+                if entry.get("chapterId")
+            }
+
+            generation_context = self._build_generation_context(
+                query,
+                normalized_reports,
+                forum_logs,
+                template_result,
+                layout_design,
+                chapter_targets,
+                word_plan,
+                template_overview,
+            )
+            # IR/渲染需要的全局元数据，带上设计稿给出的标题/主题/目录/篇幅信息
+            manifest_meta = {
+                "query": query,
+                "title": layout_design.get("title") or (f"{query} - 舆情洞察报告" if query else template_result.get("template_name")),
+                "subtitle": layout_design.get("subtitle"),
+                "tagline": layout_design.get("tagline"),
+                "templateName": template_result.get("template_name"),
+                "selectionReason": template_result.get("selection_reason"),
+                "themeTokens": generation_context.get("theme_tokens", {}),
+                "toc": {
+                    "depth": 3,
+                    "autoNumbering": True,
+                    "title": layout_design.get("tocTitle") or "目录",
+                },
+                "hero": layout_design.get("hero"),
+                "layoutNotes": layout_design.get("layoutNotes"),
+                "wordPlan": {
+                    "totalWords": word_plan.get("totalWords"),
+                    "globalGuidelines": word_plan.get("globalGuidelines"),
+                },
+                "templateOverview": template_overview,
+            }
+            if layout_design.get("themeTokens"):
+                manifest_meta["themeTokens"] = layout_design["themeTokens"]
+            if layout_design.get("tocPlan"):
+                manifest_meta["toc"]["customEntries"] = layout_design["tocPlan"]
+            # 初始化章节输出目录并写入manifest，方便流式存盘
+            run_dir = self.chapter_storage.start_session(report_id, manifest_meta)
+            self._persist_planning_artifacts(run_dir, layout_design, word_plan, template_overview)
+
+            chapters = []
+            for section in sections:
+                logger.info(f"生成章节: {section.title}")
+                chapter = self.chapter_generation_node.run(
+                    section,
+                    generation_context,
+                    run_dir
+                )
+                chapters.append(chapter)
+
+            document_ir = self.document_composer.build_document(
+                report_id,
+                manifest_meta,
+                chapters
+            )
+            html_report = self.renderer.render(document_ir)
+
+            self.state.html_content = html_report
+            self.state.mark_completed()
+
             saved_files = {}
             if save_report:
-                saved_files = self._save_report(html_report)
-            
-            # 更新生成时间
-            end_time = datetime.now()
-            generation_time = (end_time - start_time).total_seconds()
+                saved_files = self._save_report(html_report, document_ir, report_id)
+
+            generation_time = (datetime.now() - start_time).total_seconds()
             self.state.metadata.generation_time = generation_time
-            
             logger.info(f"报告生成完成，耗时: {generation_time:.2f} 秒")
-            
             return {
                 'html_content': html_report,
+                'report_id': report_id,
                 **saved_files
             }
-            
+
         except Exception as e:
+            self.state.mark_failed(str(e))
             logger.exception(f"报告生成过程中发生错误: {str(e)}")
-            raise e
+            raise
     
     def _select_template(self, query: str, reports: List[Any], forum_logs: str, custom_template: str):
         """选择报告模板"""
@@ -271,38 +374,153 @@ class ReportAgent:
             self.state.metadata.template_used = fallback_template['template_name']
             return fallback_template
     
-    def _generate_html_report(self, query: str, reports: List[Any], forum_logs: str, template_result: Dict[str, Any]) -> str:
-        """生成HTML报告"""
-        logger.info("多轮生成HTML报告...")
-        
-        # 准备报告内容，确保有3个报告
-        query_report = reports[0] if len(reports) > 0 else ""
-        media_report = reports[1] if len(reports) > 1 else ""
-        insight_report = reports[2] if len(reports) > 2 else ""
-        
-        # 转换为字符串格式
-        query_report = str(query_report) if query_report else ""
-        media_report = str(media_report) if media_report else ""
-        insight_report = str(insight_report) if insight_report else ""
-        
-        html_input = {
-            'query': query,
-            'query_engine_report': query_report,
-            'media_engine_report': media_report,
-            'insight_engine_report': insight_report,
-            'forum_logs': forum_logs,
-            'selected_template': template_result.get('template_content', '')
+    def _slice_template(self, template_markdown: str) -> List[TemplateSection]:
+        """将模板切成章节列表，若为空则提供fallback"""
+        sections = parse_template_sections(template_markdown)
+        if sections:
+            return sections
+        logger.warning("模板未解析出章节，使用默认章节骨架")
+        fallback = TemplateSection(
+            title="1.0 综合分析",
+            slug="section-1-0",
+            order=10,
+            depth=1,
+            raw_title="1.0 综合分析",
+            number="1.0",
+            chapter_id="S1",
+            outline=["1.1 摘要", "1.2 数据亮点", "1.3 风险提示"],
+        )
+        return [fallback]
+
+    def _build_generation_context(
+        self,
+        query: str,
+        reports: Dict[str, str],
+        forum_logs: str,
+        template_result: Dict[str, Any],
+        layout_design: Dict[str, Any],
+        chapter_directives: Dict[str, Any],
+        word_plan: Dict[str, Any],
+        template_overview: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """
+        构造章节生成所需的共享上下文
+
+        这里把“全书设计稿”“章节篇幅约束”“统一主题配色”等一次性整理好，
+        避免每次章节调用都重新拼装上下文。
+        """
+        # 优先使用设计稿定制的主题色，否则退回默认主题
+        theme_tokens = (
+            layout_design.get("themeTokens")
+            if layout_design else None
+        ) or self._default_theme_tokens()
+
+        return {
+            "query": query,
+            "template_name": template_result.get("template_name"),
+            "reports": reports,
+            "forum_logs": self._stringify(forum_logs),
+            "theme_tokens": theme_tokens,
+            "style_directives": {
+                "tone": "analytical",
+                "audience": "executive",
+                "language": "zh-CN",
+            },
+            "data_bundles": [],
+            "max_tokens": min(self.config.MAX_CONTENT_LENGTH, 6000),
+            "layout": layout_design or {},
+            "template_overview": template_overview or {},
+            "chapter_directives": chapter_directives or {},
+            "word_plan": word_plan or {},
         }
-        
-        # 使用HTML生成节点生成报告
-        html_content = self.html_generation_node.run(html_input)
-        
-        # 更新状态
-        self.state.html_content = html_content
-        self.state.mark_completed()
-        
-        logger.info("HTML报告生成完成")
-        return html_content
+
+    def _normalize_reports(self, reports: List[Any]) -> Dict[str, str]:
+        """将不同来源的报告统一转为字符串"""
+        keys = ["query_engine", "media_engine", "insight_engine"]
+        normalized: Dict[str, str] = {}
+        for idx, key in enumerate(keys):
+            value = reports[idx] if idx < len(reports) else ""
+            normalized[key] = self._stringify(value)
+        return normalized
+
+    def _stringify(self, value: Any) -> str:
+        """安全地将对象转成字符串"""
+        if value is None:
+            return ""
+        if isinstance(value, str):
+            return value
+        if isinstance(value, (dict, list)):
+            try:
+                return json.dumps(value, ensure_ascii=False, indent=2)
+            except Exception:
+                return str(value)
+        return str(value)
+
+    def _default_theme_tokens(self) -> Dict[str, Any]:
+        """默认的主题变量，供渲染器/LLM共用"""
+        return {
+            "colors": {
+                "bg": "#f8f9fa",
+                "text": "#212529",
+                "primary": "#007bff",
+                "secondary": "#6c757d",
+                "card": "#ffffff",
+                "border": "#dee2e6",
+                "accent1": "#17a2b8",
+                "accent2": "#28a745",
+                "accent3": "#ffc107",
+                "accent4": "#dc3545",
+            },
+            "fonts": {
+                "body": "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif",
+                "heading": "'Source Han Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif",
+            },
+            "spacing": {"container": "1200px", "gutter": "24px"},
+            "vars": {
+                "header_sticky": True,
+                "toc_depth": 3,
+                "enable_dark_mode": True,
+            },
+        }
+
+    def _build_template_overview(
+        self,
+        template_markdown: str,
+        sections: List[TemplateSection],
+    ) -> Dict[str, Any]:
+        """提取模板标题与章节骨架，供设计/篇幅规划统一引用"""
+        fallback_title = sections[0].title if sections else ""
+        overview = {
+            "title": self._extract_template_title(template_markdown, fallback_title),
+            "chapters": [],
+        }
+        for section in sections:
+            overview["chapters"].append(
+                {
+                    "chapterId": section.chapter_id,
+                    "title": section.title,
+                    "rawTitle": section.raw_title,
+                    "number": section.number,
+                    "slug": section.slug,
+                    "order": section.order,
+                    "depth": section.depth,
+                    "outline": section.outline,
+                }
+            )
+        return overview
+
+    @staticmethod
+    def _extract_template_title(template_markdown: str, fallback: str = "") -> str:
+        """尝试从Markdown中提取首个标题，找不到时使用fallback"""
+        for line in template_markdown.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if stripped.startswith("#"):
+                return stripped.lstrip("#").strip()
+            if stripped:
+                fallback = fallback or stripped
+        return fallback or "智能舆情分析报告"
     
     def _get_fallback_template_content(self) -> str:
         """获取备用模板内容"""
@@ -353,40 +571,82 @@ class ReportAgent:
 *生成时间：{generation_time}*
 """
     
-    def _save_report(self, html_content: str):
-        """保存报告到文件"""
-        # 生成文件名
+    def _save_report(self, html_content: str, document_ir: Dict[str, Any], report_id: str) -> Dict[str, Any]:
+        """保存HTML与IR到文件并返回路径信息"""
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        query_safe = "".join(c for c in self.state.metadata.query if c.isalnum() or c in (' ', '-', '_')).rstrip()
-        query_safe = query_safe.replace(' ', '_')[:30]
-        
-        filename = f"final_report_{query_safe}_{timestamp}.html"
-        filepath = os.path.join(self.config.OUTPUT_DIR, filename)
-        
-        # 保存HTML报告
-        with open(filepath, 'w', encoding='utf-8') as f:
-            f.write(html_content)
-        
-        abs_report_path = os.path.abspath(filepath)
-        rel_report_path = os.path.relpath(abs_report_path, os.getcwd())
-        logger.info(f"报告已保存到: {abs_report_path}")
-        
-        # 保存状态
+        query_safe = "".join(
+            c for c in self.state.metadata.query if c.isalnum() or c in (" ", "-", "_")
+        ).rstrip()
+        query_safe = query_safe.replace(" ", "_")[:30] or "report"
+
+        html_filename = f"final_report_{query_safe}_{timestamp}.html"
+        html_path = Path(self.config.OUTPUT_DIR) / html_filename
+        html_path.write_text(html_content, encoding="utf-8")
+        html_abs = str(html_path.resolve())
+        html_rel = os.path.relpath(html_abs, os.getcwd())
+
+        ir_path = self._save_document_ir(document_ir, query_safe, timestamp)
+        ir_abs = str(ir_path.resolve())
+        ir_rel = os.path.relpath(ir_abs, os.getcwd())
+
         state_filename = f"report_state_{query_safe}_{timestamp}.json"
-        state_filepath = os.path.join(self.config.OUTPUT_DIR, state_filename)
-        self.state.save_to_file(state_filepath)
-        abs_state_path = os.path.abspath(state_filepath)
-        rel_state_path = os.path.relpath(abs_state_path, os.getcwd())
-        logger.info(f"状态已保存到: {abs_state_path}")
+        state_path = Path(self.config.OUTPUT_DIR) / state_filename
+        self.state.save_to_file(str(state_path))
+        state_abs = str(state_path.resolve())
+        state_rel = os.path.relpath(state_abs, os.getcwd())
+
+        logger.info(f"HTML报告已保存: {html_path}")
+        logger.info(f"Document IR已保存: {ir_path}")
+        logger.info(f"状态已保存到: {state_path}")
         
         return {
-            'report_filename': filename,
-            'report_filepath': abs_report_path,
-            'report_relative_path': rel_report_path,
+            'report_filename': html_filename,
+            'report_filepath': html_abs,
+            'report_relative_path': html_rel,
+            'ir_filename': ir_path.name,
+            'ir_filepath': ir_abs,
+            'ir_relative_path': ir_rel,
             'state_filename': state_filename,
-            'state_filepath': abs_state_path,
-            'state_relative_path': rel_state_path
+            'state_filepath': state_abs,
+            'state_relative_path': state_rel,
         }
+
+    def _save_document_ir(self, document_ir: Dict[str, Any], query_safe: str, timestamp: str) -> Path:
+        """将整本IR写入独立目录"""
+        filename = f"report_ir_{query_safe}_{timestamp}.json"
+        ir_path = Path(self.config.DOCUMENT_IR_OUTPUT_DIR) / filename
+        ir_path.write_text(
+            json.dumps(document_ir, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        return ir_path
+    
+    def _persist_planning_artifacts(
+        self,
+        run_dir: Path,
+        layout_design: Dict[str, Any],
+        word_plan: Dict[str, Any],
+        template_overview: Dict[str, Any],
+    ):
+        """
+        将文档设计稿、篇幅规划与模板概览另存成JSON
+
+        方便在调试或复盘时快速定位：标题/目录/主题是如何确定的、
+        字数分配有什么要求，以便后续人工校正。
+        """
+        artifacts = {
+            "document_layout": layout_design,
+            "word_plan": word_plan,
+            "template_overview": template_overview,
+        }
+        for name, payload in artifacts.items():
+            if not payload:
+                continue
+            path = run_dir / f"{name}.json"
+            try:
+                path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            except Exception as exc:
+                logger.warning(f"写入{name}失败: {exc}")
     
     def get_progress_summary(self) -> Dict[str, Any]:
         """获取进度摘要"""

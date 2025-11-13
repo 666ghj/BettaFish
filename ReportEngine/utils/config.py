@@ -17,6 +17,14 @@ class Settings(BaseSettings):
     REPORT_ENGINE_PROVIDER: Optional[str] = Field(None, description="模型服务商，仅兼容保留")
     MAX_CONTENT_LENGTH: int = Field(200000, description="最大内容长度")
     OUTPUT_DIR: str = Field("final_reports", description="主输出目录")
+    # 章节分块JSON会存储在该目录，便于溯源与断点续传
+    CHAPTER_OUTPUT_DIR: str = Field(
+        "final_reports/chapters", description="章节JSON缓存目录"
+    )
+    # 装订后的整本IR/manifest也会持久化，方便调试与审计
+    DOCUMENT_IR_OUTPUT_DIR: str = Field(
+        "final_reports/ir", description="整本IR/Manifest输出目录"
+    )
     TEMPLATE_DIR: str = Field("ReportEngine/report_template", description="多模板目录")
     API_TIMEOUT: float = Field(900.0, description="单API超时时间（秒）")
     MAX_RETRY_DELAY: float = Field(180.0, description="最大重试间隔（秒）")
@@ -41,6 +49,8 @@ def print_config(config: Settings):
     message += f"LLM Base URL: {config.REPORT_ENGINE_BASE_URL or '(默认)'}\n"
     message += f"最大内容长度: {config.MAX_CONTENT_LENGTH}\n"
     message += f"输出目录: {config.OUTPUT_DIR}\n"
+    message += f"章节JSON目录: {config.CHAPTER_OUTPUT_DIR}\n"
+    message += f"整本IR目录: {config.DOCUMENT_IR_OUTPUT_DIR}\n"
     message += f"模板目录: {config.TEMPLATE_DIR}\n"
     message += f"API 超时时间: {config.API_TIMEOUT} 秒\n"
     message += f"最大重试间隔: {config.MAX_RETRY_DELAY} 秒\n"
