@@ -17,16 +17,13 @@ SORT_TYPE = "popularity_descending"
 
 # 指定笔记URL列表, 必须要携带xsec_token参数
 XHS_SPECIFIED_NOTE_URL_LIST = [
-    "https://www.xiaohongshu.com/explore/68f99f6d0000000007033fcf?xsec_token=ABZEzjuN2fPjKF9EcMsCCxfbt3IBRsFZldGFoCJbdDmXI=&xsec_source=pc_feed"
+    "https://www.xiaohongshu.com/explore/64b95d01000000000c034587?xsec_token=AB0EFqJvINCkj6xOCKCQgfNNh8GdnBC_6XecG4QOddo3Q=&xsec_source=pc_cfeed"
     # ........................
 ]
 
-# 指定创作者URL列表 (支持完整URL或纯ID)
-# 支持格式:
-# 1. 完整创作者主页URL (带xsec_token和xsec_source参数): "https://www.xiaohongshu.com/user/profile/5eb8e1d400000000010075ae?xsec_token=AB1nWBKCo1vE2HEkfoJUOi5B6BE5n7wVrbdpHoWIj5xHw=&xsec_source=pc_feed"
-# 2. 纯user_id: "63e36c9a000000002703502b"
+# 指定创作者URL列表，需要携带xsec_token和xsec_source参数
+
 XHS_CREATOR_ID_LIST = [
-    "https://www.xiaohongshu.com/user/profile/5eb8e1d400000000010075ae?xsec_token=AB1nWBKCo1vE2HEkfoJUOi5B6BE5n7wVrbdpHoWIj5xHw=&xsec_source=pc_feed",
-    "63e36c9a000000002703502b",    
+    "https://www.xiaohongshu.com/user/profile/5f58bd990000000001003753?xsec_token=ABYVg1evluJZZzpMX-VWzchxQ1qSNVW3r-jOEnKqMcgZw=&xsec_source=pc_search"
     # ........................
 ]
