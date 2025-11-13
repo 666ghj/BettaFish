@@ -18,6 +18,7 @@ services:
     volumes:
       - ./logs:/app/logs
       - ./final_reports:/app/final_reports
+      - ./.env:/app/.env  
       - ./insight_engine_streamlit_reports:/app/insight_engine_streamlit_reports
       - ./media_engine_streamlit_reports:/app/media_engine_streamlit_reports
       - ./query_engine_streamlit_reports:/app/query_engine_streamlit_reports
