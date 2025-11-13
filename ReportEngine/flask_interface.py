@@ -40,6 +40,14 @@ class ReportTask:
     """报告生成任务"""
 
     def __init__(self, query: str, task_id: str, custom_template: str = ""):
+        """
+        初始化任务对象，记录查询词、自定义模板与运行期元数据。
+
+        Args:
+            query: 最终需要生成的报告主题
+            task_id: 任务唯一ID，通常由时间戳构造
+            custom_template: 可选的自定义Markdown模板
+        """
         self.task_id = task_id
         self.query = query
         self.custom_template = custom_template
@@ -78,7 +86,9 @@ class ReportTask:
             'has_result': bool(self.html_content),
             'report_file_ready': bool(self.report_file_path),
             'report_file_name': self.report_file_name,
-            'report_file_path': self.report_file_relative_path
+            'report_file_path': self.report_file_relative_path or self.report_file_path,
+            'state_file_ready': bool(self.state_file_path),
+            'state_file_path': self.state_file_relative_path or self.state_file_path
         }
 
 
@@ -135,17 +145,21 @@ def run_report_generation(task: ReportTask, query: str, custom_template: str = "
             save_report=True
         )
 
-        html_report = generation_result.get('html_content', '')
+        if isinstance(generation_result, dict):
+            html_report = generation_result.get('html_content', '')
+        else:
+            html_report = generation_result
 
         task.update_status("running", 90)
 
         # 保存结果
         task.html_content = html_report
-        task.report_file_path = generation_result.get('report_filepath', '')
-        task.report_file_relative_path = generation_result.get('report_relative_path', '')
-        task.report_file_name = generation_result.get('report_filename', '')
-        task.state_file_path = generation_result.get('state_filepath', '')
-        task.state_file_relative_path = generation_result.get('state_relative_path', '')
+        if isinstance(generation_result, dict):
+            task.report_file_path = generation_result.get('report_filepath', '')
+            task.report_file_relative_path = generation_result.get('report_relative_path', '')
+            task.report_file_name = generation_result.get('report_filename', '')
+            task.state_file_path = generation_result.get('state_filepath', '')
+            task.state_file_relative_path = generation_result.get('state_relative_path', '')
         task.update_status("completed", 100)
 
     except Exception as e:
@@ -269,7 +283,9 @@ def get_progress(task_id: str):
                     'has_result': True,
                     'report_file_ready': False,
                     'report_file_name': '',
-                    'report_file_path': ''
+                    'report_file_path': '',
+                    'state_file_ready': False,
+                    'state_file_path': ''
                 }
             })
 
@@ -462,6 +478,7 @@ def get_templates():
 # 错误处理
 @report_bp.errorhandler(404)
 def not_found(error):
+    """404兜底处理：保证接口统一返回JSON结构"""
     logger.exception(f"API端点不存在: {str(error)}")
     return jsonify({
         'success': False,
@@ -471,6 +488,7 @@ def not_found(error):
 
 @report_bp.errorhandler(500)
 def internal_error(error):
+    """500兜底处理：捕获未被主动捕获的异常"""
     logger.exception(f"服务器内部错误: {str(error)}")
     return jsonify({
         'success': False,
