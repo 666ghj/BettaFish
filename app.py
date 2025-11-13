@@ -847,6 +847,25 @@ def test_log(app_name):
         'message': f'测试消息已写入 {app_name} 日志'
     })
 
+@app.route('/api/test/connectivity', methods=['POST'])
+def test_connectivity():
+    """测试 .env 中各 API 的连通性""" 
+    try:
+        from config import reload_settings, settings
+        from utils.connectivity_test import create_connectivity_tester
+
+        reload_settings()
+        tester = create_connectivity_tester(settings)
+        result = tester.run_all()
+
+        return jsonify(result)
+    except Exception as e:
+        try:
+            logger.exception("连接性测试失败")
+        except Exception:
+            pass
+        return jsonify({"success": False, "error": str(e), "timestamp": time.time()}), 500
+
 @app.route('/api/forum/start')
 def start_forum_monitoring_api():
     """手动启动ForumEngine论坛"""

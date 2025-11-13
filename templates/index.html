@@ -1035,6 +1035,51 @@
             color: #666;
             font-size: 14px;
         }
+        /* ========== API测试结果弹窗样式（新增） ========== */
+        .test-status-chip {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+        .test-status-success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .test-status-warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .test-status-error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+
+        .test-result-card {
+            border: 2px solid #000000;
+            background-color: #ffffff;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+        .test-result-header {
+            font-weight: bold;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .test-result-body {
+            font-size: 13px;
+            color: #000;
+        }
+        .test-result-body .line {
+            margin: 4px 0;
+        }
+        .test-result-details {
+            margin-top: 8px;
+            background: #f8f9fa;
+            border: 1px dashed #ccc;
+            padding: 8px;
+            max-height: 220px;
+            overflow: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+        }
     </style>
 </head>
 <body>
@@ -1138,7 +1183,29 @@
                 <div class="config-status-message" id="configStatusMessage"></div>
                 <div class="config-modal-footer-actions">
                     <button class="config-save-button" id="saveConfigButton">保存</button>
+                    <button class="config-secondary-button" id="saveAndTestButton">保存并测试API配置</button>
                     <button class="config-start-button" id="startSystemButton">保存并启动系统</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增：API 测试结果弹窗（无导出功能） -->
+    <div class="config-modal-overlay" id="testResultModal">
+        <div class="config-modal">
+            <div class="config-modal-header">
+                <div class="config-modal-title">API 连通性测试结果</div>
+                <div class="config-modal-actions">
+                    <button class="config-close-button" id="closeTestResultModal" aria-label="关闭测试结果窗口">×</button>
+                </div>
+            </div>
+            <div class="config-modal-body" id="testResultContainer">
+                <!-- 结果由脚本填充 -->
+            </div>
+            <div class="config-modal-footer">
+                <div class="config-status-message" id="testResultSummary"></div>
+                <div class="config-modal-footer-actions">
+                    <button class="config-save-button" id="closeTestResultButton">关闭</button>
                 </div>
             </div>
         </div>
@@ -1401,6 +1468,31 @@
                 configFormContainer.addEventListener('input', () => {
                     configDirty = true;
                     setConfigStatus('已修改，尚未保存');
+                });
+            }
+
+            // 保存并测试API配置
+            const saveAndTestButton = document.getElementById('saveAndTestButton');
+            if (saveAndTestButton) {
+                saveAndTestButton.addEventListener('click', () => saveAndTestConfig());
+            }
+
+            // 测试结果弹窗关闭
+            const testResultModal = document.getElementById('testResultModal');
+            const closeTestResultModalBtn = document.getElementById('closeTestResultModal');
+            const closeTestResultButton = document.getElementById('closeTestResultButton');
+
+            if (closeTestResultModalBtn) {
+                closeTestResultModalBtn.addEventListener('click', () => closeTestResultModal());
+            }
+            if (closeTestResultButton) {
+                closeTestResultButton.addEventListener('click', () => closeTestResultModal());
+            }
+            if (testResultModal) {
+                testResultModal.addEventListener('click', (e) => {
+                    if (e.target === testResultModal) {
+                        closeTestResultModal();
+                    }
                 });
             }
 
@@ -1771,6 +1863,141 @@
             }
         }
 
+        async function saveAndTestConfig() {
+            const button = document.getElementById('saveAndTestButton');
+            if (button) {
+                button.disabled = true;
+                button.textContent = '保存并测试中...';
+            }
+            setConfigStatus('正在保存配置并执行API连通性测试...', '');
+
+            try {
+                // 先保存配置
+                const saved = await saveConfigUpdates({ silent: true });
+                if (!saved) {
+                    showMessage('保存失败，已终止测试', 'error');
+                    return;
+                }
+                // 执行测试
+                await runConnectivityTest();
+            } catch (err) {
+                console.error(err);
+                showMessage('执行测试时发生错误: ' + err.message, 'error');
+                setConfigStatus('执行测试时发生错误: ' + err.message, 'error');
+            } finally {
+                if (button) {
+                    button.disabled = false;
+                    button.textContent = '保存并测试API配置';
+                }
+            }
+        }
+
+        async function runConnectivityTest() {
+            setConfigStatus('正在进行API连通性测试，请稍候...', '');
+            try {
+                const resp = await fetch('/api/test/connectivity', { method: 'POST' });
+                const data = await resp.json().catch(() => ({}));
+                if (!resp.ok || !data.success) {
+                    const errMsg = (data && (data.error || data.message)) || `HTTP ${resp.status}`;
+                    openTestResultModal({
+                        success: false,
+                        error: errMsg,
+                        timestamp: Date.now()
+                    });
+                    setConfigStatus('测试失败: ' + errMsg, 'error');
+                    showMessage('测试失败: ' + errMsg, 'error');
+                    return;
+                }
+                lastConnectivityReport = data;
+                openTestResultModal(data);
+                const summary = data.summary || {};
+                const s = `测试完成：共${summary.total || 0}项，成功${summary.successful || 0}，失败${summary.failed || 0}，成功率${summary.success_rate || 0}%`;
+                setConfigStatus(s, 'success');
+                showMessage('API测试完成', 'success');
+            } catch (e) {
+                openTestResultModal({
+                    success: false,
+                    error: e.message || '未知错误',
+                    timestamp: Date.now()
+                });
+                setConfigStatus('测试异常: ' + e.message, 'error');
+                showMessage('测试异常: ' + e.message, 'error');
+            }
+        }
+
+        function openTestResultModal(report) {
+            const modal = document.getElementById('testResultModal');
+            const container = document.getElementById('testResultContainer');
+            const summaryDiv = document.getElementById('testResultSummary');
+
+            if (!modal || !container) return;
+
+            container.innerHTML = '';
+            summaryDiv.textContent = '';
+
+            if (!report || report.success === false) {
+                container.innerHTML = `
+                    <div class="report-status error">
+                        <strong>测试失败</strong><br>
+                        ${escapeHtml(report && report.error ? String(report.error) : '未知错误')}
+                    </div>
+                `;
+                summaryDiv.textContent = '请检查配置或网络后重试';
+                modal.classList.add('visible');
+                return;
+            }
+
+            const summary = report.summary || {};
+            const headerHtml = `
+                <div class="report-status ${summary.failed ? 'error' : 'success'}">
+                    <div><strong>测试摘要</strong></div>
+                    <div>总计: ${summary.total || 0}，成功: ${summary.successful || 0}，警告: ${summary.warning || 0}，失败: ${summary.failed || 0}，成功率: ${summary.success_rate || 0}%</div>
+                    <div>时间: ${new Date((report.timestamp || Date.now()) * (report.timestamp > 1e12 ? 1 : 1000)).toLocaleString('zh-CN')}</div>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', headerHtml);
+            const results = Array.isArray(report.results) ? report.results : [];
+            if (results.length === 0) {
+                container.insertAdjacentHTML('beforeend', `
+                    <div class="test-result-card">
+                        未返回任何测试项
+                    </div>
+                `);
+            } else {
+                results.forEach(item => {
+                    const status = (item.status || 'unknown').toLowerCase();
+                    const chipClass =
+                        status === 'success' ? 'test-status-success' :
+                        status === 'warning' ? 'test-status-warning' : 'test-status-error';
+                    const name = escapeHtml(item.name || '未命名服务');
+                    const message = escapeHtml(item.message || '');
+                    const timeMs = typeof item.response_time === 'number' ? `${item.response_time} ms` : '-';
+                    const detailsStr = escapeHtml(JSON.stringify(item.details || {}, null, 2));
+                    const card = `
+                        <div class="test-result-card">
+                            <div class="test-result-header">
+                                <div>
+                                    ${name}
+                                    <span class="test-status-chip ${chipClass}">${status.toUpperCase()}</span>
+                                </div>
+                                <div style="font-size:12px;color:#666;">耗时: ${timeMs}</div>
+                            </div>
+                            <div class="test-result-body">
+                                <div class="line"><strong>结果:</strong> ${message}</div>
+                                ${detailsStr && detailsStr !== '{}' ? `
+                                    <div class="test-result-details">${detailsStr}</div>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                    container.insertAdjacentHTML('beforeend', card);
+                });
+            }
+
+            summaryDiv.textContent = `共${summary.total || 0}项，成功${summary.successful || 0}，失败${summary.failed || 0}`;
+            modal.classList.add('visible');
+        }
+
         function applySystemState(state) {
             if (!state) {
                 return;
@@ -1783,6 +2010,11 @@
             }
             updateStartButtonState();
             updateConfigCloseButton();
+        }
+
+        function closeTestResultModal() {
+            const modal = document.getElementById('testResultModal');
+            if (modal) modal.classList.remove('visible');
         }
 
         async function fetchSystemStatus() {
