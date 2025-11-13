@@ -29,7 +29,7 @@ except ImportError:  # pragma: no cover - optional dependency
 
 
 class ChapterJsonParseError(ValueError):
-    """Raised when the LLM output for a chapter cannot be parsed as valid JSON."""
+    """章节LLM输出无法解析为合法JSON时抛出的异常，附带原始文本方便排查。"""
 
     def __init__(self, message: str, raw_text: Optional[str] = None):
         super().__init__(message)
@@ -37,7 +37,15 @@ class ChapterJsonParseError(ValueError):
 
 
 class ChapterGenerationNode(BaseNode):
-    """负责按章节调用LLM并校验JSON结构"""
+    """
+    负责按章节调用LLM并校验JSON结构。
+
+    核心能力：
+        - 构造章节级 payload 与提示词；
+        - 以流式形式写入 raw 文件并透传 delta；
+        - 尝试修复/解析LLM输出，并使用 IRValidator 校验；
+        - 对block结构做容错修复，确保最终JSON可渲染。
+    """
 
     _COLON_EQUALS_PATTERN = re.compile(r'(":\s*)=')
     _LINE_BREAK_SENTINEL = "__LINE_BREAK__"

@@ -1,5 +1,7 @@
 """
-Report Engine 默认的OpenAI兼容LLM客户端封装，内置重试/流式能力。
+Report Engine 默认的OpenAI兼容LLM客户端封装。
+
+提供统一的非流式/流式调用、可选重试、字节安全拼接与模型元信息查询。
 """
 
 import os
@@ -107,7 +109,7 @@ class LLMClient:
             **kwargs: 额外参数（temperature, top_p等）
             
         Yields:
-            响应文本块（str）
+            响应文本块（str），调用方可边读边写入磁盘或透传到UI
         """
         messages = [
             {"role": "system", "content": system_prompt},

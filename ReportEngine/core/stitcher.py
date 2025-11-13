@@ -1,5 +1,7 @@
 """
 章节装订器：负责把多个章节JSON合并为整本IR。
+
+DocumentComposer 会注入缺失锚点、统一顺序，并补齐 IR 级元数据。
 """
 
 from __future__ import annotations
@@ -13,6 +15,11 @@ from ..ir import IR_VERSION
 class DocumentComposer:
     """
     将章节拼接成Document IR的简单装订器。
+
+    作用：
+        - 按order排序章节，补充默认chapterId；
+        - 防止anchor重复，生成全局唯一锚点；
+        - 注入 IR 版本与生成时间戳。
     """
 
     def __init__(self):
@@ -25,7 +32,11 @@ class DocumentComposer:
         metadata: Dict[str, object],
         chapters: List[Dict[str, object]],
     ) -> Dict[str, object]:
-        """把所有章节按order排序并注入唯一锚点，形成整本IR"""
+        """
+        把所有章节按order排序并注入唯一锚点，形成整本IR。
+
+        同时合并 metadata/themeTokens/assets，供渲染器直接消费。
+        """
         ordered = sorted(chapters, key=lambda c: c.get("order", 0))
         for idx, chapter in enumerate(ordered, start=1):
             chapter.setdefault("chapterId", f"S{idx}")
@@ -48,7 +59,7 @@ class DocumentComposer:
         return document
 
     def _ensure_unique_anchor(self, anchor: str) -> str:
-        """若存在重复锚点则追加序号，确保全局唯一"""
+        """若存在重复锚点则追加序号，确保全局唯一。"""
         base = anchor
         counter = 2
         while anchor in self._seen_anchors:

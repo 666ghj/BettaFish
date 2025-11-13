@@ -1,6 +1,7 @@
 """
-Report Engine状态管理模块
-定义报告生成过程中的简化状态数据结构
+Report Engine状态管理模块。
+
+导出 ReportState/ReportMetadata，供Agent与Flask接口共享。
 """
 
 from .state import ReportState, ReportMetadata

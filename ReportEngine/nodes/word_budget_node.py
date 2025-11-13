@@ -18,7 +18,11 @@ from .base_node import BaseNode
 
 
 class WordBudgetNode(BaseNode):
-    """规划各章节字数与重点"""
+    """
+    规划各章节字数与重点。
+
+    输出总字数、全局写作准则以及每章/小节的 target/min/max 字数约束。
+    """
 
     def __init__(self, llm_client):
         """仅记录LLM客户端引用，方便run阶段发起请求"""

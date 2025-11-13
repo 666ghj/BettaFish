@@ -1,6 +1,7 @@
 """
-Report Engine提示词模块
-定义报告生成各个阶段使用的系统提示词
+Report Engine提示词模块。
+
+集中导出各阶段系统提示词与辅助函数，其他模块可直接from prompts import。
 """
 
 from .prompts import (

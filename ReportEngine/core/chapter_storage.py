@@ -17,7 +17,12 @@ from typing import Dict, Generator, List, Optional
 
 @dataclass
 class ChapterRecord:
-    """manifest中记录的章节元数据"""
+    """
+    manifest中记录的章节元数据。
+
+    该结构用于在 `manifest.json` 中追踪每章的状态、文件位置、
+    以及可能的错误列表，方便前端或调试工具读取。
+    """
 
     chapter_id: str
     slug: str
@@ -46,12 +51,10 @@ class ChapterStorage:
     """
     章节JSON写入与manifest管理器。
 
-    用法：
-        run_dir = storage.start_session(report_id, {...})
-        chapter_dir = storage.begin_chapter(run_dir, meta)
-        with storage.capture_stream(chapter_dir) as fp:
-            fp.write(chunk)
-        storage.persist_chapter(run_dir, meta, payload, errors)
+    负责：
+        - 为每次报告创建独立run目录与manifest快照；
+        - 在章节流式生成时即时写入 `stream.raw`；
+        - 校验通过后持久化 `chapter.json` 并更新manifest状态。
     """
 
     def __init__(self, base_dir: str):
@@ -68,7 +71,11 @@ class ChapterStorage:
     # ======== 会话 & manifest ========
 
     def start_session(self, report_id: str, metadata: Dict[str, object]) -> Path:
-        """为本次报告创建独立的章节输出目录与manifest"""
+        """
+        为本次报告创建独立的章节输出目录与manifest。
+
+        同时把全局metadata写入 `manifest.json`，供渲染/调试查询。
+        """
         run_dir = self.base_dir / report_id
         run_dir.mkdir(parents=True, exist_ok=True)
         manifest = {
@@ -82,7 +89,11 @@ class ChapterStorage:
         return run_dir
 
     def begin_chapter(self, run_dir: Path, chapter_meta: Dict[str, object]) -> Path:
-        """创建章节子目录并在manifest中标记为streaming状态"""
+        """
+        创建章节子目录并在manifest中标记为streaming状态。
+
+        会生成 `order-slug` 风格的子目录，并提前登记 raw 文件路径。
+        """
         slug_value = str(
             chapter_meta.get("slug") or chapter_meta.get("chapterId") or "section"
         )
@@ -109,7 +120,11 @@ class ChapterStorage:
         payload: Dict[str, object],
         errors: Optional[List[str]] = None,
     ) -> Path:
-        """章节流式生成完毕后写入最终JSON并更新manifest状态"""
+        """
+        章节流式生成完毕后写入最终JSON并更新manifest状态。
+
+        若校验失败，错误信息会被写入manifest，供前端展示。
+        """
         slug_value = str(
             chapter_meta.get("slug") or chapter_meta.get("chapterId") or "section"
         )
@@ -140,7 +155,11 @@ class ChapterStorage:
         return final_path
 
     def load_chapters(self, run_dir: Path) -> List[Dict[str, object]]:
-        """从指定run目录读取全部chapter.json并按order排序返回"""
+        """
+        从指定run目录读取全部chapter.json并按order排序返回。
+
+        常用于 DocumentComposer 将多个章节装订成整本IR。
+        """
         payloads: List[Dict[str, object]] = []
         for child in sorted(run_dir.iterdir()):
             if not child.is_dir():
@@ -160,7 +179,11 @@ class ChapterStorage:
 
     @contextmanager
     def capture_stream(self, chapter_dir: Path) -> Generator:
-        """将流式输出实时写入raw文件"""
+        """
+        将流式输出实时写入raw文件。
+
+        通过 contextmanager 暴露文件句柄，简化章节节点的写入逻辑。
+        """
         raw_path = self._raw_stream_path(chapter_dir)
         raw_path.parent.mkdir(parents=True, exist_ok=True)
         with raw_path.open("w", encoding="utf-8") as fp:
@@ -169,7 +192,7 @@ class ChapterStorage:
     # ======== 内部工具 ========
 
     def _chapter_dir(self, run_dir: Path, slug: str, order: int) -> Path:
-        """根据slug/order生成稳定的章节目录，确保各章分隔存盘"""
+        """根据slug/order生成稳定目录，确保各章分隔存盘且可排序。"""
         safe_slug = self._safe_slug(slug)
         folder = f"{order:03d}-{safe_slug}"
         path = run_dir / folder
@@ -177,38 +200,46 @@ class ChapterStorage:
         return path
 
     def _safe_slug(self, slug: str) -> str:
-        """移除危险字符，避免生成非法文件夹名"""
+        """移除危险字符，避免生成非法文件夹名。"""
         slug = slug.replace(" ", "-").replace("/", "-")
         return slug or "section"
 
     def _raw_stream_path(self, chapter_dir: Path) -> Path:
-        """返回某章节流式输出对应的raw文件路径"""
+        """返回某章节流式输出对应的raw文件路径。"""
         return chapter_dir / "stream.raw"
 
     def _key(self, run_dir: Path) -> str:
-        """将run目录解析为字典缓存的键，避免重复读取磁盘"""
+        """将run目录解析为字典缓存的键，避免重复读取磁盘。"""
         return str(run_dir.resolve())
 
     def _manifest_path(self, run_dir: Path) -> Path:
-        """获取manifest.json的实际文件路径"""
+        """获取manifest.json的实际文件路径。"""
         return run_dir / "manifest.json"
 
     def _write_manifest(self, run_dir: Path, manifest: Dict[str, object]):
-        """将内存中的manifest快照全量写回磁盘"""
+        """将内存中的manifest快照全量写回磁盘。"""
         self._manifest_path(run_dir).write_text(
             json.dumps(manifest, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
 
     def _read_manifest(self, run_dir: Path) -> Dict[str, object]:
-        """从磁盘读取已有manifest，用于进程重启或多实例协作"""
+        """
+        从磁盘读取已有manifest。
+
+        进程重启或多实例写盘时可借助它恢复上下文。
+        """
         manifest_path = self._manifest_path(run_dir)
         if manifest_path.exists():
             return json.loads(manifest_path.read_text(encoding="utf-8"))
         return {"reportId": run_dir.name, "chapters": []}
 
     def _upsert_record(self, run_dir: Path, record: ChapterRecord):
-        """更新或追加manifest中的章节记录，保证顺序一致"""
+        """
+        更新或追加manifest中的章节记录，保证顺序一致。
+
+        内部会自动排序并写回缓存+磁盘。
+        """
         key = self._key(run_dir)
         manifest = self._manifests.get(key) or self._read_manifest(run_dir)
         chapters: List[Dict[str, object]] = manifest.get("chapters", [])

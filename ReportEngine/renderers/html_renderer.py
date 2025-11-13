@@ -11,7 +11,13 @@ from typing import Any, Dict, List
 
 
 class HTMLRenderer:
-    """Document IR → HTML 渲染器"""
+    """
+    Document IR → HTML 渲染器。
+
+    - 读取 IR metadata/chapters，将结构映射为响应式HTML；
+    - 动态构造目录、锚点、Chart.js脚本及互动逻辑；
+    - 提供主题变量、编号映射等辅助功能。
+    """
 
     def __init__(self, config: Dict[str, Any] | None = None):
         """初始化渲染器缓存并允许注入额外配置（如主题覆盖）"""

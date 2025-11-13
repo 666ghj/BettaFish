@@ -1,6 +1,7 @@
 """
-Report Engine节点处理模块
-实现报告生成的各个处理步骤
+Report Engine节点处理模块。
+
+封装模板选择、章节生成、文档布局、篇幅规划等流水线节点。
 """
 
 from .base_node import BaseNode, StateMutationNode

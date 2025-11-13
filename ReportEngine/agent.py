@@ -1,6 +1,11 @@
 """
-Report Agent主类
-整合所有模块，实现完整的报告生成流程
+Report Agent主类。
+
+该模块串联模板选择、布局设计、章节生成、IR装订与HTML渲染等
+所有子流程，是Report Engine的总调度中心。核心职责包括：
+1. 管理输入数据与状态，协调三个分析引擎、论坛日志与模板；
+2. 按节点顺序驱动模板选择→布局生成→篇幅规划→章节写作→装订渲染；
+3. 负责错误兜底、流式事件分发、落盘清单与最终成果保存。
 """
 
 import json
@@ -33,15 +38,32 @@ from .utils.config import settings, Settings
 
 
 class FileCountBaseline:
-    """文件数量基准管理器"""
+    """
+    文件数量基准管理器。
+
+    该工具用于：
+    - 在任务启动时记录 Insight/Media/Query 三个引擎导出的 Markdown 数量；
+    - 在后续轮询中快速判断是否有新报告落地；
+    - 为 Flask 层提供“输入是否准备完毕”的依据。
+    """
     
     def __init__(self):
-        """在初始化阶段加载或创建文件数量基准快照"""
+        """
+        初始化时优先尝试读取既有的基准快照。
+
+        若 `logs/report_baseline.json` 不存在则会自动创建一份空快照，
+        以便后续 `initialize_baseline` 在首次运行时写入真实基准。
+        """
         self.baseline_file = 'logs/report_baseline.json'
         self.baseline_data = self._load_baseline()
     
     def _load_baseline(self) -> Dict[str, int]:
-        """加载基准数据"""
+        """
+        加载基准数据。
+
+        - 当快照文件存在时直接解析JSON；
+        - 捕获所有加载异常并返回空字典，保证调用方逻辑简洁。
+        """
         try:
             if os.path.exists(self.baseline_file):
                 with open(self.baseline_file, 'r', encoding='utf-8') as f:
@@ -51,7 +73,12 @@ class FileCountBaseline:
         return {}
     
     def _save_baseline(self):
-        """保存基准数据"""
+        """
+        将当前基准写入磁盘。
+
+        采用 `ensure_ascii=False` + 缩进格式，方便人工查看；
+        若目标目录缺失则自动创建。
+        """
         try:
             os.makedirs(os.path.dirname(self.baseline_file), exist_ok=True)
             with open(self.baseline_file, 'w', encoding='utf-8') as f:
@@ -60,7 +87,12 @@ class FileCountBaseline:
             logger.exception(f"保存基准数据失败: {e}")
     
     def initialize_baseline(self, directories: Dict[str, str]) -> Dict[str, int]:
-        """初始化文件数量基准"""
+        """
+        初始化文件数量基准。
+
+        遍历每个引擎目录并统计 `.md` 文件数量，将结果持久化为
+        初始基准。后续 `check_new_files` 会据此对比增量。
+        """
         current_counts = {}
         
         for engine, directory in directories.items():
@@ -78,7 +110,13 @@ class FileCountBaseline:
         return current_counts
     
     def check_new_files(self, directories: Dict[str, str]) -> Dict[str, Any]:
-        """检查是否有新文件"""
+        """
+        检查是否有新文件。
+
+        对比当前目录文件数与基准：
+        - 统计新增数量，并判定是否所有引擎都已准备就绪；
+        - 返回详细计数、缺失列表，供 Web 层提示给用户。
+        """
         current_counts = {}
         new_files_found = {}
         all_have_new = True
@@ -108,7 +146,12 @@ class FileCountBaseline:
         }
     
     def get_latest_files(self, directories: Dict[str, str]) -> Dict[str, str]:
-        """获取每个目录的最新文件"""
+        """
+        获取每个目录的最新文件。
+
+        通过 `os.path.getmtime` 找出最近写入的 Markdown，
+        以确保生成流程永远使用最新一版三引擎报告。
+        """
         latest_files = {}
         
         for engine, directory in directories.items():
@@ -122,14 +165,27 @@ class FileCountBaseline:
 
 
 class ReportAgent:
-    """Report Agent主类"""
+    """
+    Report Agent主类。
+
+    负责集成：
+    - LLM客户端及其上层四个推理节点；
+    - 章节存储、IR装订、渲染器等产出链路；
+    - 状态管理、日志、输入输出校验与持久化。
+    """
     
     def __init__(self, config: Optional[Settings] = None):
         """
-        初始化Report Agent
+        初始化Report Agent。
         
         Args:
             config: 配置对象，如果不提供则自动加载
+        
+        步骤概览：
+            1. 解析配置并接入日志/LLM/渲染等核心组件；
+            2. 构造四个推理节点（模板、布局、篇幅、章节）；
+            3. 初始化文件基准与章节落盘目录；
+            4. 构建可序列化的状态容器，供外部服务查询。
         """
         # 加载配置
         self.config = config or settings
@@ -166,7 +222,13 @@ class ReportAgent:
         logger.info(f"使用LLM: {self.llm_client.get_model_info()}")
         
     def _setup_logging(self):
-        """设置日志"""
+        """
+        设置日志。
+
+        - 确保日志目录存在；
+        - 使用独立的 loguru sink 写入 Report Engine 专属 log 文件，
+          避免与其他子系统混淆。
+        """
         # 确保日志目录存在
         log_dir = os.path.dirname(self.config.LOG_FILE)
         os.makedirs(log_dir, exist_ok=True)
@@ -175,7 +237,12 @@ class ReportAgent:
         logger.add(self.config.LOG_FILE, level="INFO")
         
     def _initialize_file_baseline(self):
-        """初始化文件数量基准"""
+        """
+        初始化文件数量基准。
+
+        将 Insight/Media/Query 三个目录传入 `FileCountBaseline`，
+        生成一次性的参考值，之后按增量判断三引擎是否产出新报告。
+        """
         directories = {
             'insight': 'insight_engine_streamlit_reports',
             'media': 'media_engine_streamlit_reports',
@@ -184,7 +251,12 @@ class ReportAgent:
         self.file_baseline.initialize_baseline(directories)
     
     def _initialize_llm(self) -> LLMClient:
-        """初始化LLM客户端"""
+        """
+        初始化LLM客户端。
+
+        利用配置中的 API Key / 模型 / Base URL 构建统一的
+        `LLMClient` 实例，为所有节点提供复用的推理入口。
+        """
         return LLMClient(
             api_key=self.config.REPORT_ENGINE_API_KEY,
             model_name=self.config.REPORT_ENGINE_MODEL_NAME,
@@ -192,7 +264,12 @@ class ReportAgent:
         )
     
     def _initialize_nodes(self):
-        """初始化处理节点"""
+        """
+        初始化处理节点。
+
+        顺序实例化模板选择、文档布局、篇幅规划、章节生成四个节点，
+        其中章节节点额外依赖 IR 校验器与章节存储器。
+        """
         self.template_selection_node = TemplateSelectionNode(
             self.llm_client,
             self.config.TEMPLATE_DIR
@@ -209,7 +286,14 @@ class ReportAgent:
                         custom_template: str = "", save_report: bool = True,
                         stream_handler: Optional[Callable[[str, Dict[str, Any]], None]] = None) -> str:
         """
-        生成综合报告（章节JSON → IR → HTML）
+        生成综合报告（章节JSON → IR → HTML）。
+
+        主要阶段：
+            1. 归一化三引擎报告 + 论坛日志，并输出流式事件；
+            2. 模板选择 → 模板切片 → 文档布局 → 篇幅规划；
+            3. 结合篇幅目标逐章调用LLM，遇到解析错误会自动重试；
+            4. 将章节装订成Document IR，再交给HTML渲染器生成成品；
+            5. 可选地将HTML/IR/状态落盘，并向外界回传路径信息。
 
         Returns:
             dict: HTML内容以及保存的文件路径信息
@@ -441,7 +525,13 @@ class ReportAgent:
             raise
     
     def _select_template(self, query: str, reports: List[Any], forum_logs: str, custom_template: str):
-        """选择报告模板"""
+        """
+        选择报告模板。
+
+        优先使用用户指定的模板；否则将查询、三引擎报告与论坛日志
+        作为上下文交给 TemplateSelectionNode，由 LLM 返回最契合的
+        模板名称、内容及理由，并自动记录在状态中。
+        """
         logger.info("选择报告模板...")
         
         # 如果用户提供了自定义模板，直接使用
@@ -481,7 +571,13 @@ class ReportAgent:
             return fallback_template
     
     def _slice_template(self, template_markdown: str) -> List[TemplateSection]:
-        """将模板切成章节列表，若为空则提供fallback"""
+        """
+        将模板切成章节列表，若为空则提供fallback。
+
+        委托 `parse_template_sections` 将Markdown标题/编号解析为
+        `TemplateSection` 列表，确保后续章节生成有稳定的章节ID。
+        当模板格式异常时，会回退到内置的简单骨架避免崩溃。
+        """
         sections = parse_template_sections(template_markdown)
         if sections:
             return sections
@@ -510,10 +606,11 @@ class ReportAgent:
         template_overview: Dict[str, Any],
     ) -> Dict[str, Any]:
         """
-        构造章节生成所需的共享上下文
+        构造章节生成所需的共享上下文。
 
-        这里把“全书设计稿”“章节篇幅约束”“统一主题配色”等一次性整理好，
-        避免每次章节调用都重新拼装上下文。
+        将模板名称、布局设计、主题配色、篇幅规划、论坛日志等
+        一次性整合为 `generation_context`，后续每章调用 LLM 时
+        直接复用，确保所有章节共享一致的语调和视觉约束。
         """
         # 优先使用设计稿定制的主题色，否则退回默认主题
         theme_tokens = (
@@ -541,7 +638,12 @@ class ReportAgent:
         }
 
     def _normalize_reports(self, reports: List[Any]) -> Dict[str, str]:
-        """将不同来源的报告统一转为字符串"""
+        """
+        将不同来源的报告统一转为字符串。
+
+        约定顺序为 Query/Media/Insight，引擎提供的对象可能是
+        字典或自定义类型，因此统一走 `_stringify` 做容错。
+        """
         keys = ["query_engine", "media_engine", "insight_engine"]
         normalized: Dict[str, str] = {}
         for idx, key in enumerate(keys):
@@ -551,7 +653,10 @@ class ReportAgent:
 
     def _should_retry_inappropriate_content_error(self, error: Exception) -> bool:
         """
-        判断LLM异常是否由内容安全/不当内容导致，满足时允许重新生成整章。
+        判断LLM异常是否由内容安全/不当内容导致。
+
+        当检测到供应商返回的错误包含特定关键词时，允许章节生成
+        重新尝试，以便绕过偶发的内容审查触发。
         """
         message = str(error) if error else ""
         if not message:
@@ -566,7 +671,12 @@ class ReportAgent:
         return any(keyword in normalized for keyword in keywords)
 
     def _stringify(self, value: Any) -> str:
-        """安全地将对象转成字符串"""
+        """
+        安全地将对象转成字符串。
+
+        - dict/list 统一序列化为格式化 JSON，便于提示词消费；
+        - 其他类型走 `str()`，None 则返回空串，避免 None 传播。
+        """
         if value is None:
             return ""
         if isinstance(value, str):
@@ -579,7 +689,11 @@ class ReportAgent:
         return str(value)
 
     def _default_theme_tokens(self) -> Dict[str, Any]:
-        """默认的主题变量，供渲染器/LLM共用"""
+        """
+        构造默认主题变量，供渲染器/LLM共用。
+
+        当布局节点未返回专属配色时使用该套色板，保持报告风格统一。
+        """
         return {
             "colors": {
                 "bg": "#f8f9fa",
@@ -610,7 +724,11 @@ class ReportAgent:
         template_markdown: str,
         sections: List[TemplateSection],
     ) -> Dict[str, Any]:
-        """提取模板标题与章节骨架，供设计/篇幅规划统一引用"""
+        """
+        提取模板标题与章节骨架，供设计/篇幅规划统一引用。
+
+        同时记录章节ID/slug/order等辅助字段，保证多节点对齐。
+        """
         fallback_title = sections[0].title if sections else ""
         overview = {
             "title": self._extract_template_title(template_markdown, fallback_title),
@@ -633,7 +751,12 @@ class ReportAgent:
 
     @staticmethod
     def _extract_template_title(template_markdown: str, fallback: str = "") -> str:
-        """尝试从Markdown中提取首个标题，找不到时使用fallback"""
+        """
+        尝试从Markdown中提取首个标题。
+
+        优先返回首个 `#` 语法标题；如果模板首行就是正文，则回退到
+        第一行非空文本或调用方提供的 fallback。
+        """
         for line in template_markdown.splitlines():
             stripped = line.strip()
             if not stripped:
@@ -645,7 +768,12 @@ class ReportAgent:
         return fallback or "智能舆情分析报告"
     
     def _get_fallback_template_content(self) -> str:
-        """获取备用模板内容"""
+        """
+        获取备用模板内容。
+
+        当模板目录不可用或LLM选择失败时使用该 Markdown 模板，
+        保证后续流程仍能给出结构化章节。
+        """
         return """# 社会公共热点事件分析报告
 
 ## 执行摘要
@@ -694,7 +822,12 @@ class ReportAgent:
 """
     
     def _save_report(self, html_content: str, document_ir: Dict[str, Any], report_id: str) -> Dict[str, Any]:
-        """保存HTML与IR到文件并返回路径信息"""
+        """
+        保存HTML与IR到文件并返回路径信息。
+
+        生成基于查询和时间戳的易读文件名，同时也把运行态的
+        `ReportState` 写入 JSON，方便下游排障或断点续跑。
+        """
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         query_safe = "".join(
             c for c in self.state.metadata.query if c.isalnum() or c in (" ", "-", "_")
@@ -734,7 +867,12 @@ class ReportAgent:
         }
 
     def _save_document_ir(self, document_ir: Dict[str, Any], query_safe: str, timestamp: str) -> Path:
-        """将整本IR写入独立目录"""
+        """
+        将整本IR写入独立目录。
+
+        `Document IR` 与 HTML 解耦保存，便于调试渲染差异以及
+        在不重新跑 LLM 的情况下再次渲染或导出其他格式。
+        """
         filename = f"report_ir_{query_safe}_{timestamp}.json"
         ir_path = Path(self.config.DOCUMENT_IR_OUTPUT_DIR) / filename
         ir_path.write_text(
@@ -751,8 +889,9 @@ class ReportAgent:
         template_overview: Dict[str, Any],
     ):
         """
-        将文档设计稿、篇幅规划与模板概览另存成JSON
+        将文档设计稿、篇幅规划与模板概览另存成JSON。
 
+        这些中间件文件（document_layout/word_plan/template_overview）
         方便在调试或复盘时快速定位：标题/目录/主题是如何确定的、
         字数分配有什么要求，以便后续人工校正。
         """
@@ -771,22 +910,22 @@ class ReportAgent:
                 logger.warning(f"写入{name}失败: {exc}")
     
     def get_progress_summary(self) -> Dict[str, Any]:
-        """获取进度摘要"""
+        """获取进度摘要，直接返回可序列化的状态字典供API层查询。"""
         return self.state.to_dict()
     
     def load_state(self, filepath: str):
-        """从文件加载状态"""
+        """从文件加载状态并覆盖当前state，便于断点恢复。"""
         self.state = ReportState.load_from_file(filepath)
         logger.info(f"状态已从 {filepath} 加载")
     
     def save_state(self, filepath: str):
-        """保存状态到文件"""
+        """保存状态到文件，通常用于任务完成后的分析与备份。"""
         self.state.save_to_file(filepath)
         logger.info(f"状态已保存到 {filepath}")
     
     def check_input_files(self, insight_dir: str, media_dir: str, query_dir: str, forum_log_path: str) -> Dict[str, Any]:
         """
-        检查输入文件是否准备就绪（基于文件数量增加）
+        检查输入文件是否准备就绪（基于文件数量增加）。
         
         Args:
             insight_dir: InsightEngine报告目录
@@ -795,7 +934,7 @@ class ReportAgent:
             forum_log_path: 论坛日志文件路径
             
         Returns:
-            检查结果字典
+            检查结果字典，包含文件计数、缺失列表、最新文件路径等
         """
         # 检查各个报告目录的文件数量变化
         directories = {
@@ -853,7 +992,7 @@ class ReportAgent:
             file_paths: 文件路径字典
             
         Returns:
-            加载的内容字典
+            加载的内容字典，包含 `reports` 列表与 `forum_logs` 字符串
         """
         content = {
             'reports': [],
@@ -887,13 +1026,15 @@ class ReportAgent:
 
 def create_agent(config_file: Optional[str] = None) -> ReportAgent:
     """
-    创建Report Agent实例的便捷函数
+    创建Report Agent实例的便捷函数。
     
     Args:
         config_file: 配置文件路径
         
     Returns:
         ReportAgent实例
+
+    目前以环境变量驱动 `Settings`，保留 `config_file` 参数便于未来扩展。
     """
     
     config = Settings() # 以空配置初始化，而从从环境变量初始化

@@ -20,6 +20,7 @@ class IRValidator:
     说明：
         - validate_chapter返回(是否通过, 错误列表)
         - 错误定位采用path语法，便于快速追踪
+        - 内置对heading/paragraph/list/table等所有区块的细粒度校验
     """
 
     def __init__(self, schema_version: str = IR_VERSION):

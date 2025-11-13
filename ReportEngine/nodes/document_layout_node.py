@@ -18,7 +18,11 @@ from .base_node import BaseNode
 
 
 class DocumentLayoutNode(BaseNode):
-    """负责生成全局标题、目录与Hero设计"""
+    """
+    负责生成全局标题、目录与Hero设计。
+
+    结合模板切片、报告摘要与论坛讨论，指导整本书的视觉与结构基调。
+    """
 
     def __init__(self, llm_client):
         """记录LLM客户端并设置节点名字，供BaseNode日志使用"""

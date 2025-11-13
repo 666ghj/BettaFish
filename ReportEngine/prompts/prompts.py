@@ -1,6 +1,8 @@
 """
-Report Engine 的所有提示词定义
-参考MediaEngine的结构，专门用于报告生成
+Report Engine 的所有提示词定义。
+
+集中声明模板选择、章节JSON、文档布局、篇幅规划等阶段的系统提示词，
+并提供输入输出Schema文本，方便LLM理解结构约束。
 """
 
 import json
@@ -359,15 +361,17 @@ SYSTEM_PROMPT_WORD_BUDGET = f"""
 def build_chapter_user_prompt(payload: dict) -> str:
     """
     将章节上下文序列化为提示词输入。
+
+    统一使用 `json.dumps(..., indent=2, ensure_ascii=False)`，便于LLM读取。
     """
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
 def build_document_layout_prompt(payload: dict) -> str:
-    """将文档设计所需的上下文序列化为JSON字符串"""
+    """将文档设计所需的上下文序列化为JSON字符串，供布局节点发送给LLM。"""
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
 def build_word_budget_prompt(payload: dict) -> str:
-    """将篇幅规划输入转为字符串，便于送入LLM"""
+    """将篇幅规划输入转为字符串，便于送入LLM并保持字段精确。"""
     return json.dumps(payload, ensure_ascii=False, indent=2)

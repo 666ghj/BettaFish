@@ -18,7 +18,12 @@ SECTION_ORDER_STEP = 10
 
 @dataclass
 class TemplateSection:
-    """模板章节实体"""
+    """
+    模板章节实体。
+
+    记录标题、slug、序号、层级、原始标题、章节编号与提纲，
+    方便后续节点在提示词中引用并保持锚点一致。
+    """
 
     title: str
     slug: str
@@ -30,7 +35,11 @@ class TemplateSection:
     outline: List[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
-        """将章节实体序列化为字典，方便传给LLM或落盘"""
+        """
+        将章节实体序列化为字典。
+
+        该结构广泛用于提示词上下文以及 layout/word budget 节点的输入。
+        """
         return {
             "title": self.title,
             "slug": self.slug,
@@ -52,7 +61,8 @@ def parse_template_sections(template_md: str) -> List[TemplateSection]:
     将Markdown模板切分成章节列表（按大标题）。
 
     返回的每个TemplateSection都携带slug/order/章节号，
-    方便后续分章调用与锚点生成。
+    方便后续分章调用与锚点生成。解析时会同时兼容
+    “# 标题”“无符号编号”“列表提纲”等不同写法。
     """
 
     sections: List[TemplateSection] = []
@@ -98,7 +108,12 @@ def parse_template_sections(template_md: str) -> List[TemplateSection]:
 
 
 def _classify_line(stripped: str, indent: int) -> Optional[dict]:
-    """根据缩进与符号分类行"""
+    """
+    根据缩进与符号分类行。
+
+    借助正则判断当前行是章节标题、提纲还是普通列表项，
+    并衍生 depth/slug/number 等派生信息。
+    """
 
     heading_match = heading_pattern.match(stripped)
     if heading_match:
@@ -154,14 +169,19 @@ def _classify_line(stripped: str, indent: int) -> Optional[dict]:
 
 
 def _strip_markup(text: str) -> str:
-    """去除包裹的**、__等简单强调标记"""
+    """去除包裹的**、__等强调标记，避免干扰标题匹配。"""
     if text.startswith(("**", "__")) and text.endswith(("**", "__")) and len(text) > 4:
         return text[2:-2].strip()
     return text
 
 
 def _split_number(payload: str) -> dict:
-    """拆分编号与标题"""
+    """
+    拆分编号与标题。
+
+    例如 `1.2 市场趋势` 会被拆成 number=1.2、label=市场趋势，
+    并提供 display 用于回填标题。
+    """
     match = number_pattern.match(payload)
     number = match.group("num") if match else ""
     label = match.group("label") if match else payload
@@ -176,7 +196,7 @@ def _split_number(payload: str) -> dict:
 
 
 def _build_slug(number: str, title: str) -> str:
-    """根据编号/标题生成锚点"""
+    """根据编号/标题生成锚点，优先复用编号，缺失时对标题slug化。"""
     if number:
         token = number.replace(".", "-")
     else:
@@ -186,7 +206,11 @@ def _build_slug(number: str, title: str) -> str:
 
 
 def _slugify_text(text: str) -> str:
-    """对任意文本做降噪与转写，得到URL友好的slug片段"""
+    """
+    对任意文本做降噪与转写，得到URL友好的slug片段。
+
+    会规整大小写、移除特殊符号并保留汉字，确保锚点可读。
+    """
     text = unicodedata.normalize("NFKD", text)
     text = text.replace("·", "-").replace(" ", "-")
     text = re.sub(r"[^0-9a-zA-Z\u4e00-\u9fff-]+", "-", text)
@@ -195,7 +219,11 @@ def _slugify_text(text: str) -> str:
 
 
 def _ensure_unique_slug(slug: str, used: set) -> str:
-    """若slug重复则自动追加序号，直到在used集合中唯一"""
+    """
+    若slug重复则自动追加序号，直到在used集合中唯一。
+
+    通过 `-2/-3...` 的方式保证相同标题不会产生重复锚点。
+    """
     if slug not in used:
         used.add(slug)
         return slug
