@@ -21,6 +21,7 @@ class DocumentLayoutNode(BaseNode):
     """负责生成全局标题、目录与Hero设计"""
 
     def __init__(self, llm_client):
+        """记录LLM客户端并设置节点名字，供BaseNode日志使用"""
         super().__init__(llm_client, "DocumentLayoutNode")
 
     def run(

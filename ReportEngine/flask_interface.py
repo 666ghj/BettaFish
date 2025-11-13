@@ -40,6 +40,14 @@ class ReportTask:
     """报告生成任务"""
 
     def __init__(self, query: str, task_id: str, custom_template: str = ""):
+        """
+        初始化任务对象，记录查询词、自定义模板与运行期元数据。
+
+        Args:
+            query: 最终需要生成的报告主题
+            task_id: 任务唯一ID，通常由时间戳构造
+            custom_template: 可选的自定义Markdown模板
+        """
         self.task_id = task_id
         self.query = query
         self.custom_template = custom_template
@@ -470,6 +478,7 @@ def get_templates():
 # 错误处理
 @report_bp.errorhandler(404)
 def not_found(error):
+    """404兜底处理：保证接口统一返回JSON结构"""
     logger.exception(f"API端点不存在: {str(error)}")
     return jsonify({
         'success': False,
@@ -479,6 +488,7 @@ def not_found(error):
 
 @report_bp.errorhandler(500)
 def internal_error(error):
+    """500兜底处理：捕获未被主动捕获的异常"""
     logger.exception(f"服务器内部错误: {str(error)}")
     return jsonify({
         'success': False,

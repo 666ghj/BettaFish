@@ -34,6 +34,14 @@ class ChapterGenerationNode(BaseNode):
     _COLON_EQUALS_PATTERN = re.compile(r'(":\s*)=')
 
     def __init__(self, llm_client, validator: IRValidator, storage: ChapterStorage):
+        """
+        记录LLM客户端/校验器/章节存储器，便于run方法调度。
+
+        Args:
+            llm_client: 实际调用大模型的客户端
+            validator: IR结构校验器
+            storage: 负责章节流式落盘的存储器
+        """
         super().__init__(llm_client, "ChapterGenerationNode")
         self.validator = validator
         self.storage = storage
@@ -385,6 +393,7 @@ class ChapterGenerationNode(BaseNode):
         """修正常见的结构性错误（例如list.items嵌套过深）"""
 
         def walk(blocks: List[Dict[str, Any]] | None):
+            """递归检查并修复嵌套结构，保证每个block合法"""
             if not isinstance(blocks, list):
                 return
             for block in blocks:
@@ -485,6 +494,7 @@ class ChapterGenerationNode(BaseNode):
 
     @staticmethod
     def _as_paragraph_block(text: str) -> Dict[str, Any]:
+        """将字符串快速包装成paragraph block，方便统一处理"""
         return {
             "type": "paragraph",
             "inlines": [{"text": text or ""}],

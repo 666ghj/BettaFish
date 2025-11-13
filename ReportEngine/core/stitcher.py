@@ -16,6 +16,7 @@ class DocumentComposer:
     """
 
     def __init__(self):
+        """初始化装订器并记录已使用的锚点，避免重复"""
         self._seen_anchors: Set[str] = set()
 
     def build_document(

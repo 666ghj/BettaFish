@@ -1,5 +1,5 @@
 """
-Configuration management module for the Report Engine.
+Report Engine 配置模块，统一读取环境变量并提供类型安全的访问方式。
 """
 
 import os
@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     CHART_STYLE: str = Field("modern", description="图表样式：modern/classic/")
 
     class Config:
+        """Pydantic配置：允许从.env读取并兼容大小写"""
         env_file = ".env"
         env_prefix = ""
         case_sensitive = False
@@ -43,6 +44,7 @@ settings = Settings()
 
 
 def print_config(config: Settings):
+    """将当前配置项按人类可读格式输出到日志，方便排障"""
     message = ""
     message += "\n=== Report Engine 配置 ===\n"
     message += f"LLM 模型: {config.REPORT_ENGINE_MODEL_NAME}\n"

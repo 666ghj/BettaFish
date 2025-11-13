@@ -21,6 +21,7 @@ class WordBudgetNode(BaseNode):
     """规划各章节字数与重点"""
 
     def __init__(self, llm_client):
+        """仅记录LLM客户端引用，方便run阶段发起请求"""
         super().__init__(llm_client, "WordBudgetNode")
 
     def run(

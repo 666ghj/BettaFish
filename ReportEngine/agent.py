@@ -35,6 +35,7 @@ class FileCountBaseline:
     """文件数量基准管理器"""
     
     def __init__(self):
+        """在初始化阶段加载或创建文件数量基准快照"""
         self.baseline_file = 'logs/report_baseline.json'
         self.baseline_data = self._load_baseline()
     

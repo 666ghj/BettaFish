@@ -30,6 +30,7 @@ class TemplateSection:
     outline: List[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
+        """将章节实体序列化为字典，方便传给LLM或落盘"""
         return {
             "title": self.title,
             "slug": self.slug,
@@ -185,6 +186,7 @@ def _build_slug(number: str, title: str) -> str:
 
 
 def _slugify_text(text: str) -> str:
+    """对任意文本做降噪与转写，得到URL友好的slug片段"""
     text = unicodedata.normalize("NFKD", text)
     text = text.replace("·", "-").replace(" ", "-")
     text = re.sub(r"[^0-9a-zA-Z\u4e00-\u9fff-]+", "-", text)
@@ -193,6 +195,7 @@ def _slugify_text(text: str) -> str:
 
 
 def _ensure_unique_slug(slug: str, used: set) -> str:
+    """若slug重复则自动追加序号，直到在used集合中唯一"""
     if slug not in used:
         used.add(slug)
         return slug

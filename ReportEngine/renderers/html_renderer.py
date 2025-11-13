@@ -13,6 +13,7 @@ class HTMLRenderer:
     """Document IR → HTML 渲染器"""
 
     def __init__(self, config: Dict[str, Any] | None = None):
+        """初始化渲染器缓存并允许注入额外配置（如主题覆盖）"""
         self.config = config or {}
         self.document: Dict[str, Any] = {}
         self.widget_scripts: List[str] = []

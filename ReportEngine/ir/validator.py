@@ -23,6 +23,7 @@ class IRValidator:
     """
 
     def __init__(self, schema_version: str = IR_VERSION):
+        """记录当前Schema版本，便于未来多版本并存"""
         self.schema_version = schema_version
 
     # ======== 对外接口 ========
