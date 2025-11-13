@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import ast
 import html
 import json
 from typing import Any, Dict, List
@@ -51,7 +52,7 @@ class HTMLRenderer:
 
         head = self._render_head(title, theme_tokens)
         body = self._render_body()
-        return f"<!DOCTYPE html>\n<html lang=\"zh-CN\">\n{head}\n{body}\n</html>"
+        return f"<!DOCTYPE html>\n<html lang=\"zh-CN\" class=\"no-js\">\n{head}\n{body}\n</html>"
 
     # ====== Head / Body ======
 
@@ -83,6 +84,10 @@ class HTMLRenderer:
   <style>
 {css}
   </style>
+  <script>
+    document.documentElement.classList.remove('no-js');
+    document.documentElement.classList.add('js-ready');
+  </script>
 </head>""".strip()
 
     def _render_body(self) -> str:
@@ -423,6 +428,8 @@ class HTMLRenderer:
         items_html = ""
         for item in block.get("items", []):
             content = self._render_blocks(item)
+            if not content.strip():
+                continue
             items_html += f"<li>{content}</li>"
         class_attr = f' class="{extra_class}"' if extra_class else ""
         return f'<{tag}{class_attr}>{items_html}</{tag}>'
@@ -545,7 +552,7 @@ class HTMLRenderer:
                 row_cells.append(f"<td>{self._escape_html(value)}</td>")
             body_rows += f"<tr>{''.join(row_cells)}</tr>"
         table_html = f"""
-        <div class="chart-fallback">
+        <div class="chart-fallback" data-prebuilt="true">
           <table>
             <thead>
               <tr><th>类别</th>{header_cells}</tr>
@@ -556,20 +563,93 @@ class HTMLRenderer:
           </table>
         </div>
         """
-        return f"<noscript>{table_html}</noscript>"
+        return table_html
 
     # ====== Inline 渲染 ======
 
+    def _normalize_inline_payload(self, run: Dict[str, Any]) -> tuple[str, List[Dict[str, Any]]]:
+        """将嵌套inline node展平成基础文本与marks"""
+        if not isinstance(run, dict):
+            return ("" if run is None else str(run)), []
+
+        marks = list(run.get("marks") or [])
+        text_value: Any = run.get("text", "")
+        seen: set[int] = set()
+
+        while isinstance(text_value, dict):
+            obj_id = id(text_value)
+            if obj_id in seen:
+                text_value = ""
+                break
+            seen.add(obj_id)
+            nested_marks = text_value.get("marks")
+            if nested_marks:
+                marks.extend(nested_marks)
+            if "text" in text_value:
+                text_value = text_value.get("text")
+            else:
+                text_value = json.dumps(text_value, ensure_ascii=False)
+                break
+
+        if text_value is None:
+            text_value = ""
+        elif isinstance(text_value, (int, float)):
+            text_value = str(text_value)
+        elif not isinstance(text_value, str):
+            try:
+                text_value = json.dumps(text_value, ensure_ascii=False)
+            except TypeError:
+                text_value = str(text_value)
+
+        if isinstance(text_value, str):
+            stripped = text_value.strip()
+            if stripped.startswith("{") and stripped.endswith("}"):
+                payload = None
+                try:
+                    payload = json.loads(stripped)
+                except json.JSONDecodeError:
+                    try:
+                        payload = ast.literal_eval(stripped)
+                    except (ValueError, SyntaxError):
+                        payload = None
+                if isinstance(payload, dict):
+                    sentinel_keys = {"xrefs", "widgets", "footnotes", "errors", "metadata"}
+                    if set(payload.keys()).issubset(sentinel_keys):
+                        text_value = ""
+                    else:
+                        inline_payload = self._coerce_inline_payload(payload)
+                        if inline_payload:
+                            nested_text = inline_payload.get("text")
+                            if nested_text is not None:
+                                text_value = nested_text
+                            nested_marks = inline_payload.get("marks")
+                            if isinstance(nested_marks, list):
+                                marks.extend(nested_marks)
+
+        return text_value, marks
+
+    @staticmethod
+    def _coerce_inline_payload(payload: Dict[str, Any]) -> Dict[str, Any] | None:
+        """尽力将字符串里的内联节点恢复为dict，修复渲染遗漏"""
+        if not isinstance(payload, dict):
+            return None
+        inline_type = payload.get("type")
+        if inline_type and inline_type not in {"inline", "text"}:
+            return None
+        if "text" not in payload and "marks" not in payload:
+            return None
+        return payload
+
     def _render_inline(self, run: Dict[str, Any]) -> str:
         """渲染单个inline run，支持多种marks叠加"""
-        marks = run.get("marks") or []
+        text_value, marks = self._normalize_inline_payload(run)
         math_mark = next((mark for mark in marks if mark.get("type") == "math"), None)
         if math_mark:
             latex = math_mark.get("value")
             if not isinstance(latex, str) or not latex.strip():
-                latex = run.get("text", "")
+                latex = text_value
             return f'<span class="math-inline">\\( {self._escape_html(latex)} \\)</span>'
-        text = self._escape_html(run.get("text", ""))
+        text = self._escape_html(text_value)
         styles: List[str] = []
         prefix: List[str] = []
         suffix: List[str] = []
@@ -652,6 +732,30 @@ class HTMLRenderer:
             result.append(f"<strong>{bold_content}</strong>")
             cursor = end + 2
         return "".join(result)
+
+    # ====== 文本 / 安全工具 ======
+
+    def _safe_text(self, value: Any) -> str:
+        """将任意值安全转换为字符串，None与复杂对象容错"""
+        if value is None:
+            return ""
+        if isinstance(value, str):
+            return value
+        if isinstance(value, (int, float, bool)):
+            return str(value)
+        try:
+            return json.dumps(value, ensure_ascii=False)
+        except (TypeError, ValueError):
+            return str(value)
+
+    def _escape_html(self, value: Any) -> str:
+        """HTML文本上下文的转义"""
+        return html.escape(self._safe_text(value), quote=False)
+
+    def _escape_attr(self, value: Any) -> str:
+        """HTML属性上下文转义并去掉危险换行"""
+        escaped = html.escape(self._safe_text(value), quote=True)
+        return escaped.replace("\n", " ").replace("\r", " ")
 
     # ====== CSS / JS ======
 
@@ -1013,9 +1117,16 @@ table th {{
   min-height: 320px;
 }}
 .chart-fallback {{
+  display: none;
   margin-top: 12px;
   font-size: 0.85rem;
   overflow-x: auto;
+}}
+.no-js .chart-fallback {{
+  display: block;
+}}
+.no-js .chart-container {{
+  display: none;
 }}
 .chart-fallback table {{
   width: 100%;
@@ -1029,6 +1140,11 @@ table th {{
 }}
 .chart-fallback th {{
   background: rgba(0,0,0,0.04);
+}}
+.chart-note {{
+  margin-top: 8px;
+  font-size: 0.85rem;
+  color: var(--secondary-color);
 }}
 figure {{
   margin: 20px 0;
@@ -1091,7 +1207,19 @@ pre.code-block {{
         """返回页面底部的JS，负责Chart.js注水与导出逻辑"""
         return """
 <script>
+document.documentElement.classList.remove('no-js');
+document.documentElement.classList.add('js-ready');
+
 const chartRegistry = [];
+const STABLE_CHART_TYPES = ['line', 'bar'];
+const CHART_TYPE_LABELS = {
+  line: '折线图',
+  bar: '柱状图',
+  doughnut: '圆环图',
+  pie: '饼图',
+  radar: '雷达图',
+  polarArea: '极地区域图'
+};
 
 function getThemePalette() {
   const styles = getComputedStyle(document.body);
@@ -1103,38 +1231,235 @@ function getThemePalette() {
 
 function applyChartTheme(chart) {
   if (!chart) return;
-  const palette = getThemePalette();
-  const options = chart.options || {};
-  options.plugins = options.plugins || {};
-  options.plugins.legend = options.plugins.legend || {};
-  options.plugins.legend.labels = options.plugins.legend.labels || {};
-  options.plugins.legend.labels.color = palette.text;
-  if (options.plugins.title) {
-    options.plugins.title.color = palette.text;
+  try {
+    chart.update('none');
+  } catch (err) {
+    console.error('Chart refresh failed', err);
   }
-  const scales = options.scales || {};
-  Object.keys(scales).forEach(key => {
-    const scale = scales[key] || {};
-    if (scale.ticks) {
-      scale.ticks.color = palette.text;
+}
+
+function isPlainObject(value) {
+  return Object.prototype.toString.call(value) === '[object Object]';
+}
+
+function cloneDeep(value) {
+  if (Array.isArray(value)) {
+    return value.map(cloneDeep);
+  }
+  if (isPlainObject(value)) {
+    const obj = {};
+    Object.keys(value).forEach(key => {
+      obj[key] = cloneDeep(value[key]);
+    });
+    return obj;
+  }
+  return value;
+}
+
+function mergeOptions(base, override) {
+  const result = isPlainObject(base) ? cloneDeep(base) : {};
+  if (!isPlainObject(override)) {
+    return result;
+  }
+  Object.keys(override).forEach(key => {
+    const overrideValue = override[key];
+    if (Array.isArray(overrideValue)) {
+      result[key] = cloneDeep(overrideValue);
+    } else if (isPlainObject(overrideValue)) {
+      result[key] = mergeOptions(result[key], overrideValue);
     } else {
-      scale.ticks = { color: palette.text };
-    }
-    if (scale.grid) {
-      scale.grid.color = palette.grid;
-    } else {
-      scale.grid = { color: palette.grid };
+      result[key] = overrideValue;
     }
   });
-  options.scales = scales;
-  chart.options = options;
-  chart.update('none');
+  return result;
+}
+
+function resolveChartTypes(payload) {
+  const widgetType = payload && payload.widgetType ? payload.widgetType : 'chart.js/bar';
+  const primary = widgetType.includes('/') ? widgetType.split('/').pop() : widgetType;
+  const extra = Array.isArray(payload && payload.preferredTypes) ? payload.preferredTypes : [];
+  const pipeline = [primary, ...extra, ...STABLE_CHART_TYPES];
+  const result = [];
+  pipeline.forEach(type => {
+    if (type && !result.includes(type)) {
+      result.push(type);
+    }
+  });
+  return result.length ? result : ['bar'];
+}
+
+function describeChartType(type) {
+  return CHART_TYPE_LABELS[type] || type || '图表';
+}
+
+function setChartDegradeNote(card, fromType, toType) {
+  if (!card) return;
+  card.setAttribute('data-chart-state', 'degraded');
+  let note = card.querySelector('.chart-note');
+  if (!note) {
+    note = document.createElement('p');
+    note.className = 'chart-note';
+    card.appendChild(note);
+  }
+  note.textContent = `${describeChartType(fromType)}渲染失败，已自动切换为${describeChartType(toType)}以确保兼容。`;
+}
+
+function clearChartDegradeNote(card) {
+  if (!card) return;
+  card.removeAttribute('data-chart-state');
+  const note = card.querySelector('.chart-note');
+  if (note) {
+    note.remove();
+  }
+}
+
+function createFallbackTable(labels, datasets) {
+  if (!Array.isArray(datasets) || !datasets.length) {
+    return null;
+  }
+  const primaryDataset = datasets.find(ds => Array.isArray(ds && ds.data));
+  const resolvedLabels = Array.isArray(labels) && labels.length
+    ? labels
+    : (primaryDataset && primaryDataset.data ? primaryDataset.data.map((_, idx) => `数据点 ${idx + 1}`) : []);
+  if (!resolvedLabels.length) {
+    return null;
+  }
+  const table = document.createElement('table');
+  const thead = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  const categoryHeader = document.createElement('th');
+  categoryHeader.textContent = '类别';
+  headRow.appendChild(categoryHeader);
+  datasets.forEach((dataset, index) => {
+    const th = document.createElement('th');
+    th.textContent = dataset && dataset.label ? dataset.label : `系列${index + 1}`;
+    headRow.appendChild(th);
+  });
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+  const tbody = document.createElement('tbody');
+  resolvedLabels.forEach((label, rowIdx) => {
+    const row = document.createElement('tr');
+    const labelCell = document.createElement('td');
+    labelCell.textContent = label;
+    row.appendChild(labelCell);
+    datasets.forEach(dataset => {
+      const cell = document.createElement('td');
+      const series = dataset && Array.isArray(dataset.data) ? dataset.data[rowIdx] : undefined;
+      if (typeof series === 'number') {
+        cell.textContent = series.toLocaleString();
+      } else if (series !== undefined && series !== null && series !== '') {
+        cell.textContent = series;
+      } else {
+        cell.textContent = '—';
+      }
+      row.appendChild(cell);
+    });
+    tbody.appendChild(row);
+  });
+  table.appendChild(tbody);
+  return table;
+}
+
+function renderChartFallback(canvas, payload, reason) {
+  const card = canvas.closest('.chart-card') || canvas.parentElement;
+  if (!card) return;
+  clearChartDegradeNote(card);
+  const wrapper = canvas.parentElement && canvas.parentElement.classList && canvas.parentElement.classList.contains('chart-container')
+    ? canvas.parentElement
+    : null;
+  if (wrapper) {
+    wrapper.style.display = 'none';
+  } else {
+    canvas.style.display = 'none';
+  }
+  let fallback = card.querySelector('.chart-fallback[data-dynamic="true"]');
+  let prebuilt = false;
+  if (!fallback) {
+    fallback = card.querySelector('.chart-fallback');
+    if (fallback) {
+      prebuilt = fallback.hasAttribute('data-prebuilt');
+    }
+  }
+  if (!fallback) {
+    fallback = document.createElement('div');
+    fallback.className = 'chart-fallback';
+    fallback.setAttribute('data-dynamic', 'true');
+    card.appendChild(fallback);
+  } else if (!prebuilt) {
+    fallback.innerHTML = '';
+  }
+  const titleFromOptions = payload && payload.props && payload.props.options &&
+    payload.props.options.plugins && payload.props.options.plugins.title &&
+    payload.props.options.plugins.title.text;
+  const fallbackTitle = titleFromOptions ||
+    (payload && payload.props && payload.props.title) ||
+    (payload && payload.widgetId) ||
+    canvas.getAttribute('id') ||
+    '图表';
+  const existingNotice = fallback.querySelector('.chart-fallback__notice');
+  if (existingNotice) {
+    existingNotice.remove();
+  }
+  const notice = document.createElement('p');
+  notice.className = 'chart-fallback__notice';
+  notice.textContent = `${fallbackTitle}：图表未能渲染，已展示表格数据${reason ? `（${reason}）` : ''}`;
+  fallback.insertBefore(notice, fallback.firstChild || null);
+  if (!prebuilt) {
+    const table = createFallbackTable(
+      payload && payload.data && payload.data.labels,
+      payload && payload.data && payload.data.datasets
+    );
+    if (table) {
+      fallback.appendChild(table);
+    }
+  }
+  fallback.style.display = 'block';
+  card.setAttribute('data-chart-state', 'fallback');
+}
+
+function buildChartOptions(payload) {
+  const rawLegend = payload && payload.props ? payload.props.legend : undefined;
+  let legendConfig;
+  if (isPlainObject(rawLegend)) {
+    legendConfig = mergeOptions({
+      display: rawLegend.display !== false,
+      position: rawLegend.position || 'top'
+    }, rawLegend);
+  } else {
+    legendConfig = {
+      display: rawLegend === 'hidden' ? false : true,
+      position: typeof rawLegend === 'string' ? rawLegend : 'top'
+    };
+  }
+  const baseOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: legendConfig
+    }
+  };
+  if (payload && payload.props && payload.props.title) {
+    baseOptions.plugins.title = {
+      display: true,
+      text: payload.props.title
+    };
+  }
+  const overrideOptions = payload && payload.props && payload.props.options;
+  return mergeOptions(baseOptions, overrideOptions);
+}
+
+function instantiateChart(ctx, payload, optionsTemplate, type) {
+  const data = cloneDeep(payload && payload.data ? payload.data : {});
+  const config = {
+    type,
+    data,
+    options: cloneDeep(optionsTemplate)
+  };
+  return new Chart(ctx, config);
 }
 
 function hydrateCharts() {
-  if (typeof Chart === 'undefined') {
-    return;
-  }
   document.querySelectorAll('canvas[data-config-id]').forEach(canvas => {
     const configScript = document.getElementById(canvas.dataset.configId);
     if (!configScript) return;
@@ -1143,33 +1468,51 @@ function hydrateCharts() {
       payload = JSON.parse(configScript.textContent);
     } catch (err) {
       console.error('Widget JSON 解析失败', err);
+      renderChartFallback(canvas, { widgetId: canvas.dataset.configId }, '配置解析失败');
       return;
     }
-    const chartType = (payload.widgetType || 'chart.js/bar').split('/').pop();
+    if (typeof Chart === 'undefined') {
+      renderChartFallback(canvas, payload, 'Chart.js 未加载');
+      return;
+    }
+    const chartTypes = resolveChartTypes(payload);
     const ctx = canvas.getContext('2d');
-    const baseOptions = {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: {
-          display: payload.props && payload.props.legend !== 'hidden',
-          position: (payload.props && payload.props.legend) || 'top'
-        },
-        title: payload.props && payload.props.title ? {
-          display: true,
-          text: payload.props.title
-        } : undefined
+    if (!ctx) {
+      renderChartFallback(canvas, payload, 'Canvas 初始化失败');
+      return;
+    }
+    const card = canvas.closest('.chart-card') || canvas.parentElement;
+    const optionsTemplate = buildChartOptions(payload);
+    const desiredType = chartTypes[0];
+    let chartInstance = null;
+    let selectedType = null;
+    let lastError;
+    for (const type of chartTypes) {
+      try {
+        chartInstance = instantiateChart(ctx, payload, optionsTemplate, type);
+        selectedType = type;
+        break;
+      } catch (err) {
+        lastError = err;
+        console.error('图表渲染失败', type, err);
       }
-    };
-    const mergedOptions = Object.assign({}, baseOptions, payload.props && payload.props.options ? payload.props.options : {});
-    const config = {
-      type: chartType,
-      data: payload.data || {},
-      options: mergedOptions
-    };
-    const chart = new Chart(ctx, config);
-    chartRegistry.push(chart);
-    applyChartTheme(chart);
+    }
+    if (chartInstance) {
+      chartRegistry.push(chartInstance);
+      try {
+        applyChartTheme(chartInstance);
+      } catch (err) {
+        console.error('主题同步失败', selectedType || desiredType || payload && payload.widgetType || 'chart', err);
+      }
+      if (selectedType && selectedType !== desiredType) {
+        setChartDegradeNote(card, desiredType, selectedType);
+      } else {
+        clearChartDegradeNote(card);
+      }
+    } else {
+      const reason = lastError && lastError.message ? lastError.message : '';
+      renderChartFallback(canvas, payload, reason);
+    }
   });
 }
 
@@ -1221,18 +1564,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 """.strip()
-
-    # ====== Utils ======
-
-    @staticmethod
-    def _escape_html(value: Any) -> str:
-        """HTML内容转义工具，避免XSS"""
-        return html.escape(str(value)) if value is not None else ""
-
-    @staticmethod
-    def _escape_attr(value: Any) -> str:
-        """HTML属性值转义工具"""
-        return html.escape(str(value), quote=True) if value is not None else ""
 
 
 __all__ = ["HTMLRenderer"]
