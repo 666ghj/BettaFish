@@ -9,7 +9,7 @@ import sys
 import argparse
 from datetime import date, datetime
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 # 添加项目根目录到路径
 project_root = Path(__file__).parent.parent
@@ -30,7 +30,8 @@ class DeepSentimentCrawling:
     def run_daily_crawling(self, target_date: date = None, platforms: List[str] = None, 
                           max_keywords_per_platform: int = 50, 
                           max_notes_per_platform: int = 50,
-                          login_type: str = "qrcode") -> Dict:
+                          login_type: str = "qrcode",
+                          custom_keywords: Optional[List[str]] = None) -> Dict:
         """
         执行每日爬取任务
         
@@ -40,6 +41,7 @@ class DeepSentimentCrawling:
             max_keywords_per_platform: 每个平台最大关键词数量
             max_notes_per_platform: 每个平台最大爬取内容数量
             login_type: 登录方式
+            custom_keywords: 用户自定义关键词列表（可选）
         
         Returns:
             爬取结果统计
@@ -57,17 +59,24 @@ class DeepSentimentCrawling:
         summary = self.keyword_manager.get_crawling_summary(target_date)
         print(f"📊 关键词摘要: {summary}")
         
-        if not summary['has_data']:
-            print("⚠️ 没有找到话题数据，无法进行爬取")
+        manual_keywords = self._normalize_keywords(custom_keywords, max_keywords_per_platform)
+        if not summary['has_data'] and not manual_keywords:
+            print("⚠️ 没有找到话题数据，无法进行爬取（可通过 --keywords 手动指定）")
             return {"success": False, "error": "没有话题数据"}
-        
+        elif manual_keywords and not summary['has_data']:
+            print("ℹ️ 未找到数据库数据，使用用户指定关键词继续执行")
+    
         # 2. 获取关键词（不分配，所有平台使用相同关键词）
-        print(f"\n📝 获取关键词...")
-        keywords = self.keyword_manager.get_latest_keywords(target_date, max_keywords_per_platform)
-        
-        if not keywords:
-            print("⚠️ 没有找到关键词，无法进行爬取")
-            return {"success": False, "error": "没有关键词"}
+        if manual_keywords:
+            keywords = manual_keywords
+            print(f"\n📝 使用用户提供的关键词: {keywords}")
+        else:
+            print(f"\n📝 获取关键词...")
+            keywords = self.keyword_manager.get_latest_keywords(target_date, max_keywords_per_platform)
+            
+            if not keywords:
+                print("⚠️ 没有找到关键词，无法进行爬取")
+                return {"success": False, "error": "没有关键词"}
         
         print(f"   获取到 {len(keywords)} 个关键词")
         print(f"   将在 {len(platforms)} 个平台上爬取每个关键词")
@@ -98,7 +107,8 @@ class DeepSentimentCrawling:
     
     def run_platform_crawling(self, platform: str, target_date: date = None,
                              max_keywords: int = 50, max_notes: int = 50,
-                             login_type: str = "qrcode") -> Dict:
+                             login_type: str = "qrcode",
+                             custom_keywords: Optional[List[str]] = None) -> Dict:
         """
         执行单个平台的爬取任务
         
@@ -108,6 +118,7 @@ class DeepSentimentCrawling:
             max_keywords: 最大关键词数量
             max_notes: 最大爬取内容数量
             login_type: 登录方式
+            custom_keywords: 用户自定义关键词列表（可选）
         
         Returns:
             爬取结果
@@ -121,13 +132,18 @@ class DeepSentimentCrawling:
         print(f"🎯 开始执行 {platform} 平台的爬取任务 ({target_date})")
         
         # 获取关键词
-        keywords = self.keyword_manager.get_keywords_for_platform(
-            platform, target_date, max_keywords
-        )
+        manual_keywords = self._normalize_keywords(custom_keywords, max_keywords)
+        if manual_keywords:
+            keywords = manual_keywords
+            print(f"\n📝 使用用户提供的关键词: {keywords}")
+        else:
+            keywords = self.keyword_manager.get_keywords_for_platform(
+                platform, target_date, max_keywords
+            )
         
-        if not keywords:
-            print(f"⚠️ 没有找到 {platform} 平台的关键词")
-            return {"success": False, "error": "没有关键词"}
+            if not keywords:
+                print(f"⚠️ 没有找到 {platform} 平台的关键词")
+                return {"success": False, "error": "没有关键词"}
         
         print(f"📝 准备爬取 {len(keywords)} 个关键词")
         
@@ -137,6 +153,25 @@ class DeepSentimentCrawling:
         )
         
         return result
+
+    def _normalize_keywords(self, keywords: Optional[List[str]], limit: Optional[int]) -> List[str]:
+        """清洗并限制关键词列表"""
+        if not keywords:
+            return []
+        
+        cleaned: List[str] = []
+        seen = set()
+        for keyword in keywords:
+            if keyword is None:
+                continue
+            normalized = keyword.strip()
+            if not normalized or normalized in seen:
+                continue
+            cleaned.append(normalized)
+            seen.add(normalized)
+            if limit and len(cleaned) >= limit:
+                break
+        return cleaned
     
     def list_available_topics(self, days: int = 7):
         """列出最近可用的话题"""
@@ -198,6 +233,8 @@ def main():
     parser.add_argument("--platforms", type=str, nargs='+', 
                        choices=['xhs', 'dy', 'ks', 'bili', 'wb', 'tieba', 'zhihu'],
                        help="指定多个平台进行爬取")
+    parser.add_argument("--keywords", nargs="+", help="手动指定关键词（空格分隔）")
+    parser.add_argument("--keywords-file", type=str, help="从文本文件读取关键词（每行一个）")
     
     # 爬取参数
     parser.add_argument("--max-keywords", type=int, default=50, 
@@ -224,6 +261,24 @@ def main():
             print("❌ 日期格式错误，请使用 YYYY-MM-DD 格式")
             return
     
+    # 加载用户自定义关键词
+    custom_keywords: Optional[List[str]] = None
+    user_keywords: List[str] = []
+    if args.keywords:
+        user_keywords.extend(args.keywords)
+    if args.keywords_file:
+        keywords_file = Path(args.keywords_file)
+        if not keywords_file.exists():
+            print(f"❌ 无法找到关键词文件: {keywords_file}")
+            return
+        file_keywords = [line.strip() for line in keywords_file.read_text(encoding="utf-8").splitlines()]
+        user_keywords.extend([kw for kw in file_keywords if kw])
+    if user_keywords:
+        filtered_keywords = [kw.strip() for kw in user_keywords if kw.strip()]
+        if filtered_keywords:
+            custom_keywords = filtered_keywords
+            print(f"📝 将使用用户提供的关键词，共 {len(custom_keywords)} 个")
+    
     # 创建爬取实例
     crawler = DeepSentimentCrawling()
     
@@ -248,7 +303,7 @@ def main():
         if args.platform:
             result = crawler.run_platform_crawling(
                 args.platform, target_date, args.max_keywords, 
-                args.max_notes, args.login_type
+                args.max_notes, args.login_type, custom_keywords
             )
             
             if result['success']:
@@ -262,7 +317,7 @@ def main():
         platforms = args.platforms if args.platforms else None
         result = crawler.run_daily_crawling(
             target_date, platforms, args.max_keywords, 
-            args.max_notes, args.login_type
+            args.max_notes, args.login_type, custom_keywords
         )
         
         if result['success']:

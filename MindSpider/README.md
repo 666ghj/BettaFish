@@ -310,6 +310,23 @@ python main.py --deep-sentiment --platforms xhs dy --test
 python main.py --broad-topic --date 2024-01-15
 ```
 
+### 手动指定关键词
+
+当数据库里还没有自动提取的关键词时，可以通过以下方式直接指定：
+
+```bash
+# 在顶层入口中使用自定义关键词
+python main.py --deep-sentiment --keywords "武汉大学" 舆情分析
+
+# 或从文件加载（每行一个关键词）
+python main.py --deep-sentiment --keywords-file ./keywords.txt
+
+# DeepSentimentCrawling 模块也支持相同参数
+python DeepSentimentCrawling/main.py --keywords "新能源" "出海战略"
+```
+
+命令会优先使用用户提供的关键词并跳过数据库中的自动结果。
+
 ## 爬虫配置（重要）
 
 ### 平台登录配置

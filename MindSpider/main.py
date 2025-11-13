@@ -230,7 +230,9 @@ class MindSpider:
     
     def run_deep_sentiment_crawling(self, target_date: date = None, platforms: list = None,
                                    max_keywords: int = 50, max_notes: int = 50,
-                                   test_mode: bool = False) -> bool:
+                                   test_mode: bool = False,
+                                   custom_keywords: list[str] | None = None,
+                                   keywords_file: str | None = None) -> bool:
         """运行DeepSentimentCrawling模块"""
         logger.info("运行DeepSentimentCrawling模块...")
         
@@ -245,6 +247,13 @@ class MindSpider:
             
             if platforms:
                 cmd.extend(["--platforms"] + platforms)
+            
+            if custom_keywords:
+                cmd.append("--keywords")
+                cmd.extend(custom_keywords)
+            
+            if keywords_file:
+                cmd.extend(["--keywords-file", keywords_file])
             
             cmd.extend([
                 "--max-keywords", str(max_keywords),
@@ -278,7 +287,9 @@ class MindSpider:
     
     def run_complete_workflow(self, target_date: date = None, platforms: list = None,
                              keywords_count: int = 100, max_keywords: int = 50,
-                             max_notes: int = 50, test_mode: bool = False) -> bool:
+                             max_notes: int = 50, test_mode: bool = False,
+                             custom_keywords: list[str] | None = None,
+                             keywords_file: str | None = None) -> bool:
         """运行完整工作流程"""
         logger.info("开始完整的MindSpider工作流程")
         
@@ -288,6 +299,10 @@ class MindSpider:
         logger.info(f"目标日期: {target_date}")
         logger.info(f"平台列表: {platforms if platforms else '所有支持的平台'}")
         logger.info(f"测试模式: {'是' if test_mode else '否'}")
+        if custom_keywords:
+            logger.info(f"使用用户指定关键词覆盖自动提取: {len(custom_keywords)} 个")
+        if keywords_file:
+            logger.info(f"关键词文件: {keywords_file}")
         
         # 第一步：运行话题提取
         logger.info("=== 第一步：话题提取 ===")
@@ -297,7 +312,9 @@ class MindSpider:
         
         # 第二步：运行情感爬取
         logger.info("=== 第二步：情感爬取 ===")
-        if not self.run_deep_sentiment_crawling(target_date, platforms, max_keywords, max_notes, test_mode):
+        if not self.run_deep_sentiment_crawling(
+            target_date, platforms, max_keywords, max_notes, test_mode, custom_keywords, keywords_file
+        ):
             logger.error("情感爬取失败，但话题提取已完成")
             return False
         
@@ -379,6 +396,8 @@ def main():
     parser.add_argument("--keywords-count", type=int, default=100, help="话题提取的关键词数量")
     parser.add_argument("--max-keywords", type=int, default=50, help="每个平台最大关键词数量")
     parser.add_argument("--max-notes", type=int, default=50, help="每个关键词最大爬取内容数量")
+    parser.add_argument("--keywords", nargs='+', help="直接指定爬取关键词（空格分隔）")
+    parser.add_argument("--keywords-file", type=str, help="从文本文件加载爬取关键词（每行一个）")
     parser.add_argument("--test", action="store_true", help="测试模式（少量数据）")
     
     args = parser.parse_args()
@@ -422,19 +441,22 @@ def main():
             spider.run_broad_topic_extraction(target_date, args.keywords_count)
         elif args.deep_sentiment:
             spider.run_deep_sentiment_crawling(
-                target_date, args.platforms, args.max_keywords, args.max_notes, args.test
+                target_date, args.platforms, args.max_keywords, args.max_notes,
+                args.test, args.keywords, args.keywords_file
             )
         elif args.complete:
             spider.run_complete_workflow(
                 target_date, args.platforms, args.keywords_count, 
-                args.max_keywords, args.max_notes, args.test
+                args.max_keywords, args.max_notes, args.test,
+                args.keywords, args.keywords_file
             )
         else:
             # 默认运行完整工作流程
             logger.info("运行完整MindSpider工作流程...")
             spider.run_complete_workflow(
                 target_date, args.platforms, args.keywords_count,
-                args.max_keywords, args.max_notes, args.test
+                args.max_keywords, args.max_notes, args.test,
+                args.keywords, args.keywords_file
             )
     
     except KeyboardInterrupt:
