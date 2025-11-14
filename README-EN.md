@@ -162,16 +162,36 @@ BettaFish/
 │       ├── config.py              # Configuration management
 │       └── text_processing.py     # Text processing tools
 ├── ReportEngine/                  # Multi-round report generation Agent
-│   ├── agent.py                   # Agent main logic
-│   ├── llms/                      # LLM interfaces
-│   ├── nodes/                     # Report generation nodes
-│   │   ├── template_selection.py  # Template selection node
-│   │   └── html_generation.py     # HTML generation node
-│   ├── report_template/           # Report template library
+│   ├── agent.py                   # Orchestrates template → layout → budget → chapter → render pipeline
+│   ├── flask_interface.py         # Flask/SSE facade handling task queueing and streaming events
+│   ├── llms/                      # OpenAI-compatible LLM wrappers
+│   │   └── base.py                # Unified streaming/retry client
+│   ├── core/                      # Template slicing, chapter storage, document stitching
+│   │   ├── template_parser.py     # Markdown slicer and slug generator
+│   │   ├── chapter_storage.py     # Run directory + manifest + raw streaming writer
+│   │   └── stitcher.py            # Document IR composer injecting anchors/metadata
+│   ├── ir/                        # Report IR contract & validator
+│   │   ├── schema.py              # Block/mark schema constants
+│   │   └── validator.py           # Chapter JSON structure validator
+│   ├── nodes/                     # Reasoning nodes for the whole pipeline
+│   │   ├── base_node.py           # Base class with logging/state hooks
+│   │   ├── template_selection_node.py # Gather candidates and ask LLM to pick
+│   │   ├── document_layout_node.py    # Title/TOC/theme designer
+│   │   ├── word_budget_node.py        # Word plan & directives per chapter
+│   │   └── chapter_generation_node.py # Chapter-level JSON generation + validation
+│   ├── prompts/                   # Prompt library and schema notes
+│   │   └── prompts.py             # Templates for selection/layout/budget/chapters
+│   ├── renderers/                 # IR renderers
+│   │   └── html_renderer.py       # Document IR → interactive HTML
+│   ├── state/                     # Task and metadata state models
+│   │   └── state.py               # ReportState plus serialization helpers
+│   ├── utils/                     # Config/log helpers
+│   │   └── config.py              # Pydantic settings + printer
+│   ├── report_template/           # Markdown template library
 │   │   ├── 社会公共热点事件分析.md
 │   │   ├── 商业品牌舆情监测.md
 │   │   └── ...                    # More templates
-│   └── flask_interface.py         # Flask API interface
+│   └── ...                        # Misc caches, __init__.py, etc.
 ├── ForumEngine/                   # Forum engine simple implementation
 │   ├── monitor.py                 # Log monitoring and forum management
 │   └── llm_host.py                # Forum host LLM module
