@@ -9,6 +9,7 @@ import time
 import threading
 from datetime import datetime
 from queue import Queue
+from typing import Dict, List, Tuple
 from flask import Flask, render_template, request, jsonify, Response
 from flask_socketio import SocketIO, emit
 import atexit
@@ -17,6 +18,8 @@ from loguru import logger
 import importlib
 from pathlib import Path
 from MindSpider.main import MindSpider
+from utils.health_check import run_health_check
+from utils.smart_logger import setup_smart_logging, smart_log_line
 
 # 导入ReportEngine
 try:
@@ -44,6 +47,65 @@ os.environ['PYTHONUTF8'] = '1'
 # 创建日志目录
 LOG_DIR = Path('logs')
 LOG_DIR.mkdir(exist_ok=True)
+
+# 启动前执行健康检查（可通过 BETTAFISH_SKIP_HEALTH_CHECK=1 跳过）
+HEALTH_CHECK_PASSED, HEALTH_CHECK_RESULTS = run_health_check()
+app.config['HEALTH_CHECK_RESULTS'] = HEALTH_CHECK_RESULTS
+
+if not HEALTH_CHECK_PASSED:
+    logger.critical("系统健康检查未通过，BettaFish 服务即将退出。")
+    sys.exit(1)
+
+# 每个子系统依赖的健康检查项，用于后续判定是否允许启动
+ENGINE_DEPENDENCIES: Dict[str, List[str]] = {
+    'insight': ['数据库连接', 'InsightEngine LLM'],
+    'media': ['MediaEngine LLM'],
+    'query': ['QueryEngine LLM'],
+    'forum': ['ForumHost LLM'],
+    'report': ['ReportEngine LLM'],
+}
+
+
+def _split_dependency_status(dependencies: List[str]) -> Tuple[List[str], List[str]]:
+    """按阻断/警告分类依赖检查结果"""
+    blocking: List[str] = []
+    warnings: List[str] = []
+    for dep in dependencies:
+        result = HEALTH_CHECK_RESULTS.get(dep)
+        if not result:
+            continue
+        if result.get('success'):
+            continue
+        if result.get('critical'):
+            blocking.append(dep)
+        else:
+            warnings.append(dep)
+    return blocking, warnings
+
+
+def is_engine_available(app_name: str) -> Tuple[bool, List[str], List[str]]:
+    """判断指定子系统是否满足启动条件"""
+    dependencies = ENGINE_DEPENDENCIES.get(app_name, [])
+    blocking, warnings = _split_dependency_status(dependencies)
+    return len(blocking) == 0, blocking, warnings
+
+
+for engine_name in ENGINE_DEPENDENCIES:
+    available, blocking_deps, warning_deps = is_engine_available(engine_name)
+    if not available:
+        logger.warning(
+            f"{engine_name} 子系统因依赖未通过将被禁止启动: {', '.join(blocking_deps)}"
+        )
+    elif warning_deps:
+        logger.warning(
+            f"{engine_name} 子系统存在功能受限风险（可选依赖未通过）: {', '.join(warning_deps)}"
+        )
+
+
+app.config['ENGINE_DEPENDENCIES'] = ENGINE_DEPENDENCIES
+
+SMART_LOGGER = setup_smart_logging(LOG_DIR)
+app.config['SMART_LOGGER_ENABLED'] = SMART_LOGGER is not None
 
 CONFIG_MODULE_NAME = 'config'
 CONFIG_FILE_PATH = Path(__file__).resolve().parent / 'config.py'
@@ -223,12 +285,22 @@ def initialize_system_components():
     """启动所有依赖组件（Streamlit 子应用、ForumEngine、ReportEngine）。"""
     logs = []
     errors = []
-    
-    spider = MindSpider()
-    if spider.initialize_database():
-        logger.info("数据库初始化成功")
+
+    insight_available, insight_blocking, insight_warnings = is_engine_available('insight')
+    if insight_available:
+        spider = MindSpider()
+        if spider.initialize_database():
+            logger.info("数据库初始化成功")
+            logs.append("数据库初始化成功")
+        else:
+            message = "数据库初始化失败"
+            logger.error(message)
+            errors.append(message)
     else:
-        logger.error("数据库初始化失败")
+        reason = ", ".join(insight_blocking) if insight_blocking else "配置缺失"
+        logs.append(f"跳过数据库初始化：InsightEngine 依赖未就绪（{reason}）")
+        if insight_warnings:
+            logs.append(f"InsightEngine 可能功能受限：{', '.join(insight_warnings)}")
 
     try:
         stop_forum_engine()
@@ -242,6 +314,19 @@ def initialize_system_components():
 
     for app_name, script_path in STREAMLIT_SCRIPTS.items():
         logs.append(f"检查文件: {script_path}")
+
+        available, blocking, warnings = is_engine_available(app_name)
+        if not available:
+            reason = ", ".join(blocking) if blocking else "依赖未满足"
+            skip_msg = f"{app_name} 跳过启动：依赖未通过健康检查（{reason}）"
+            logs.append(skip_msg)
+            logger.warning(skip_msg)
+            continue
+        if warnings:
+            warn_msg = f"{app_name} 可能功能受限：{', '.join(warnings)}"
+            logs.append(warn_msg)
+            logger.warning(warn_msg)
+
         if os.path.exists(script_path):
             success, message = start_streamlit_app(app_name, script_path, processes[app_name]['port'])
             logs.append(f"{app_name}: {message}")
@@ -258,17 +343,29 @@ def initialize_system_components():
             errors.append(f"{app_name}: {msg}")
 
     forum_started = False
-    try:
-        start_forum_engine()
-        processes['forum']['status'] = 'running'
-        logs.append("ForumEngine 启动完成")
-        forum_started = True
-    except Exception as exc:  # pragma: no cover - 保底捕获
-        error_msg = f"ForumEngine 启动失败: {exc}"
-        logs.append(error_msg)
-        errors.append(error_msg)
+    forum_available, forum_blocking, forum_warnings = is_engine_available('forum')
+    if forum_available:
+        try:
+            start_forum_engine()
+            processes['forum']['status'] = 'running'
+            logs.append("ForumEngine 启动完成")
+            forum_started = True
+        except Exception as exc:  # pragma: no cover - 保底捕获
+            error_msg = f"ForumEngine 启动失败: {exc}"
+            logs.append(error_msg)
+            errors.append(error_msg)
+    else:
+        reason = ", ".join(forum_blocking) if forum_blocking else "依赖未满足"
+        msg = f"ForumEngine 跳过启动：依赖未通过健康检查（{reason}）"
+        logs.append(msg)
+        logger.warning(msg)
+    if forum_warnings:
+        warn_msg = f"ForumEngine 可能功能受限：{', '.join(forum_warnings)}"
+        logs.append(warn_msg)
+        logger.warning(warn_msg)
 
-    if REPORT_ENGINE_AVAILABLE:
+    report_available, report_blocking, report_warnings = is_engine_available('report')
+    if REPORT_ENGINE_AVAILABLE and report_available:
         try:
             if initialize_report_engine():
                 logs.append("ReportEngine 初始化成功")
@@ -280,6 +377,18 @@ def initialize_system_components():
             msg = f"ReportEngine 初始化异常: {exc}"
             logs.append(msg)
             errors.append(msg)
+    elif REPORT_ENGINE_AVAILABLE and not report_available:
+        reason = ", ".join(report_blocking) if report_blocking else "依赖未满足"
+        msg = f"ReportEngine 跳过初始化：依赖未通过健康检查（{reason}）"
+        logs.append(msg)
+        logger.warning(msg)
+    elif not REPORT_ENGINE_AVAILABLE:
+        logs.append("ReportEngine 模块未可用，跳过初始化")
+
+    if report_warnings:
+        warn_msg = f"ReportEngine 可能功能受限：{', '.join(report_warnings)}"
+        logs.append(warn_msg)
+        logger.warning(warn_msg)
 
     if errors:
         cleanup_processes()
@@ -464,8 +573,10 @@ def write_log_to_file(app_name, line):
     """将日志写入文件"""
     try:
         log_file_path = LOG_DIR / f"{app_name}.log"
+        sanitized = line.rstrip('\n\r')
+        smart_log_line(sanitized, source=app_name)
         with open(log_file_path, 'a', encoding='utf-8') as f:
-            f.write(line + '\n')
+            f.write(sanitized + '\n')
             f.flush()
     except Exception as e:
         logger.error(f"Error writing log for {app_name}: {e}")
@@ -749,6 +860,20 @@ def get_status():
         for app_name, info in processes.items()
     })
 
+
+@app.route('/api/health')
+def get_health_status():
+    """返回启动健康检查结果"""
+    overall_ok = all(
+        result.get('success') or not result.get('critical', False)
+        for result in HEALTH_CHECK_RESULTS.values()
+    )
+    return jsonify({
+        'success': overall_ok,
+        'details': HEALTH_CHECK_RESULTS,
+        'dependencies': ENGINE_DEPENDENCIES,
+    })
+
 @app.route('/api/start/<app_name>')
 def start_app(app_name):
     """启动指定应用"""
@@ -756,9 +881,15 @@ def start_app(app_name):
         return jsonify({'success': False, 'message': '未知应用'})
 
     if app_name == 'forum':
+        available, blocking, warnings = is_engine_available('forum')
+        if not available:
+            reason = ", ".join(blocking) if blocking else "依赖未满足"
+            return jsonify({'success': False, 'message': f'ForumEngine 无法启动：{reason}'})
         try:
             start_forum_engine()
             processes['forum']['status'] = 'running'
+            if warnings:
+                logger.warning(f"ForumEngine 警告：{', '.join(warnings)}")
             return jsonify({'success': True, 'message': 'ForumEngine已启动'})
         except Exception as exc:  # pragma: no cover
             logger.exception("手动启动ForumEngine失败")
@@ -767,6 +898,13 @@ def start_app(app_name):
     script_path = STREAMLIT_SCRIPTS.get(app_name)
     if not script_path:
         return jsonify({'success': False, 'message': '该应用不支持启动操作'})
+
+    available, blocking, warnings = is_engine_available(app_name)
+    if not available:
+        reason = ", ".join(blocking) if blocking else "依赖未满足"
+        return jsonify({'success': False, 'message': f'{app_name} 无法启动：{reason}'})
+    if warnings:
+        logger.warning(f"{app_name} 启动警告：{', '.join(warnings)}")
 
     success, message = start_streamlit_app(
         app_name,
@@ -825,6 +963,29 @@ def get_output(app_name):
         'success': True,
         'output': output_lines
     })
+
+
+@app.route('/api/output-compressed/<app_name>')
+def get_compressed_output(app_name):
+    """获取压缩后的日志输出"""
+    date_str = request.args.get('date') or datetime.now().strftime('%Y-%m-%d')
+    base_dir = LOG_DIR / "compressed"
+    file_path = base_dir / f"{app_name}_{date_str}.log"
+
+    if not file_path.exists():
+        return jsonify({
+            'success': True,
+            'output': [],
+            'message': f'未找到压缩日志文件: {file_path.name}'
+        })
+
+    try:
+        with file_path.open('r', encoding='utf-8') as f:
+            lines = [line.rstrip('\n\r') for line in f.readlines()]
+        return jsonify({'success': True, 'output': lines})
+    except Exception as exc:
+        logger.exception("读取压缩日志失败")
+        return jsonify({'success': False, 'message': f'读取压缩日志失败: {exc}'})
 
 @app.route('/api/test_log/<app_name>')
 def test_log(app_name):

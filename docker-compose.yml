@@ -2,16 +2,16 @@ version: "3.9"
 
 services:
   bettafish:
-    image: ghcr.io/666ghj/bettafish:latest
+    # image: ghcr.io/666ghj/bettafish:latest
     # Speed up mirror
-    # image: ghcr.nju.edu.cn/666ghj/bettafish:latest
+    image: ghcr.nju.edu.cn/666ghj/bettafish:latest
     container_name: bettafish
     restart: unless-stopped
     environment:
       - PYTHONUNBUFFERED=1
       - STREAMLIT_SERVER_ENABLE_FILE_WATCHER=false
     ports:
-      - "5000:5000"
+      - "5001:5000"
       - "8501:8501"
       - "8502:8502"
       - "8503:8503"
@@ -22,6 +22,15 @@ services:
       - ./insight_engine_streamlit_reports:/app/insight_engine_streamlit_reports
       - ./media_engine_streamlit_reports:/app/media_engine_streamlit_reports
       - ./query_engine_streamlit_reports:/app/query_engine_streamlit_reports
+    healthcheck:
+      test: ["CMD", "python", "-c", "from utils.health_check import run_health_check; run_health_check(force=True)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      db:
+        condition: service_healthy
 
   db:
     image: postgres:15
@@ -37,3 +46,8 @@ services:
       - "${POSTGRES_PORT:-5444}:5432"
     volumes:
       - ./db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bettafish}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
