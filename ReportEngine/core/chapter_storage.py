@@ -75,6 +75,13 @@ class ChapterStorage:
         为本次报告创建独立的章节输出目录与manifest。
 
         同时把全局metadata写入 `manifest.json`，供渲染/调试查询。
+
+        参数:
+            report_id: 任务ID。
+            metadata: Report元数据（标题、主题等）。
+
+        返回:
+            Path: 新建的run目录。
         """
         run_dir = self.base_dir / report_id
         run_dir.mkdir(parents=True, exist_ok=True)
@@ -93,6 +100,13 @@ class ChapterStorage:
         创建章节子目录并在manifest中标记为streaming状态。
 
         会生成 `order-slug` 风格的子目录，并提前登记 raw 文件路径。
+
+        参数:
+            run_dir: 会话根目录。
+            chapter_meta: 包含 chapterId/title/slug/order 的元数据。
+
+        返回:
+            Path: 章节目录。
         """
         slug_value = str(
             chapter_meta.get("slug") or chapter_meta.get("chapterId") or "section"
@@ -124,6 +138,15 @@ class ChapterStorage:
         章节流式生成完毕后写入最终JSON并更新manifest状态。
 
         若校验失败，错误信息会被写入manifest，供前端展示。
+
+        参数:
+            run_dir: 会话根目录。
+            chapter_meta: 章节元信息。
+            payload: 校验通过的章节JSON。
+            errors: 可选的错误列表，用于标记invalid状态。
+
+        返回:
+            Path: 最终的 `chapter.json` 文件路径。
         """
         slug_value = str(
             chapter_meta.get("slug") or chapter_meta.get("chapterId") or "section"
@@ -159,6 +182,12 @@ class ChapterStorage:
         从指定run目录读取全部chapter.json并按order排序返回。
 
         常用于 DocumentComposer 将多个章节装订成整本IR。
+
+        参数:
+            run_dir: 会话根目录。
+
+        返回:
+            list[dict]: 章节payload列表。
         """
         payloads: List[Dict[str, object]] = []
         for child in sorted(run_dir.iterdir()):
@@ -183,6 +212,12 @@ class ChapterStorage:
         将流式输出实时写入raw文件。
 
         通过 contextmanager 暴露文件句柄，简化章节节点的写入逻辑。
+
+        参数:
+            chapter_dir: 当前章节目录。
+
+        返回:
+            Generator[TextIO]: 作为上下文管理器使用的文件对象。
         """
         raw_path = self._raw_stream_path(chapter_dir)
         raw_path.parent.mkdir(parents=True, exist_ok=True)

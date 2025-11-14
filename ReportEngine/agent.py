@@ -296,8 +296,19 @@ class ReportAgent:
             4. 将章节装订成Document IR，再交给HTML渲染器生成成品；
             5. 可选地将HTML/IR/状态落盘，并向外界回传路径信息。
 
-        Returns:
-            dict: HTML内容以及保存的文件路径信息
+        参数:
+            query: 最终要生成的报告主题或提问语句。
+            reports: 来自 Query/Media/Insight 等分析引擎的原始输出，允许传入字符串或更复杂的对象。
+            forum_logs: 论坛/协同记录，供LLM理解多人讨论上下文。
+            custom_template: 用户指定的Markdown模板，如为空则交由模板节点自动挑选。
+            save_report: 是否在生成后自动将HTML、IR与状态写入磁盘。
+            stream_handler: 可选的流式事件回调，接收阶段标签与payload，用于UI实时展示。
+
+        返回:
+            dict: 包含 `html_content` 以及HTML/IR/状态文件路径的字典；若 `save_report=False` 则仅返回HTML字符串。
+
+        异常:
+            Exception: 任一子节点或渲染阶段失败时抛出，外层调用方负责兜底。
         """
         start_time = datetime.now()
         report_id = f"report-{uuid4().hex[:8]}"
@@ -538,6 +549,15 @@ class ReportAgent:
         优先使用用户指定的模板；否则将查询、三引擎报告与论坛日志
         作为上下文交给 TemplateSelectionNode，由 LLM 返回最契合的
         模板名称、内容及理由，并自动记录在状态中。
+
+        参数:
+            query: 报告主题，用于提示词聚焦行业/事件。
+            reports: 多来源报告原文，帮助LLM判断结构复杂度。
+            forum_logs: 对应论坛或协作讨论的文本，用于补充背景。
+            custom_template: CLI/前端传入的自定义Markdown模板，非空时直接采用。
+
+        返回:
+            dict: 包含 `template_name`、`template_content` 与 `selection_reason` 的结构化结果，供后续节点消费。
         """
         logger.info("选择报告模板...")
         
@@ -584,6 +604,12 @@ class ReportAgent:
         委托 `parse_template_sections` 将Markdown标题/编号解析为
         `TemplateSection` 列表，确保后续章节生成有稳定的章节ID。
         当模板格式异常时，会回退到内置的简单骨架避免崩溃。
+
+        参数:
+            template_markdown: 完整的模板Markdown文本。
+
+        返回:
+            list[TemplateSection]: 解析后的章节序列；如解析失败则返回单章兜底结构。
         """
         sections = parse_template_sections(template_markdown)
         if sections:
@@ -618,6 +644,19 @@ class ReportAgent:
         将模板名称、布局设计、主题配色、篇幅规划、论坛日志等
         一次性整合为 `generation_context`，后续每章调用 LLM 时
         直接复用，确保所有章节共享一致的语调和视觉约束。
+
+        参数:
+            query: 用户查询词。
+            reports: 归一化后的 query/media/insight 报告映射。
+            forum_logs: 三引擎讨论记录。
+            template_result: 模板节点返回的模板元信息。
+            layout_design: 文档布局节点产出的标题/目录/主题设计。
+            chapter_directives: 字数规划节点返回的章节指令映射。
+            word_plan: 篇幅规划原始结果，包含全局字数约束。
+            template_overview: 模板切片提炼的章节骨架摘要。
+
+        返回:
+            dict: LLM章节生成所需的全集上下文，包含主题色、布局、约束等键。
         """
         # 优先使用设计稿定制的主题色，否则退回默认主题
         theme_tokens = (
@@ -650,6 +689,12 @@ class ReportAgent:
 
         约定顺序为 Query/Media/Insight，引擎提供的对象可能是
         字典或自定义类型，因此统一走 `_stringify` 做容错。
+
+        参数:
+            reports: 任意类型的报告列表，允许缺失或顺序混乱。
+
+        返回:
+            dict: 包含 `query_engine`/`media_engine`/`insight_engine` 三个字符串字段的映射。
         """
         keys = ["query_engine", "media_engine", "insight_engine"]
         normalized: Dict[str, str] = {}
@@ -664,6 +709,12 @@ class ReportAgent:
 
         当检测到供应商返回的错误包含特定关键词时，允许章节生成
         重新尝试，以便绕过偶发的内容审查触发。
+
+        参数:
+            error: LLM客户端抛出的异常对象。
+
+        返回:
+            bool: 若匹配到内容审查关键词则返回True，否则为False。
         """
         message = str(error) if error else ""
         if not message:
@@ -683,6 +734,12 @@ class ReportAgent:
 
         - dict/list 统一序列化为格式化 JSON，便于提示词消费；
         - 其他类型走 `str()`，None 则返回空串，避免 None 传播。
+
+        参数:
+            value: 任意Python对象。
+
+        返回:
+            str: 适配提示词/日志的字符串表现。
         """
         if value is None:
             return ""
@@ -700,6 +757,9 @@ class ReportAgent:
         构造默认主题变量，供渲染器/LLM共用。
 
         当布局节点未返回专属配色时使用该套色板，保持报告风格统一。
+
+        返回:
+            dict: 包含颜色、字体、间距、布尔开关等渲染参数的主题字典。
         """
         return {
             "colors": {
@@ -735,6 +795,13 @@ class ReportAgent:
         提取模板标题与章节骨架，供设计/篇幅规划统一引用。
 
         同时记录章节ID/slug/order等辅助字段，保证多节点对齐。
+
+        参数:
+            template_markdown: 模板原文，用于解析全局标题。
+            sections: `TemplateSection` 列表，作为章节骨架。
+
+        返回:
+            dict: 包含模板标题与章节元数据的概览结构。
         """
         fallback_title = sections[0].title if sections else ""
         overview = {
@@ -763,6 +830,13 @@ class ReportAgent:
 
         优先返回首个 `#` 语法标题；如果模板首行就是正文，则回退到
         第一行非空文本或调用方提供的 fallback。
+
+        参数:
+            template_markdown: 模板原文。
+            fallback: 备用标题，当文档缺少显式标题时使用。
+
+        返回:
+            str: 解析到的标题文本。
         """
         for line in template_markdown.splitlines():
             stripped = line.strip()
@@ -834,6 +908,14 @@ class ReportAgent:
 
         生成基于查询和时间戳的易读文件名，同时也把运行态的
         `ReportState` 写入 JSON，方便下游排障或断点续跑。
+
+        参数:
+            html_content: 渲染后的HTML正文。
+            document_ir: Document IR结构化数据。
+            report_id: 当前任务ID，用于创建独立文件名。
+
+        返回:
+            dict: 记录HTML/IR/State文件的绝对与相对路径信息。
         """
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         query_safe = "".join(
@@ -879,6 +961,14 @@ class ReportAgent:
 
         `Document IR` 与 HTML 解耦保存，便于调试渲染差异以及
         在不重新跑 LLM 的情况下再次渲染或导出其他格式。
+
+        参数:
+            document_ir: 整本报告的IR结构。
+            query_safe: 已清洗的查询短语，用于文件命名。
+            timestamp: 运行时间戳，保证文件名唯一。
+
+        返回:
+            Path: 指向保存后的IR文件路径。
         """
         filename = f"report_ir_{query_safe}_{timestamp}.json"
         ir_path = Path(self.config.DOCUMENT_IR_OUTPUT_DIR) / filename
@@ -901,6 +991,12 @@ class ReportAgent:
         这些中间件文件（document_layout/word_plan/template_overview）
         方便在调试或复盘时快速定位：标题/目录/主题是如何确定的、
         字数分配有什么要求，以便后续人工校正。
+
+        参数:
+            run_dir: 章节输出根目录。
+            layout_design: 文档布局节点的原始输出。
+            word_plan: 篇幅规划节点输出。
+            template_overview: 模板概览JSON。
         """
         artifacts = {
             "document_layout": layout_design,

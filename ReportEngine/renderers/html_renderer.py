@@ -62,7 +62,15 @@ class HTMLRenderer:
     # ====== 公共入口 ======
 
     def render(self, document_ir: Dict[str, Any]) -> str:
-        """接收Document IR，重置内部状态并输出完整HTML"""
+        """
+        接收Document IR，重置内部状态并输出完整HTML。
+
+        参数:
+            document_ir: 由 DocumentComposer 生成的整本报告数据。
+
+        返回:
+            str: 可直接写入磁盘的完整HTML文档。
+        """
         self.document = document_ir or {}
         self.widget_scripts = []
         self.chart_counter = 0
@@ -89,7 +97,16 @@ class HTMLRenderer:
     # ====== Head / Body ======
 
     def _render_head(self, title: str, theme_tokens: Dict[str, Any]) -> str:
-        """渲染<head>部分，加载主题CSS与必要的脚本依赖"""
+        """
+        渲染<head>部分，加载主题CSS与必要的脚本依赖。
+
+        参数:
+            title: 页面title标签内容。
+            theme_tokens: 主题变量，用于注入CSS。
+
+        返回:
+            str: head片段HTML。
+        """
         css = self._build_css(theme_tokens)
         return f"""
 <head>
@@ -124,7 +141,12 @@ class HTMLRenderer:
 </head>""".strip()
 
     def _render_body(self) -> str:
-        """拼装<body>结构，包含头部、导航、章节和脚本"""
+        """
+        拼装<body>结构，包含头部、导航、章节和脚本。
+
+        返回:
+            str: body片段HTML。
+        """
         header = self._render_header()
         cover = self._render_cover()
         hero = self._render_hero()
@@ -152,7 +174,12 @@ class HTMLRenderer:
     # ====== Header / Meta / TOC ======
 
     def _render_header(self) -> str:
-        """渲染吸顶头部，包含标题、副标题与功能按钮"""
+        """
+        渲染吸顶头部，包含标题、副标题与功能按钮。
+
+        返回:
+            str: header HTML。
+        """
         metadata = self.metadata
         title = metadata.get("title") or "智能舆情分析报告"
         subtitle = metadata.get("subtitle") or metadata.get("templateName") or "自动生成"
@@ -172,14 +199,24 @@ class HTMLRenderer:
 """.strip()
 
     def _render_tagline(self) -> str:
-        """渲染标题下方的标语，如无标语则返回空字符串"""
+        """
+        渲染标题下方的标语，如无标语则返回空字符串。
+
+        返回:
+            str: tagline HTML或空串。
+        """
         tagline = self.metadata.get("tagline")
         if not tagline:
             return ""
         return f'<p class="tagline">{self._escape_html(tagline)}</p>'
 
     def _render_cover(self) -> str:
-        """文章开头的封面区，居中展示标题与“文章总览”提示"""
+        """
+        文章开头的封面区，居中展示标题与“文章总览”提示。
+
+        返回:
+            str: cover section HTML。
+        """
         title = self.metadata.get("title") or "智能舆情报告"
         subtitle = self.metadata.get("subtitle") or self.metadata.get("templateName") or ""
         overview_hint = "文章总览"
@@ -192,7 +229,12 @@ class HTMLRenderer:
 """.strip()
 
     def _render_hero(self) -> str:
-        """根据layout中的hero字段输出摘要/KPI/亮点区"""
+        """
+        根据layout中的hero字段输出摘要/KPI/亮点区。
+
+        返回:
+            str: hero区HTML，若无数据则为空字符串。
+        """
         hero = self.metadata.get("hero") or {}
         if not hero:
             return ""
@@ -239,7 +281,12 @@ class HTMLRenderer:
         return ""
 
     def _render_toc_section(self) -> str:
-        """生成目录模块，如无目录数据则返回空字符串"""
+        """
+        生成目录模块，如无目录数据则返回空字符串。
+
+        返回:
+            str: toc HTML结构。
+        """
         if not self.toc_entries:
             return ""
         toc_config = self.metadata.get("toc") or {}
@@ -258,7 +305,15 @@ class HTMLRenderer:
 """.strip()
 
     def _collect_toc_entries(self, chapters: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """根据metadata中的tocPlan或章节heading收集目录项"""
+        """
+        根据metadata中的tocPlan或章节heading收集目录项。
+
+        参数:
+            chapters: Document IR中的章节数组。
+
+        返回:
+            list[dict]: 规范化后的目录条目，包含level/text/anchor。
+        """
         metadata = self.metadata
         toc_config = metadata.get("toc") or {}
         custom_entries = toc_config.get("customEntries")
@@ -296,7 +351,15 @@ class HTMLRenderer:
         return entries
 
     def _format_toc_entry(self, entry: Dict[str, Any]) -> str:
-        """将单个目录项转为带描述的HTML行"""
+        """
+        将单个目录项转为带描述的HTML行。
+
+        参数:
+            entry: 目录条目，需包含 `text` 与 `anchor`。
+
+        返回:
+            str: `<li>` 形式的HTML。
+        """
         desc = entry.get("description")
         desc_html = f'<p class="toc-desc">{self._escape_html(desc)}</p>' if desc else ""
         level = entry.get("level", 2)
@@ -304,7 +367,15 @@ class HTMLRenderer:
         return f'<li class="level-{css_level}"><a href="#{self._escape_attr(entry["anchor"])}">{self._escape_html(entry["text"])}</a>{desc_html}</li>'
 
     def _compute_heading_labels(self, chapters: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
-        """预计算各级标题的编号（章：一、二；节：1.1；小节：1.1.1）"""
+        """
+        预计算各级标题的编号（章：一、二；节：1.1；小节：1.1.1）。
+
+        参数:
+            chapters: Document IR中的章节数组。
+
+        返回:
+            dict: 锚点到编号/描述的映射，方便TOC与正文引用。
+        """
         label_map: Dict[str, Dict[str, Any]] = {}
 
         for chap_idx, chapter in enumerate(chapters or [], start=1):
@@ -394,17 +465,41 @@ class HTMLRenderer:
     # ====== 章节 & Block 渲染 ======
 
     def _render_chapter(self, chapter: Dict[str, Any]) -> str:
-        """将章节blocks包裹进<section>，便于CSS控制"""
+        """
+        将章节blocks包裹进<section>，便于CSS控制。
+
+        参数:
+            chapter: 单个章节JSON。
+
+        返回:
+            str: section包裹的HTML。
+        """
         section_id = self._escape_attr(chapter.get("anchor") or f"chapter-{chapter.get('chapterId', 'x')}")
         blocks_html = self._render_blocks(chapter.get("blocks", []))
         return f'<section id="{section_id}" class="chapter">\n{blocks_html}\n</section>'
 
     def _render_blocks(self, blocks: List[Dict[str, Any]]) -> str:
-        """顺序渲染章节内所有block"""
+        """
+        顺序渲染章节内所有block。
+
+        参数:
+            blocks: 章节内部的block数组。
+
+        返回:
+            str: 拼接后的HTML。
+        """
         return "".join(self._render_block(block) for block in blocks or [])
 
     def _render_block(self, block: Dict[str, Any]) -> str:
-        """根据block.type分派到不同的渲染函数"""
+        """
+        根据block.type分派到不同的渲染函数。
+
+        参数:
+            block: 单个block对象。
+
+        返回:
+            str: 渲染后的HTML，未知类型会输出JSON调试信息。
+        """
         block_type = block.get("type")
         handlers = {
             "heading": self._render_heading,
@@ -468,7 +563,15 @@ class HTMLRenderer:
         return f'<{tag}{class_attr}>{items_html}</{tag}>'
 
     def _render_table(self, block: Dict[str, Any]) -> str:
-        """渲染表格，同时保留caption与单元格属性"""
+        """
+        渲染表格，同时保留caption与单元格属性。
+
+        参数:
+            block: table类型的block。
+
+        返回:
+            str: 包含<table>结构的HTML。
+        """
         rows = self._normalize_table_rows(block.get("rows") or [])
         rows_html = ""
         for row in rows:
@@ -491,7 +594,15 @@ class HTMLRenderer:
         return f'<div class="table-wrap"><table>{caption_html}<tbody>{rows_html}</tbody></table></div>'
 
     def _normalize_table_rows(self, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """检测并修正仅有单列的竖排表，转换为标准网格"""
+        """
+        检测并修正仅有单列的竖排表，转换为标准网格。
+
+        参数:
+            rows: 原始表格行。
+
+        返回:
+            list[dict]: 若检测到竖排表则返回转置后的行，否则原样返回。
+        """
         if not rows:
             return []
         if not all(len((row.get("cells") or [])) == 1 for row in rows):
@@ -611,7 +722,15 @@ class HTMLRenderer:
         return f'<div class="figure-placeholder">{self._escape_html(caption)}</div>'
 
     def _render_callout(self, block: Dict[str, Any]) -> str:
-        """渲染高亮提示盒，tone决定颜色"""
+        """
+        渲染高亮提示盒，tone决定颜色。
+
+        参数:
+            block: callout类型的block。
+
+        返回:
+            str: callout HTML，若内部包含不允许的块会被拆分。
+        """
         tone = block.get("tone", "info")
         title = block.get("title")
         safe_blocks, trailing_blocks = self._split_callout_content(block.get("blocks"))
@@ -689,7 +808,15 @@ class HTMLRenderer:
         return f'<div class="kpi-grid">{cards}</div>'
 
     def _render_widget(self, block: Dict[str, Any]) -> str:
-        """渲染Chart.js等交互组件的占位容器，并记录配置JSON"""
+        """
+        渲染Chart.js等交互组件的占位容器，并记录配置JSON。
+
+        参数:
+            block: widget类型的block，包含widgetId/props/data。
+
+        返回:
+            str: 含canvas与配置脚本的HTML。
+        """
         self.chart_counter += 1
         canvas_id = f"chart-{self.chart_counter}"
         config_id = f"chart-config-{self.chart_counter}"
@@ -830,7 +957,15 @@ class HTMLRenderer:
         return payload
 
     def _render_inline(self, run: Dict[str, Any]) -> str:
-        """渲染单个inline run，支持多种marks叠加"""
+        """
+        渲染单个inline run，支持多种marks叠加。
+
+        参数:
+            run: 含 text 与 marks 的内联节点。
+
+        返回:
+            str: 已包裹标签/样式的HTML片段。
+        """
         text_value, marks = self._normalize_inline_payload(run)
         math_mark = next((mark for mark in marks if mark.get("type") == "math"), None)
         if math_mark:

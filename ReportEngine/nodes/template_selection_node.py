@@ -79,6 +79,15 @@ class TemplateSelectionNode(BaseNode):
 
         构造模板列表与报告摘要 → 调用LLM → 解析JSON →
         验证模板是否存在并返回标准结构。
+
+        参数:
+            query: 用户输入的主题词。
+            reports: 多个分析引擎的报告内容。
+            forum_logs: 论坛日志，可能为空。
+            available_templates: 本地可用模板清单。
+
+        返回:
+            dict | None: 若LLM成功返回合法结果则包含模板信息，否则为None。
         """
         logger.info("尝试使用LLM进行模板选择...")
         
@@ -166,6 +175,12 @@ class TemplateSelectionNode(BaseNode):
         清理LLM响应。
 
         去掉 ```json``` 包裹以及前后空白，方便 `json.loads`。
+
+        参数:
+            response: LLM原始响应。
+
+        返回:
+            str: 适合直接做JSON解析的纯文本。
         """
         # 移除可能的markdown代码块标记
         if '```json' in response:
@@ -183,6 +198,13 @@ class TemplateSelectionNode(BaseNode):
         从文本响应中提取模板信息。
 
         当LLM未输出合法JSON时，尝试匹配模板名称关键字做降级。
+
+        参数:
+            response: 非结构化的LLM文本。
+            available_templates: 可选模板列表。
+
+        返回:
+            dict | None: 匹配成功时返回模板详情，否则为None。
         """
         logger.info("尝试从文本响应中提取模板信息")
         
@@ -210,6 +232,9 @@ class TemplateSelectionNode(BaseNode):
         获取可用的模板列表。
 
         枚举模板目录下的 `.md` 文件并读取内容与描述字段。
+
+        返回:
+            list[dict]: 每项包含 name/path/content/description。
         """
         templates = []
         
@@ -259,7 +284,12 @@ class TemplateSelectionNode(BaseNode):
 
     
     def _get_fallback_template(self) -> Dict[str, Any]:
-        """获取备用默认模板（空模板，让LLM自行发挥）。"""
+        """
+        获取备用默认模板（空模板，让LLM自行发挥）。
+
+        返回:
+            dict: 结构体字段与LLM返回一致，方便直接替换。
+        """
         logger.info("未找到合适模板，使用空模板让LLM自行发挥")
         
         return {

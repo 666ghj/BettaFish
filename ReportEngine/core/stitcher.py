@@ -36,6 +36,14 @@ class DocumentComposer:
         把所有章节按order排序并注入唯一锚点，形成整本IR。
 
         同时合并 metadata/themeTokens/assets，供渲染器直接消费。
+
+        参数:
+            report_id: 本次报告ID。
+            metadata: 全局元信息（标题、主题、toc等）。
+            chapters: 章节payload列表。
+
+        返回:
+            dict: 满足渲染器需求的Document IR。
         """
         ordered = sorted(chapters, key=lambda c: c.get("order", 0))
         for idx, chapter in enumerate(ordered, start=1):

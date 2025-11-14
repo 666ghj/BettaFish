@@ -47,7 +47,12 @@ settings = Settings()
 
 
 def print_config(config: Settings):
-    """将当前配置项按人类可读格式输出到日志，方便排障"""
+    """
+    将当前配置项按人类可读格式输出到日志，方便排障。
+
+    参数:
+        config: Settings实例，通常为全局settings。
+    """
     message = ""
     message += "\n=== Report Engine 配置 ===\n"
     message += f"LLM 模型: {config.REPORT_ENGINE_MODEL_NAME}\n"

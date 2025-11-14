@@ -1081,6 +1081,7 @@
     </style>
 </head>
 <body>
+    <!-- 顶层容器：同时包裹搜索区、双列主工作区与状态栏 -->
     <div class="container">
         <!-- 搜索框区域 -->
         <div class="search-section">
@@ -1158,13 +1159,14 @@
             </div>
         </div>
 
-        <!-- 状态栏 -->
+        <!-- 状态栏：实时展示WebSocket连接状态与系统时钟 -->
         <div class="status-bar">
             <span id="connectionStatus">连接中...</span>
             <span id="systemTime"></span>
         </div>
     </div>
 
+    <!-- 配置弹窗：与后端.env互通，允许在线修改LLM参数 -->
     <div class="config-modal-overlay" id="configModal">
         <div class="config-modal">
             <div class="config-modal-header">
@@ -1187,9 +1189,10 @@
         </div>
     </div>
 
-    <!-- 消息提示 -->
+    <!-- 消息提示：右上角滑出式成功/错误提醒 -->
     <div class="message" id="message"></div>
 
+    <!-- 前端业务脚本：维护Socket连接、引擎启动状态与Report Engine交互 -->
     <script>
         // 全局变量
         let socket;

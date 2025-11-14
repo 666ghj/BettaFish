@@ -37,7 +37,20 @@ class WordBudgetNode(BaseNode):
         query: str,
         template_overview: Dict[str, Any] | None = None,
     ) -> Dict[str, Any]:
-        """根据设计稿和所有素材规划章节字数，让LLM写作时有明确篇幅目标"""
+        """
+        根据设计稿和所有素材规划章节字数，让LLM写作时有明确篇幅目标。
+
+        参数:
+            sections: 模板章节列表。
+            design: 布局节点返回的设计稿（title/toc/hero等）。
+            reports: 三引擎报告映射。
+            forum_logs: 论坛日志原文。
+            query: 用户查询词。
+            template_overview: 可选的模板概览，含章节元信息。
+
+        返回:
+            dict: 章节篇幅规划结果，包含 `totalWords`、`globalGuidelines` 与逐章 `chapters`。
+        """
         # 输入中除了章节骨架外，还包含布局节点输出，方便约束篇幅时参考视觉主次
         payload = {
             "query": query,
@@ -63,7 +76,18 @@ class WordBudgetNode(BaseNode):
         return plan
 
     def _parse_response(self, raw: str) -> Dict[str, Any]:
-        """将LLM输出的JSON文本转为字典，失败时提示规划异常"""
+        """
+        将LLM输出的JSON文本转为字典，失败时提示规划异常。
+
+        参数:
+            raw: LLM返回值，可能包含```包裹。
+
+        返回:
+            dict: 合法的篇幅规划JSON。
+
+        异常:
+            ValueError: 当响应为空或JSON解析失败时抛出。
+        """
         cleaned = raw.strip()
         if cleaned.startswith("```json"):
             cleaned = cleaned[7:]

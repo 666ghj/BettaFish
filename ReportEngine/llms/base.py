@@ -101,15 +101,15 @@ class LLMClient:
 
     def stream_invoke(self, system_prompt: str, user_prompt: str, **kwargs) -> Generator[str, None, None]:
         """
-        流式调用LLM，逐步返回响应内容
+        流式调用LLM，逐步返回响应内容。
         
-        Args:
-            system_prompt: 系统提示词
-            user_prompt: 用户提示词
-            **kwargs: 额外参数（temperature, top_p等）
+        参数:
+            system_prompt: 系统提示词。
+            user_prompt: 用户提示词。
+            **kwargs: 采样参数（temperature、top_p等）。
             
-        Yields:
-            响应文本块（str），调用方可边读边写入磁盘或透传到UI
+        产出:
+            str: 每次yield一段delta文本，方便上层实时渲染。
         """
         messages = [
             {"role": "system", "content": system_prompt},
@@ -143,15 +143,15 @@ class LLMClient:
     @with_retry(LLM_RETRY_CONFIG)
     def stream_invoke_to_string(self, system_prompt: str, user_prompt: str, **kwargs) -> str:
         """
-        流式调用LLM并安全地拼接为完整字符串（避免UTF-8多字节字符截断）
+        流式调用LLM并安全地拼接为完整字符串（避免UTF-8多字节字符截断）。
         
-        Args:
-            system_prompt: 系统提示词
-            user_prompt: 用户提示词
-            **kwargs: 额外参数（temperature, top_p等）
+        参数:
+            system_prompt: 系统提示词。
+            user_prompt: 用户提示词。
+            **kwargs: 采样或超时配置。
             
-        Returns:
-            完整的响应字符串
+        返回:
+            str: 将所有delta拼接后的完整响应。
         """
         # 以字节形式收集所有块
         byte_chunks = []

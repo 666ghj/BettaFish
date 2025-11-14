@@ -107,7 +107,23 @@ class ChapterGenerationNode(BaseNode):
         stream_callback: Optional[Callable[[str, Dict[str, Any]], None]] = None,
         **kwargs,
     ) -> Dict[str, Any]:
-        """针对单个章节调用LLM，校验/落盘章节JSON并返回结构化结果"""
+        """
+        针对单个章节调用LLM，校验/落盘章节JSON并返回结构化结果。
+
+        参数:
+            section: 模板切片生成的章节对象，包含标题/顺序/slug。
+            context: Agent构造的共享上下文（主题、篇幅、布局等）。
+            run_dir: 章节存盘目录，由 `ChapterStorage.start_session` 返回。
+            stream_callback: 可选流式回调，将LLM delta 推送给前端。
+            **kwargs: 透传温度、top_p等采样参数。
+
+        返回:
+            dict: 通过IR校验的章节JSON。
+
+        异常:
+            ChapterJsonParseError: 多次尝试后仍无法解析合法JSON。
+            ChapterContentError: 正文密度不足或只有标题，需要触发重试。
+        """
         chapter_meta = {
             "chapterId": section.chapter_id,
             "slug": section.slug,
@@ -167,7 +183,16 @@ class ChapterGenerationNode(BaseNode):
     # ====== 内部方法 ======
 
     def _build_payload(self, section: TemplateSection, context: Dict[str, Any]) -> Dict[str, Any]:
-        """构造LLM输入payload"""
+        """
+        构造LLM输入payload。
+
+        参数:
+            section: 当前要生成的章节，提供标题/编号/提纲。
+            context: 全局上下文字典，包含主题、三引擎报告、篇幅规划等。
+
+        返回:
+            dict: 可以直接序列化进提示词的payload，兼顾章节信息与全局约束。
+        """
         reports = context.get("reports", {})
         # 章节篇幅规划（来自WordBudgetNode），用于指导字数与强调点
         chapter_plan_map = context.get("chapter_directives", {})
@@ -233,7 +258,19 @@ class ChapterGenerationNode(BaseNode):
         section_meta: Optional[Dict[str, Any]] = None,
         **kwargs,
     ) -> str:
-        """流式调用LLM并实时写入raw文件，同时通过回调将delta抛出。"""
+        """
+        流式调用LLM并实时写入raw文件，同时通过回调将delta抛出。
+
+        参数:
+            user_message: 拼装好的用户提示词。
+            chapter_dir: 章节的本地缓存目录，用于存放 stream.raw。
+            stream_callback: SSE流式推送的回调函数。
+            section_meta: 附带的章节ID/标题，用于回调payload。
+            **kwargs: 透传温度、top_p等参数。
+
+        返回:
+            str: 将所有delta拼接后的原始文本。
+        """
         chunks: List[str] = []
         with self.storage.capture_stream(chapter_dir) as stream_fp:
             stream = self.llm_client.stream_invoke(
@@ -254,7 +291,18 @@ class ChapterGenerationNode(BaseNode):
         return "".join(chunks)
 
     def _parse_chapter(self, raw_text: str) -> Dict[str, Any]:
-        """清洗LLM输出并解析JSON"""
+        """
+        清洗LLM输出并解析JSON。
+
+        参数:
+            raw_text: LLM原始输出（可能包含```包裹或额外说明）。
+
+        返回:
+            dict: 章节JSON对象，至少包含 chapterId/title/blocks。
+
+        异常:
+            ChapterJsonParseError: 多种修复策略仍无法解析合法JSON。
+        """
         cleaned = raw_text.strip()
         if cleaned.startswith("```json"):
             cleaned = cleaned[7:]
@@ -304,7 +352,15 @@ class ChapterGenerationNode(BaseNode):
         raise ValueError("章节JSON缺少chapter字段")
 
     def _repair_llm_json(self, text: str) -> str:
-        """处理常见的LLM错误（如\":=导致的非法JSON）"""
+        """
+        处理常见的LLM错误（如":=导致的非法JSON）。
+
+        参数:
+            text: 原始章节JSON文本。
+
+        返回:
+            str: 修复后的文本；若未做改动则返回原内容。
+        """
         repaired = text
         mutated = False
 
@@ -482,7 +538,12 @@ class ChapterGenerationNode(BaseNode):
         return fixed
 
     def _sanitize_chapter_blocks(self, chapter: Dict[str, Any]):
-        """修正常见的结构性错误（例如list.items嵌套过深）"""
+        """
+        修正常见的结构性错误（例如list.items嵌套过深）。
+
+        参数:
+            chapter: 章节JSON对象，会在原地被清理和规整。
+        """
 
         def walk(blocks: List[Dict[str, Any]] | None):
             """递归检查并修复嵌套结构，保证每个block合法"""
@@ -527,6 +588,12 @@ class ChapterGenerationNode(BaseNode):
 
         若blocks缺失、除标题外无有效区块，或正文字符数低于阈值，
         则视为章节内容异常，触发ChapterContentError以便上游重试。
+
+        参数:
+            chapter: 当前章节JSON。
+
+        异常:
+            ChapterContentError: 当正文区块数量或字符数达不到下限时抛出。
         """
         blocks = chapter.get("blocks")
         if not isinstance(blocks, list) or not blocks:
@@ -552,6 +619,12 @@ class ChapterGenerationNode(BaseNode):
         - 忽略heading/divider/widget等非正文类型；
         - 对paragraph/list/table/callout等结构抽取嵌套文本；
         - 仅用于粗粒度判断篇幅是否合理。
+
+        参数:
+            blocks: 章节的 blocks 列表或子树。
+
+        返回:
+            int: 估算的正文字符数量。
         """
 
         def walk(node: Any) -> int:
