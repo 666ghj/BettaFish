@@ -193,10 +193,22 @@ class HTMLRenderer:
         chapters = "".join(self._render_chapter(chapter) for chapter in self.chapters)
         widget_scripts = "\n".join(self.widget_scripts)
         hydration = self._hydration_script()
+        overlay = """
+<div id="export-overlay" class="export-overlay no-print" aria-hidden="true">
+  <div class="export-dialog" role="status" aria-live="assertive">
+    <div class="export-spinner" aria-hidden="true"></div>
+    <p class="export-status">正在导出PDF，请稍候...</p>
+    <div class="export-progress" role="progressbar" aria-valuetext="正在导出">
+      <div class="export-progress-bar"></div>
+    </div>
+  </div>
+</div>
+""".strip()
 
         return f"""
 <body>
 {header}
+{overlay}
 <main>
 {cover}
 {hero}
@@ -1524,6 +1536,75 @@ body {{
 .action-btn:hover {{
   transform: translateY(-1px);
 }}
+body.exporting {{
+  cursor: progress;
+}}
+.export-overlay {{
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 9, 26, 0.55);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  z-index: 999;
+}}
+.export-overlay.active {{
+  opacity: 1;
+  pointer-events: all;
+}}
+.export-dialog {{
+  background: rgba(12, 19, 38, 0.92);
+  padding: 24px 32px;
+  border-radius: 18px;
+  color: #fff;
+  text-align: center;
+  min-width: 280px;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.45);
+}}
+.export-spinner {{
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 3px solid rgba(255,255,255,0.2);
+  border-top-color: var(--secondary-color);
+  margin: 0 auto 16px;
+  animation: export-spin 1s linear infinite;
+}}
+.export-status {{
+  margin: 0;
+  font-size: 1rem;
+}}
+.export-progress {{
+  width: 220px;
+  height: 6px;
+  background: rgba(255,255,255,0.25);
+  border-radius: 999px;
+  overflow: hidden;
+  margin: 20px auto 0;
+  position: relative;
+}}
+.export-progress-bar {{
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 45%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+  animation: export-progress 1.4s ease-in-out infinite;
+}}
+@keyframes export-spin {{
+  from {{ transform: rotate(0deg); }}
+  to {{ transform: rotate(360deg); }}
+}}
+@keyframes export-progress {{
+  0% {{ left: -45%; }}
+  50% {{ left: 20%; }}
+  100% {{ left: 110%; }}
+}}
 main {{
   max-width: {container_width};
   margin: 40px auto;
@@ -1776,6 +1857,23 @@ pre.code-block {{
   main {{
     box-shadow: none;
     margin: 0;
+  }}
+  .chapter > *,
+  .hero-section,
+  .callout,
+  .chart-card,
+  .kpi-grid,
+  .table-wrap,
+  figure,
+  blockquote {{
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }}
+  .chapter h2,
+  .chapter h3,
+  .chapter h4 {{
+    break-after: avoid;
+    page-break-after: avoid;
   }}
 }}
 """
@@ -2103,32 +2201,112 @@ function hydrateCharts() {
   });
 }
 
+function getExportOverlayParts() {
+  const overlay = document.getElementById('export-overlay');
+  if (!overlay) {
+    return null;
+  }
+  return {
+    overlay,
+    status: overlay.querySelector('.export-status')
+  };
+}
+
+function showExportOverlay(message) {
+  const parts = getExportOverlayParts();
+  if (!parts) return;
+  if (message && parts.status) {
+    parts.status.textContent = message;
+  }
+  parts.overlay.classList.add('active');
+  document.body.classList.add('exporting');
+}
+
+function updateExportOverlay(message) {
+  if (!message) return;
+  const parts = getExportOverlayParts();
+  if (parts && parts.status) {
+    parts.status.textContent = message;
+  }
+}
+
+function hideExportOverlay(delay) {
+  const parts = getExportOverlayParts();
+  if (!parts) return;
+  const close = () => {
+    parts.overlay.classList.remove('active');
+    document.body.classList.remove('exporting');
+  };
+  if (delay && delay > 0) {
+    setTimeout(close, delay);
+  } else {
+    close();
+  }
+}
+
 function exportPdf() {
   const target = document.querySelector('main');
-  if (!target || typeof html2canvas === 'undefined' || typeof jspdf === 'undefined') {
+  if (!target || typeof jspdf === 'undefined' || typeof jspdf.jsPDF !== 'function') {
     alert('PDF导出依赖未就绪');
     return;
   }
-  html2canvas(target, {scale: 2}).then(canvas => {
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jspdf.jsPDF('p', 'mm', 'a4');
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const imgHeight = canvas.height * pageWidth / canvas.width;
-    let heightLeft = imgHeight;
-    let position = 0;
-
-    pdf.addImage(imgData, 'PNG', 0, position, pageWidth, imgHeight);
-    heightLeft -= pageHeight;
-
-    while (heightLeft > 0) {
-      position = heightLeft - imgHeight;
-      pdf.addPage();
-      pdf.addImage(imgData, 'PNG', 0, position, pageWidth, imgHeight);
-      heightLeft -= pageHeight;
+  const exportBtn = document.getElementById('export-btn');
+  if (exportBtn) {
+    exportBtn.disabled = true;
+  }
+  showExportOverlay('正在导出PDF，请稍候...');
+  const pdf = new jspdf.jsPDF('p', 'mm', 'a4');
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pxWidth = Math.max(target.scrollWidth, document.documentElement.scrollWidth);
+  const restoreButton = () => {
+    if (exportBtn) {
+      exportBtn.disabled = false;
     }
-    pdf.save('report.pdf');
-  });
+  };
+  let renderTask;
+  try {
+    renderTask = pdf.html(target, {
+      x: 8,
+      y: 12,
+      width: pageWidth - 16,
+      margin: [12, 12, 20, 12],
+      autoPaging: 'text',
+      windowWidth: pxWidth,
+      pagebreak: {
+        mode: ['css', 'legacy'],
+        avoid: ['.chapter > *', '.callout', '.chart-card', '.table-wrap', '.kpi-grid', '.hero-section']
+      },
+      html2canvas: {
+        scale: 0.72,
+        useCORS: true,
+        logging: false
+      },
+      callback: (doc) => doc.save('report.pdf')
+    });
+  } catch (err) {
+    console.error('PDF 导出失败', err);
+    updateExportOverlay('导出失败，请稍后重试');
+    hideExportOverlay(1200);
+    restoreButton();
+    alert('PDF导出失败，请稍后重试');
+    return;
+  }
+  if (renderTask && typeof renderTask.then === 'function') {
+    renderTask.then(() => {
+      updateExportOverlay('导出完成，正在保存...');
+      hideExportOverlay(800);
+      restoreButton();
+    }).catch(err => {
+      console.error('PDF 导出失败', err);
+      updateExportOverlay('导出失败，请稍后重试');
+      hideExportOverlay(1200);
+      restoreButton();
+      alert('PDF导出失败，请稍后重试');
+    });
+  } else {
+    hideExportOverlay();
+    restoreButton();
+  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
