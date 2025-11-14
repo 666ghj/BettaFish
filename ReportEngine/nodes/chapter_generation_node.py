@@ -34,6 +34,13 @@ class ChapterJsonParseError(ValueError):
     """章节LLM输出无法解析为合法JSON时抛出的异常，附带原始文本方便排查。"""
 
     def __init__(self, message: str, raw_text: Optional[str] = None):
+        """
+        构造异常并附加原始输出，便于日志中定位。
+
+        Args:
+            message: 人类可读的错误描述。
+            raw_text: 触发异常的完整LLM输出。
+        """
         super().__init__(message)
         self.raw_text = raw_text
 
@@ -674,6 +681,7 @@ class ChapterGenerationNode(BaseNode):
         """
 
         def walk(node: Any) -> int:
+            """递归下钻block树并返回字符估算，跳过非正文类型"""
             if node is None:
                 return 0
             if isinstance(node, list):
@@ -891,6 +899,7 @@ class ChapterGenerationNode(BaseNode):
         fragment_buffer: List[Dict[str, Any]] = []
 
         def flush_buffer():
+            """将当前片段缓冲写入merged列表，必要时合并为单段paragraph"""
             nonlocal fragment_buffer
             if not fragment_buffer:
                 return

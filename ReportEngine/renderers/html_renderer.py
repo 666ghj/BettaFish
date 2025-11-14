@@ -427,6 +427,7 @@ class HTMLRenderer:
         extracted: List[Dict[str, Any]] = []
 
         def traverse(node: Any) -> None:
+            """递归遍历block树，识别text字段内潜在的嵌套block JSON"""
             if isinstance(node, dict):
                 for key, value in list(node.items()):
                     if key == "text" and isinstance(value, str):
@@ -1087,10 +1088,20 @@ class HTMLRenderer:
         return tuple(normalized) if normalized else None
 
     def _normalize_kpi_item(self, item: Any) -> tuple[str, str, str, str, str] | None:
+        """
+        将单条KPI记录规整为可对比的签名。
+
+        参数:
+            item: KPI数组中的原始字典，可能缺失字段或类型混杂。
+
+        返回:
+            tuple | None: (label, value, unit, delta, tone) 的五元组；若输入非法则为None。
+        """
         if not isinstance(item, dict):
             return None
 
         def normalize(value: Any) -> str:
+            """统一各类值的表现形式，便于生成稳定签名"""
             if value is None:
                 return ""
             if isinstance(value, (int, float)):

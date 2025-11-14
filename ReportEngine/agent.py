@@ -433,6 +433,14 @@ class ReportAgent:
                 })
                 # 章节流式回调：把LLM返回的delta透传给SSE，便于前端实时渲染
                 def chunk_callback(delta: str, meta: Dict[str, Any], section_ref: TemplateSection = section):
+                    """
+                    章节内容流式回调。
+
+                    Args:
+                        delta: LLM最新输出的增量文本。
+                        meta: 节点回传的章节元数据，兜底时使用。
+                        section_ref: 默认指向当前章节，保证在缺失元信息时也能定位。
+                    """
                     emit('chapter_chunk', {
                         'chapterId': meta.get('chapterId') or section_ref.chapter_id,
                         'title': meta.get('title') or section_ref.title,

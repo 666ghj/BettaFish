@@ -634,6 +634,13 @@ def stream_task(task_id: str):
         last_event_id = None
 
     def event_generator():
+        """
+        SSE事件生成器。
+
+        - 负责注册并消费对应任务的事件队列；
+        - 先回放历史事件再持续监听实时事件；
+        - 周期性发送心跳并在任务结束后自动注销监听。
+        """
         queue = _register_stream(task_id)
         try:
             # 断线重连场景下，先补发历史事件，保证界面状态一致
