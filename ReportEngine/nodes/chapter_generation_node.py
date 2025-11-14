@@ -18,6 +18,8 @@ from ..core import TemplateSection, ChapterStorage
 from ..ir import ALLOWED_BLOCK_TYPES, ALLOWED_INLINE_MARKS, IRValidator
 from ..prompts import (
     SYSTEM_PROMPT_CHAPTER_JSON,
+    SYSTEM_PROMPT_CHAPTER_JSON_REPAIR,
+    build_chapter_repair_prompt,
     build_chapter_user_prompt,
 )
 from .base_node import BaseNode
@@ -151,6 +153,20 @@ class ChapterGenerationNode(BaseNode):
         self._sanitize_chapter_blocks(chapter_json)
 
         valid, errors = self.validator.validate_chapter(chapter_json)
+        if not valid and errors:
+            repaired = self._attempt_llm_structural_repair(
+                chapter_json,
+                errors,
+                raw_text=raw_text,
+            )
+            if repaired:
+                chapter_json = repaired
+                chapter_json.setdefault("chapterId", section.chapter_id)
+                chapter_json.setdefault("anchor", section.slug)
+                chapter_json.setdefault("title", section.title)
+                chapter_json.setdefault("order", section.order)
+                self._sanitize_chapter_blocks(chapter_json)
+                valid, errors = self.validator.validate_chapter(chapter_json)
         content_error: ChapterContentError | None = None
         if valid:
             try:
@@ -536,6 +552,36 @@ class ChapterGenerationNode(BaseNode):
             return None
         logger.warning("已使用json_repair自动修复章节JSON语法")
         return fixed
+
+    def _attempt_llm_structural_repair(
+        self,
+        chapter: Dict[str, Any],
+        validation_errors: List[str],
+        raw_text: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """将结构性错误的章节交给LLM兜底修复，保持Report Engine相同的API设置。"""
+        if not validation_errors:
+            return None
+        payload = build_chapter_repair_prompt(chapter, validation_errors, raw_text)
+        try:
+            response = self.llm_client.invoke(
+                SYSTEM_PROMPT_CHAPTER_JSON_REPAIR,
+                payload,
+                temperature=0.0,
+                top_p=0.05,
+            )
+        except Exception as exc:  # pragma: no cover - 网络或API异常仅记录
+            logger.error(f"章节JSON LLM修复调用失败: {exc}")
+            return None
+        if not response:
+            return None
+        try:
+            repaired = self._parse_chapter(response)
+        except Exception as exc:
+            logger.error(f"LLM修复后的章节JSON解析失败: {exc}")
+            return None
+        logger.warning("章节JSON经多次本地修复仍不合规，已成功启用LLM兜底修复")
+        return repaired
 
     def _sanitize_chapter_blocks(self, chapter: Dict[str, Any]):
         """

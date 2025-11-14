@@ -9,6 +9,7 @@ import json
 
 from ..ir import (
     ALLOWED_BLOCK_TYPES,
+    ALLOWED_INLINE_MARKS,
     CHAPTER_JSON_SCHEMA_TEXT,
     IR_VERSION,
 )
@@ -317,6 +318,23 @@ SYSTEM_PROMPT_CHAPTER_JSON = f"""
 严禁添加除JSON以外的任何文本或注释。
 """
 
+SYSTEM_PROMPT_CHAPTER_JSON_REPAIR = f"""
+你现在扮演Report Engine的“章节JSON修复官”，负责在章节草稿无法通过IR校验时进行兜底修复。
+
+请牢记：
+1. 所有chapter必须满足IR版本 {IR_VERSION} 约束，仅允许以下block.type：{', '.join(ALLOWED_BLOCK_TYPES)}；
+2. paragraph.inlines中的marks必须来自以下集合：{', '.join(ALLOWED_INLINE_MARKS)}；
+3. 允许的结构、字段与嵌套规则全部写在《CHAPTER JSON SCHEMA》中，任何缺少字段、数组嵌套错误或list.items不是二维数组的情况都必须修复；
+4. 不得更改事实、数值与结论，只能对结构/字段名/嵌套层级做最小修改以通过校验；
+5. 最终输出只能包含合法JSON，格式严格为：{{"chapter": {{...修复后的章节JSON...}}}}，禁止额外解释或Markdown。
+
+<CHAPTER JSON SCHEMA>
+{CHAPTER_JSON_SCHEMA_TEXT}
+</CHAPTER JSON SCHEMA>
+
+只返回JSON，不要添加注释或自然语言。
+"""
+
 # 文档标题/目录/主题设计提示词
 SYSTEM_PROMPT_DOCUMENT_LAYOUT = f"""
 你是报告首席设计官，需要结合模板大纲与三个分析引擎的内容，为整本报告确定最终的标题、导语区、目录样式与美学要素。
@@ -364,6 +382,20 @@ def build_chapter_user_prompt(payload: dict) -> str:
 
     统一使用 `json.dumps(..., indent=2, ensure_ascii=False)`，便于LLM读取。
     """
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+def build_chapter_repair_prompt(chapter: dict, errors, original_text=None) -> str:
+    """
+    构造章节修复输入payload，包含原始章节与校验错误。
+    """
+    payload: dict = {
+        "failedChapter": chapter,
+        "validatorErrors": errors,
+    }
+    if original_text:
+        snippet = original_text[-2000:]
+        payload["rawOutputTail"] = snippet
     return json.dumps(payload, ensure_ascii=False, indent=2)
 
 
