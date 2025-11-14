@@ -54,6 +54,7 @@ class HTMLRenderer:
         self.toc_entries: List[Dict[str, Any]] = []
         self.heading_counter = 0
         self.metadata: Dict[str, Any] = {}
+        self.chapters: List[Dict[str, Any]] = []
         self.chapter_anchor_map: Dict[str, str] = {}
         self.heading_label_map: Dict[str, Dict[str, Any]] = {}
         self.primary_heading_index = 0
@@ -76,15 +77,15 @@ class HTMLRenderer:
         self.chart_counter = 0
         self.heading_counter = 0
         self.metadata = self.document.get("metadata", {}) or {}
+        raw_chapters = self.document.get("chapters", []) or []
+        self.chapters = self._prepare_chapters(raw_chapters)
         self.chapter_anchor_map = {
             chapter.get("chapterId"): chapter.get("anchor")
-            for chapter in self.document.get("chapters", [])
+            for chapter in self.chapters
             if chapter.get("chapterId") and chapter.get("anchor")
         }
-        self.heading_label_map = self._compute_heading_labels(self.document.get("chapters", []))
-        self.toc_entries = self._collect_toc_entries(
-            self.document.get("chapters", [])
-        )
+        self.heading_label_map = self._compute_heading_labels(self.chapters)
+        self.toc_entries = self._collect_toc_entries(self.chapters)
 
         metadata = self.metadata
         theme_tokens = metadata.get("themeTokens") or self.document.get("themeTokens", {})
@@ -95,6 +96,39 @@ class HTMLRenderer:
         return f"<!DOCTYPE html>\n<html lang=\"zh-CN\" class=\"no-js\">\n{head}\n{body}\n</html>"
 
     # ====== Head / Body ======
+
+    def _resolve_color_value(self, value: Any, fallback: str) -> str:
+        """从颜色token中提取字符串值"""
+        if isinstance(value, str):
+            value = value.strip()
+            return value or fallback
+        if isinstance(value, dict):
+            for key in ("main", "value", "color", "base", "default"):
+                candidate = value.get(key)
+                if isinstance(candidate, str) and candidate.strip():
+                    return candidate.strip()
+            for candidate in value.values():
+                if isinstance(candidate, str) and candidate.strip():
+                    return candidate.strip()
+        return fallback
+
+    def _resolve_color_family(self, value: Any, fallback: Dict[str, str]) -> Dict[str, str]:
+        """解析主/亮/暗三色，缺失时回落到默认值"""
+        result = {
+            "main": fallback.get("main", "#007bff"),
+            "light": fallback.get("light", fallback.get("main", "#007bff")),
+            "dark": fallback.get("dark", fallback.get("main", "#007bff")),
+        }
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped:
+                result["main"] = stripped
+            return result
+        if isinstance(value, dict):
+            result["main"] = self._resolve_color_value(value.get("main") or value, result["main"])
+            result["light"] = self._resolve_color_value(value.get("light") or value.get("lighter"), result["light"])
+            result["dark"] = self._resolve_color_value(value.get("dark") or value.get("darker"), result["dark"])
+        return result
 
     def _render_head(self, title: str, theme_tokens: Dict[str, Any]) -> str:
         """
@@ -151,10 +185,7 @@ class HTMLRenderer:
         cover = self._render_cover()
         hero = self._render_hero()
         toc_section = self._render_toc_section()
-        chapters = "".join(
-            self._render_chapter(chapter)
-            for chapter in self.document.get("chapters", [])
-        )
+        chapters = "".join(self._render_chapter(chapter) for chapter in self.chapters)
         widget_scripts = "\n".join(self.widget_scripts)
         hydration = self._hydration_script()
 
@@ -350,6 +381,145 @@ class HTMLRenderer:
                     )
         return entries
 
+    def _prepare_chapters(self, chapters: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """复制章节并展开其中序列化的block，避免渲染缺失"""
+        prepared: List[Dict[str, Any]] = []
+        for chapter in chapters or []:
+            chapter_copy = copy.deepcopy(chapter)
+            chapter_copy["blocks"] = self._expand_blocks_in_place(chapter_copy.get("blocks", []))
+            prepared.append(chapter_copy)
+        return prepared
+
+    def _expand_blocks_in_place(self, blocks: List[Dict[str, Any]] | None) -> List[Dict[str, Any]]:
+        """遍历block列表，将内嵌JSON串拆解为独立block"""
+        expanded: List[Dict[str, Any]] = []
+        for block in blocks or []:
+            extras = self._extract_embedded_blocks(block)
+            expanded.append(block)
+            if extras:
+                expanded.extend(self._expand_blocks_in_place(extras))
+        return expanded
+
+    def _extract_embedded_blocks(self, block: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """
+        在block内部查找被误写成字符串的block列表，并返回补充的block
+        """
+        extracted: List[Dict[str, Any]] = []
+
+        def traverse(node: Any) -> None:
+            if isinstance(node, dict):
+                for key, value in list(node.items()):
+                    if key == "text" and isinstance(value, str):
+                        decoded = self._decode_embedded_block_payload(value)
+                        if decoded:
+                            node[key] = ""
+                            extracted.extend(decoded)
+                        continue
+                    traverse(value)
+            elif isinstance(node, list):
+                for item in node:
+                    traverse(item)
+
+        traverse(block)
+        return extracted
+
+    def _decode_embedded_block_payload(self, raw: str) -> List[Dict[str, Any]] | None:
+        """
+        将字符串形式的block描述恢复为结构化列表。
+        """
+        if not isinstance(raw, str):
+            return None
+        stripped = raw.strip()
+        if not stripped or stripped[0] not in "{[":
+            return None
+        payload: Any | None = None
+        decode_targets = [stripped]
+        if stripped and stripped[0] != "[":
+            decode_targets.append(f"[{stripped}]")
+        for candidate in decode_targets:
+            try:
+                payload = json.loads(candidate)
+                break
+            except json.JSONDecodeError:
+                continue
+        if payload is None:
+            for candidate in decode_targets:
+                try:
+                    payload = ast.literal_eval(candidate)
+                    break
+                except (ValueError, SyntaxError):
+                    continue
+        if payload is None:
+            return None
+
+        blocks = self._collect_blocks_from_payload(payload)
+        return blocks or None
+
+    @staticmethod
+    def _looks_like_block(payload: Dict[str, Any]) -> bool:
+        """粗略判断dict是否符合block结构"""
+        if not isinstance(payload, dict):
+            return False
+        if "type" in payload and isinstance(payload["type"], str):
+            return True
+        structural_keys = {"blocks", "rows", "items", "widgetId", "widgetType", "data"}
+        return any(key in payload for key in structural_keys)
+
+    def _collect_blocks_from_payload(self, payload: Any) -> List[Dict[str, Any]]:
+        """递归收集payload中的block节点"""
+        collected: List[Dict[str, Any]] = []
+        if isinstance(payload, dict):
+            block_list = payload.get("blocks")
+            block_type = payload.get("type")
+            if isinstance(block_list, list) and not block_type:
+                for candidate in block_list:
+                    collected.extend(self._collect_blocks_from_payload(candidate))
+                return collected
+            if payload.get("cells") and not block_type:
+                for cell in payload["cells"]:
+                    collected.extend(self._collect_blocks_from_payload(cell.get("blocks")))
+                return collected
+            if payload.get("items") and not block_type:
+                for item in payload["items"]:
+                    collected.extend(self._collect_blocks_from_payload(item))
+                return collected
+            appended = False
+            if block_type or payload.get("widgetId") or payload.get("rows"):
+                coerced = self._coerce_block_dict(payload)
+                if coerced:
+                    collected.append(coerced)
+                    appended = True
+            items = payload.get("items")
+            if isinstance(items, list) and not block_type:
+                for item in items:
+                    collected.extend(self._collect_blocks_from_payload(item))
+                return collected
+            if appended:
+                return collected
+        elif isinstance(payload, list):
+            for item in payload:
+                collected.extend(self._collect_blocks_from_payload(item))
+        elif payload is None:
+            return collected
+        return collected
+
+    def _coerce_block_dict(self, payload: Any) -> Dict[str, Any] | None:
+        """尝试将dict补充为合法block结构"""
+        if not isinstance(payload, dict):
+            return None
+        block = copy.deepcopy(payload)
+        block_type = block.get("type")
+        if not block_type:
+            if "widgetId" in block:
+                block_type = block["type"] = "widget"
+            elif "rows" in block or "cells" in block:
+                block_type = block["type"] = "table"
+                if "rows" not in block and isinstance(block.get("cells"), list):
+                    block["rows"] = [{"cells": block.pop("cells")}]
+            elif "items" in block:
+                block_type = block["type"] = "list"
+        return block if block.get("type") else None
+
     def _format_toc_entry(self, entry: Dict[str, Any]) -> str:
         """
         将单个目录项转为带描述的HTML行。
@@ -519,6 +689,8 @@ class HTMLRenderer:
         handler = handlers.get(block_type)
         if handler:
             return handler(block)
+        if isinstance(block.get("blocks"), list):
+            return self._render_blocks(block["blocks"])
         return f'<pre class="unknown-block">{self._escape_html(json.dumps(block, ensure_ascii=False, indent=2))}</pre>'
 
     def _render_heading(self, block: Dict[str, Any]) -> str:
@@ -1085,23 +1257,50 @@ class HTMLRenderer:
 
     def _build_css(self, tokens: Dict[str, Any]) -> str:
         """根据主题token拼接整页CSS，包括响应式与打印样式"""
-        colors = tokens.get("colors", {})
-        fonts = tokens.get("fonts", {})
-        spacing = tokens.get("spacing", {})
-        bg = colors.get("bg", "#f8f9fa")
-        text_color = colors.get("text", "#212529")
-        primary = colors.get("primary", "#007bff")
-        secondary = colors.get("secondary", "#6c757d")
-        card = colors.get("card", "#ffffff")
-        border = colors.get("border", "#dee2e6")
+        colors = tokens.get("colors") or {}
+        typography = tokens.get("typography") or {}
+        fonts = tokens.get("fonts") or typography.get("fontFamily") or {}
+        spacing = tokens.get("spacing") or {}
+        primary_palette = self._resolve_color_family(
+            colors.get("primary"),
+            {"main": "#1a365d", "light": "#2d3748", "dark": "#0f1a2d"},
+        )
+        secondary_palette = self._resolve_color_family(
+            colors.get("secondary"),
+            {"main": "#e53e3e", "light": "#fc8181", "dark": "#c53030"},
+        )
+        bg = self._resolve_color_value(
+            colors.get("bg") or colors.get("background") or colors.get("surface"),
+            "#f8f9fa",
+        )
+        text_color = self._resolve_color_value(
+            colors.get("text") or colors.get("onBackground"),
+            "#212529",
+        )
+        card = self._resolve_color_value(
+            colors.get("card") or colors.get("surfaceCard"),
+            "#ffffff",
+        )
+        border = self._resolve_color_value(
+            colors.get("border") or colors.get("divider"),
+            "#dee2e6",
+        )
         shadow = "rgba(0,0,0,0.08)"
+        container_width = spacing.get("container") or spacing.get("containerWidth") or "1200px"
+        gutter = spacing.get("gutter") or spacing.get("pagePadding") or "24px"
+        body_font = fonts.get("body") or fonts.get("primary") or "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+        heading_font = fonts.get("heading") or fonts.get("primary") or fonts.get("secondary") or body_font
 
         return f"""
 :root {{
   --bg-color: {bg};
   --text-color: {text_color};
-  --primary-color: {primary};
-  --secondary-color: {secondary};
+  --primary-color: {primary_palette["main"]};
+  --primary-color-light: {primary_palette["light"]};
+  --primary-color-dark: {primary_palette["dark"]};
+  --secondary-color: {secondary_palette["main"]};
+  --secondary-color-light: {secondary_palette["light"]};
+  --secondary-color-dark: {secondary_palette["dark"]};
   --card-bg: {card};
   --border-color: {border};
   --shadow-color: {shadow};
@@ -1109,8 +1308,12 @@ class HTMLRenderer:
 .dark-mode {{
   --bg-color: #121212;
   --text-color: #e0e0e0;
-  --primary-color: #0d6efd;
-  --secondary-color: #adb5bd;
+  --primary-color: #6ea8fe;
+  --primary-color-light: #91caff;
+  --primary-color-dark: #1f6feb;
+  --secondary-color: #f28b82;
+  --secondary-color-light: #f9b4ae;
+  --secondary-color-dark: #d9655c;
   --card-bg: #1f1f1f;
   --border-color: #2c2c2c;
   --shadow-color: rgba(0, 0, 0, 0.4);
@@ -1118,7 +1321,7 @@ class HTMLRenderer:
 * {{ box-sizing: border-box; }}
 body {{
   margin: 0;
-  font-family: {fonts.get("body", "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif")};
+  font-family: {body_font};
   background: linear-gradient(180deg, rgba(0,0,0,0.04), rgba(0,0,0,0)) fixed, var(--bg-color);
   color: var(--text-color);
   line-height: 1.7;
@@ -1272,15 +1475,15 @@ body {{
   transform: translateY(-1px);
 }}
 main {{
-  max-width: {spacing.get("container", "1200px")};
+  max-width: {container_width};
   margin: 40px auto;
-  padding: {spacing.get("gutter", "24px")};
+  padding: {gutter};
   background: var(--card-bg);
   border-radius: 16px;
   box-shadow: 0 10px 30px var(--shadow-color);
 }}
 h1, h2, h3, h4, h5, h6 {{
-  font-family: {fonts.get("heading", fonts.get("body", "sans-serif"))};
+  font-family: {heading_font};
   color: var(--text-color);
   margin-top: 2em;
   margin-bottom: 0.6em;
