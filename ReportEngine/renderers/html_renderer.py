@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import ast
+import copy
 import html
 import json
 from typing import Any, Dict, List
@@ -18,6 +19,31 @@ class HTMLRenderer:
     - 动态构造目录、锚点、Chart.js脚本及互动逻辑；
     - 提供主题变量、编号映射等辅助功能。
     """
+
+    CALLOUT_ALLOWED_TYPES = {
+        "paragraph",
+        "list",
+        "table",
+        "blockquote",
+        "code",
+        "math",
+        "figure",
+        "kpiGrid",
+    }
+    INLINE_ARTIFACT_KEYS = {
+        "props",
+        "widgetId",
+        "widgetType",
+        "data",
+        "dataRef",
+        "datasets",
+        "labels",
+        "config",
+        "options",
+    }
+    TABLE_COMPLEX_CHARS = set(
+        "@％%（）()，,。；;：:、？?！!·…-—_+<>[]{}|\\/\"'`~$^&*#"
+    )
 
     def __init__(self, config: Dict[str, Any] | None = None):
         """初始化渲染器缓存并允许注入额外配置（如主题覆盖）"""
@@ -72,6 +98,7 @@ class HTMLRenderer:
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{self._escape_html(title)}</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-sankey@4"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script>
@@ -442,8 +469,9 @@ class HTMLRenderer:
 
     def _render_table(self, block: Dict[str, Any]) -> str:
         """渲染表格，同时保留caption与单元格属性"""
+        rows = self._normalize_table_rows(block.get("rows") or [])
         rows_html = ""
-        for row in block.get("rows", []):
+        for row in rows:
             row_cells = ""
             for cell in row.get("cells", []):
                 cell_tag = "th" if cell.get("header") or cell.get("isHeader") else "td"
@@ -461,6 +489,105 @@ class HTMLRenderer:
         caption = block.get("caption")
         caption_html = f"<caption>{self._escape_html(caption)}</caption>" if caption else ""
         return f'<div class="table-wrap"><table>{caption_html}<tbody>{rows_html}</tbody></table></div>'
+
+    def _normalize_table_rows(self, rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """检测并修正仅有单列的竖排表，转换为标准网格"""
+        if not rows:
+            return []
+        if not all(len((row.get("cells") or [])) == 1 for row in rows):
+            return rows
+        texts = [self._extract_row_text(row) for row in rows]
+        header_span = self._detect_transposed_header_span(rows, texts)
+        if not header_span:
+            return rows
+        normalized = self._transpose_single_cell_table(rows, header_span)
+        return normalized or rows
+
+    def _detect_transposed_header_span(self, rows: List[Dict[str, Any]], texts: List[str]) -> int:
+        """推断竖排表头的行数，用于后续转置"""
+        max_fields = min(8, len(rows) // 2)
+        header_span = 0
+        for idx, text in enumerate(texts):
+            if idx >= max_fields:
+                break
+            if self._is_potential_table_header(text):
+                header_span += 1
+            else:
+                break
+        if header_span < 2:
+            return 0
+        remainder = texts[header_span:]
+        if not remainder or (len(rows) - header_span) % header_span != 0:
+            return 0
+        if not any(self._looks_like_table_value(txt) for txt in remainder):
+            return 0
+        return header_span
+
+    def _is_potential_table_header(self, text: str) -> bool:
+        """根据长度与字符特征判断是否像表头字段"""
+        if not text:
+            return False
+        stripped = text.strip()
+        if not stripped or len(stripped) > 12:
+            return False
+        return not any(ch.isdigit() or ch in self.TABLE_COMPLEX_CHARS for ch in stripped)
+
+    def _looks_like_table_value(self, text: str) -> bool:
+        """判断该文本是否更像数据值，用于辅助判断转置"""
+        if not text:
+            return False
+        stripped = text.strip()
+        if len(stripped) >= 12:
+            return True
+        return any(ch.isdigit() or ch in self.TABLE_COMPLEX_CHARS for ch in stripped)
+
+    def _transpose_single_cell_table(self, rows: List[Dict[str, Any]], span: int) -> List[Dict[str, Any]]:
+        """将单列多行的表格转换为标准表头 + 若干数据行"""
+        total = len(rows)
+        if total <= span or (total - span) % span != 0:
+            return []
+        header_rows = rows[:span]
+        data_rows = rows[span:]
+        normalized: List[Dict[str, Any]] = []
+        header_cells = []
+        for row in header_rows:
+            cell = copy.deepcopy((row.get("cells") or [{}])[0])
+            cell["header"] = True
+            header_cells.append(cell)
+        normalized.append({"cells": header_cells})
+        for start in range(0, len(data_rows), span):
+            group = data_rows[start : start + span]
+            if len(group) < span:
+                break
+            normalized.append(
+                {
+                    "cells": [
+                        copy.deepcopy((item.get("cells") or [{}])[0])
+                        for item in group
+                    ]
+                }
+            )
+        return normalized
+
+    def _extract_row_text(self, row: Dict[str, Any]) -> str:
+        """提取表格行中的纯文本，方便启发式分析"""
+        cells = row.get("cells") or []
+        if not cells:
+            return ""
+        cell = cells[0]
+        texts: List[str] = []
+        for block in cell.get("blocks", []):
+            if isinstance(block, dict):
+                if block.get("type") == "paragraph":
+                    for inline in block.get("inlines") or []:
+                        if isinstance(inline, dict):
+                            value = inline.get("text")
+                        else:
+                            value = inline
+                        if value is None:
+                            continue
+                        texts.append(str(value))
+        return "".join(texts)
 
     def _render_blockquote(self, block: Dict[str, Any]) -> str:
         """渲染引用块，可嵌套其他block"""
@@ -487,9 +614,63 @@ class HTMLRenderer:
         """渲染高亮提示盒，tone决定颜色"""
         tone = block.get("tone", "info")
         title = block.get("title")
-        inner = self._render_blocks(block.get("blocks", []))
+        safe_blocks, trailing_blocks = self._split_callout_content(block.get("blocks"))
+        inner = self._render_blocks(safe_blocks)
         title_html = f"<strong>{self._escape_html(title)}</strong>" if title else ""
-        return f'<div class="callout tone-{tone}">{title_html}{inner}</div>'
+        callout_html = f'<div class="callout tone-{tone}">{title_html}{inner}</div>'
+        trailing_html = self._render_blocks(trailing_blocks) if trailing_blocks else ""
+        return callout_html + trailing_html
+
+    def _split_callout_content(
+        self, blocks: List[Dict[str, Any]] | None
+    ) -> tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """限定callout内部仅包含轻量内容，其余块剥离到外层"""
+        if not blocks:
+            return [], []
+        safe: List[Dict[str, Any]] = []
+        trailing: List[Dict[str, Any]] = []
+        for idx, child in enumerate(blocks):
+            child_type = child.get("type")
+            if child_type == "list":
+                sanitized, overflow = self._sanitize_callout_list(child)
+                if sanitized:
+                    safe.append(sanitized)
+                if overflow:
+                    trailing.extend(overflow)
+                    trailing.extend(copy.deepcopy(blocks[idx + 1 :]))
+                    break
+            elif child_type in self.CALLOUT_ALLOWED_TYPES:
+                safe.append(child)
+            else:
+                trailing.extend(copy.deepcopy(blocks[idx:]))
+                break
+        else:
+            return safe, []
+        return safe, trailing
+
+    def _sanitize_callout_list(
+        self, block: Dict[str, Any]
+    ) -> tuple[Dict[str, Any] | None, List[Dict[str, Any]]]:
+        """当列表项包含结构型block时，将其截断移出callout"""
+        items = block.get("items") or []
+        if not items:
+            return block, []
+        sanitized_items: List[List[Dict[str, Any]]] = []
+        trailing: List[Dict[str, Any]] = []
+        for idx, item in enumerate(items):
+            safe, overflow = self._split_callout_content(item)
+            if safe:
+                sanitized_items.append(safe)
+            if overflow:
+                trailing.extend(overflow)
+                for rest in items[idx + 1 :]:
+                    trailing.extend(copy.deepcopy(rest))
+                break
+        if not sanitized_items:
+            return None, trailing
+        new_block = copy.deepcopy(block)
+        new_block["items"] = sanitized_items
+        return new_block, trailing
 
     def _render_kpi_grid(self, block: Dict[str, Any]) -> str:
         """渲染KPI卡片栅格，包含指标值与涨跌幅"""
@@ -631,6 +812,8 @@ class HTMLRenderer:
                             nested_marks = inline_payload.get("marks")
                             if isinstance(nested_marks, list):
                                 marks.extend(nested_marks)
+                        elif any(key in payload for key in self.INLINE_ARTIFACT_KEYS):
+                            text_value = ""
 
         return text_value, marks
 
@@ -1281,10 +1464,11 @@ function mergeOptions(base, override) {
 }
 
 function resolveChartTypes(payload) {
+  const explicit = payload && payload.props && payload.props.type;
   const widgetType = payload && payload.widgetType ? payload.widgetType : 'chart.js/bar';
-  const primary = widgetType.includes('/') ? widgetType.split('/').pop() : widgetType;
+  const derived = widgetType && widgetType.includes('/') ? widgetType.split('/').pop() : widgetType;
   const extra = Array.isArray(payload && payload.preferredTypes) ? payload.preferredTypes : [];
-  const pipeline = [primary, ...extra, ...STABLE_CHART_TYPES];
+  const pipeline = [explicit, derived, ...extra, ...STABLE_CHART_TYPES].filter(Boolean);
   const result = [];
   pipeline.forEach(type => {
     if (type && !result.includes(type)) {
@@ -1456,6 +1640,15 @@ function buildChartOptions(payload) {
 }
 
 function instantiateChart(ctx, payload, optionsTemplate, type) {
+  if (!ctx) {
+    return null;
+  }
+  if (ctx.canvas && typeof Chart !== 'undefined' && typeof Chart.getChart === 'function') {
+    const existing = Chart.getChart(ctx.canvas);
+    if (existing) {
+      existing.destroy();
+    }
+  }
   const data = cloneDeep(payload && payload.data ? payload.data : {});
   const config = {
     type,

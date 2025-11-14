@@ -29,6 +29,7 @@ from .nodes import (
     TemplateSelectionNode,
     ChapterGenerationNode,
     ChapterJsonParseError,
+    ChapterContentError,
     DocumentLayoutNode,
     WordBudgetNode,
 )
@@ -438,20 +439,26 @@ class ReportAgent:
                             stream_callback=chunk_callback
                         )
                         break
-                    except ChapterJsonParseError as parse_error:
+                    except (ChapterJsonParseError, ChapterContentError) as structured_error:
+                        error_kind = (
+                            "content_sparse" if isinstance(structured_error, ChapterContentError) else "json_parse"
+                        )
+                        readable_label = "内容密度异常" if error_kind == "content_sparse" else "JSON解析失败"
                         logger.warning(
-                            "章节 %s JSON解析失败（第 %s/%s 次尝试）: %s",
+                            "章节 %s %s（第 %s/%s 次尝试）: %s",
                             section.title,
+                            readable_label,
                             attempt,
                             chapter_max_attempts,
-                            parse_error,
+                            structured_error,
                         )
                         emit('chapter_status', {
                             'chapterId': section.chapter_id,
                             'title': section.title,
                             'status': 'retrying' if attempt < chapter_max_attempts else 'error',
                             'attempt': attempt,
-                            'error': str(parse_error),
+                            'error': str(structured_error),
+                            'reason': error_kind,
                         })
                         if attempt >= chapter_max_attempts:
                             raise
