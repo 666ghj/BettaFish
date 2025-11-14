@@ -59,6 +59,8 @@ class HTMLRenderer:
         self.heading_label_map: Dict[str, Dict[str, Any]] = {}
         self.primary_heading_index = 0
         self.secondary_heading_index = 0
+        self.toc_rendered = False
+        self.hero_kpi_signature: tuple | None = None
 
     # ====== 公共入口 ======
 
@@ -78,6 +80,7 @@ class HTMLRenderer:
         self.heading_counter = 0
         self.metadata = self.document.get("metadata", {}) or {}
         raw_chapters = self.document.get("chapters", []) or []
+        self.toc_rendered = False
         self.chapters = self._prepare_chapters(raw_chapters)
         self.chapter_anchor_map = {
             chapter.get("chapterId"): chapter.get("anchor")
@@ -90,6 +93,8 @@ class HTMLRenderer:
         metadata = self.metadata
         theme_tokens = metadata.get("themeTokens") or self.document.get("themeTokens", {})
         title = metadata.get("title") or metadata.get("query") or "智能舆情报告"
+        hero_kpis = (metadata.get("hero") or {}).get("kpis")
+        self.hero_kpi_signature = self._kpi_signature_from_items(hero_kpis)
 
         head = self._render_head(title, theme_tokens)
         body = self._render_body()
@@ -320,12 +325,15 @@ class HTMLRenderer:
         """
         if not self.toc_entries:
             return ""
+        if self.toc_rendered:
+            return ""
         toc_config = self.metadata.get("toc") or {}
         toc_title = toc_config.get("title") or "📚 目录"
         toc_items = "".join(
             self._format_toc_entry(entry)
             for entry in self.toc_entries
         )
+        self.toc_rendered = True
         return f"""
 <nav class="toc">
   <div class="toc-title">{self._escape_html(toc_title)}</div>
@@ -965,6 +973,8 @@ class HTMLRenderer:
 
     def _render_kpi_grid(self, block: Dict[str, Any]) -> str:
         """渲染KPI卡片栅格，包含指标值与涨跌幅"""
+        if self._should_skip_overview_kpi(block):
+            return ""
         cards = ""
         for item in block.get("items", []):
             delta = item.get("delta")
@@ -1050,6 +1060,46 @@ class HTMLRenderer:
         </div>
         """
         return table_html
+
+    # ====== Front-matter guards ======
+
+    def _kpi_signature_from_items(self, items: Any) -> tuple | None:
+        """将KPI数组转换为可比较的签名"""
+        if not isinstance(items, list):
+            return None
+        normalized = []
+        for raw in items:
+            normalized_item = self._normalize_kpi_item(raw)
+            if normalized_item:
+                normalized.append(normalized_item)
+        return tuple(normalized) if normalized else None
+
+    def _normalize_kpi_item(self, item: Any) -> tuple[str, str, str, str, str] | None:
+        if not isinstance(item, dict):
+            return None
+
+        def normalize(value: Any) -> str:
+            if value is None:
+                return ""
+            if isinstance(value, (int, float)):
+                return str(value)
+            return str(value).strip()
+
+        label = normalize(item.get("label"))
+        value = normalize(item.get("value"))
+        unit = normalize(item.get("unit"))
+        delta = normalize(item.get("delta"))
+        tone = normalize(item.get("deltaTone") or item.get("tone"))
+        return label, value, unit, delta, tone
+
+    def _should_skip_overview_kpi(self, block: Dict[str, Any]) -> bool:
+        """若KPI内容与封面一致，则判定为重复总览"""
+        if not self.hero_kpi_signature:
+            return False
+        block_signature = self._kpi_signature_from_items(block.get("items"))
+        if not block_signature:
+            return False
+        return block_signature == self.hero_kpi_signature
 
     # ====== Inline 渲染 ======
 
