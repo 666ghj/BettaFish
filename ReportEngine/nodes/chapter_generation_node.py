@@ -686,6 +686,123 @@ class ChapterGenerationNode(BaseNode):
         block_type = block.get("type")
         if block_type == "paragraph":
             self._normalize_paragraph_block(block)
+        elif block_type == "table":
+            self._sanitize_table_block(block)
+
+    def _sanitize_table_block(self, block: Dict[str, Any]):
+        """保证表格的rows/cells结构合法且每个单元格包含至少一个block"""
+        rows = self._normalize_table_rows(block.get("rows"))
+        block["rows"] = rows
+
+    def _normalize_table_rows(self, rows: Any) -> List[Dict[str, Any]]:
+        """确保rows始终是由row对象组成的列表"""
+        if rows is None:
+            rows_iterable: List[Any] = []
+        elif isinstance(rows, list):
+            rows_iterable = rows
+        else:
+            rows_iterable = [rows]
+
+        normalized_rows: List[Dict[str, Any]] = []
+        for row in rows_iterable:
+            sanitized_row = self._normalize_table_row(row)
+            if sanitized_row:
+                normalized_rows.append(sanitized_row)
+
+        if not normalized_rows:
+            normalized_rows.append({"cells": [self._build_default_table_cell()]})
+        return normalized_rows
+
+    def _normalize_table_row(self, row: Any) -> Dict[str, Any] | None:
+        """将各种行表达统一成{'cells': [...]}结构"""
+        if row is None:
+            return None
+        if isinstance(row, dict):
+            result = dict(row)
+            cells_value = result.get("cells")
+        else:
+            result = {}
+            cells_value = row
+
+        cells = self._normalize_table_cells(cells_value)
+        if not cells:
+            cells = [self._build_default_table_cell()]
+        result["cells"] = cells
+        return result
+
+    def _normalize_table_cells(self, cells: Any) -> List[Dict[str, Any]]:
+        """清洗单元格，保证每个cell下都有非空blocks"""
+        if cells is None:
+            cell_entries: List[Any] = []
+        elif isinstance(cells, list):
+            cell_entries = cells
+        else:
+            cell_entries = [cells]
+
+        normalized_cells: List[Dict[str, Any]] = []
+        for cell in cell_entries:
+            sanitized = self._normalize_table_cell(cell)
+            if sanitized:
+                normalized_cells.append(sanitized)
+
+        return normalized_cells
+
+    def _normalize_table_cell(self, cell: Any) -> Dict[str, Any] | None:
+        """把各种单元格写法规整为schema认可的形式"""
+        if cell is None:
+            return {"blocks": [self._as_paragraph_block("")]}
+
+        if isinstance(cell, dict):
+            normalized = dict(cell)
+            blocks = self._coerce_cell_blocks(normalized.get("blocks"), normalized)
+        elif isinstance(cell, list):
+            normalized = {}
+            blocks = self._coerce_cell_blocks(cell, None)
+        elif isinstance(cell, (str, int, float)):
+            normalized = {}
+            blocks = [self._as_paragraph_block(str(cell))]
+        else:
+            normalized = {}
+            blocks = [self._as_paragraph_block(str(cell))]
+
+        normalized["blocks"] = blocks or [self._as_paragraph_block("")]
+        return normalized
+
+    def _coerce_cell_blocks(
+        self, blocks: Any, source: Dict[str, Any] | None
+    ) -> List[Dict[str, Any]]:
+        """将cell.blocks字段强制转换为合法的block数组"""
+        if isinstance(blocks, list):
+            entries = blocks
+        elif blocks is None:
+            entries = []
+        else:
+            entries = [blocks]
+
+        normalized_blocks: List[Dict[str, Any]] = []
+        for entry in entries:
+            if isinstance(entry, dict):
+                normalized_blocks.append(entry)
+            elif isinstance(entry, list):
+                normalized_blocks.extend(self._coerce_cell_blocks(entry, None))
+            elif isinstance(entry, (str, int, float)):
+                normalized_blocks.append(self._as_paragraph_block(str(entry)))
+            elif entry is None:
+                continue
+            else:
+                normalized_blocks.append(self._as_paragraph_block(str(entry)))
+
+        if normalized_blocks:
+            return normalized_blocks
+
+        text_hint = ""
+        if isinstance(source, dict):
+            text_hint = self._extract_block_text(source).strip()
+        return [self._as_paragraph_block(text_hint or "--")]
+
+    def _build_default_table_cell(self) -> Dict[str, Any]:
+        """生成一个最小可渲染的空白单元格"""
+        return {"blocks": [self._as_paragraph_block("--")]}
 
     def _normalize_paragraph_block(self, block: Dict[str, Any]):
         """将paragraph的inlines统一规整，剔除非法marks"""
