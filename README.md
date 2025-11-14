@@ -162,16 +162,36 @@ BettaFish/
 │       ├── config.py              # 配置管理
 │       └── text_processing.py     # 文本处理工具
 ├── ReportEngine/                  # 多轮报告生成Agent
-│   ├── agent.py                   # Agent主逻辑
-│   ├── llms/                      # LLM接口
-│   ├── nodes/                     # 报告生成节点
-│   │   ├── template_selection.py  # 模板选择节点
-│   │   └── html_generation.py     # HTML生成节点
-│   ├── report_template/           # 报告模板库
+│   ├── agent.py                   # 串联模板→布局→篇幅→章节→渲染的总调度
+│   ├── flask_interface.py         # Flask/SSE入口，管理任务排队与流式事件
+│   ├── llms/                      # OpenAI兼容LLM封装
+│   │   └── base.py                # 统一的流式/重试客户端
+│   ├── core/                      # 模板切片、章节落盘与装订工具
+│   │   ├── template_parser.py     # Markdown模板切片与slug生成
+│   │   ├── chapter_storage.py     # 章节run目录、manifest与raw流写入
+│   │   └── stitcher.py            # Document IR装订器，补齐锚点/元数据
+│   ├── ir/                        # 报告IR契约与校验
+│   │   ├── schema.py              # 块/标记Schema常量
+│   │   └── validator.py           # 章节JSON结构校验器
+│   ├── nodes/                     # 全流程推理节点
+│   │   ├── base_node.py           # 节点基类+日志/状态钩子
+│   │   ├── template_selection_node.py # 模板候选收集与LLM筛选
+│   │   ├── document_layout_node.py    # 标题/目录/主题设计
+│   │   ├── word_budget_node.py        # 篇幅规划与章节指令
+│   │   └── chapter_generation_node.py # 章节级JSON生成+校验
+│   ├── prompts/                   # 提示词库与Schema说明
+│   │   └── prompts.py             # 模板选择/布局/篇幅/章节提示词
+│   ├── renderers/                 # IR渲染器
+│   │   └── html_renderer.py       # Document IR → 交互式HTML
+│   ├── state/                     # 任务/元数据状态模型
+│   │   └── state.py               # ReportState与序列化工具
+│   ├── utils/                     # 配置与日志工具
+│   │   └── config.py              # Pydantic Settings与打印助手
+│   ├── report_template/           # Markdown模板库
 │   │   ├── 社会公共热点事件分析.md
 │   │   ├── 商业品牌舆情监测.md
 │   │   └── ...                    # 更多模板
-│   └── flask_interface.py         # Flask API接口
+│   └── ...                        # 其余缓存/__init__.py等
 ├── ForumEngine/                   # 论坛引擎简易实现
 │   ├── monitor.py                 # 日志监控和论坛管理
 │   └── llm_host.py                # 论坛主持人LLM模块
