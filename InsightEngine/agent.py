@@ -127,7 +127,10 @@ class DeepSearchAgent:
             return False
 
     def _cluster_and_sample_results(
-        self, results: List, max_results: int = 50, results_per_cluster: int = 5
+        self,
+        results: List,
+        max_results: int = MAX_CLUSTERED_RESULTS,
+        results_per_cluster: int = RESULTS_PER_CLUSTER,
     ) -> List:
         """
         对搜索结果进行聚类并采样
