@@ -15,6 +15,34 @@ class Settings(BaseSettings):
     REPORT_ENGINE_BASE_URL: Optional[str] = Field(None, description="Report Engine LLM基础URL")
     REPORT_ENGINE_MODEL_NAME: Optional[str] = Field(None, description="Report Engine LLM模型名称")
     REPORT_ENGINE_PROVIDER: Optional[str] = Field(None, description="模型服务商，仅兼容保留")
+    # 其他引擎API（用于跨引擎修复）
+    FORUM_HOST_API_KEY: Optional[str] = Field(
+        None, description="Forum Engine / Forum Host 的LLM API密钥（用于章节修复兜底）"
+    )
+    FORUM_HOST_BASE_URL: Optional[str] = Field(
+        None, description="Forum Engine API Base URL（为空则使用LLM默认配置）"
+    )
+    FORUM_HOST_MODEL_NAME: Optional[str] = Field(
+        None, description="Forum Engine LLM模型名称"
+    )
+    INSIGHT_ENGINE_API_KEY: Optional[str] = Field(
+        None, description="Insight Engine LLM API密钥，用于跨引擎章节修复"
+    )
+    INSIGHT_ENGINE_BASE_URL: Optional[str] = Field(
+        None, description="Insight Engine API Base URL"
+    )
+    INSIGHT_ENGINE_MODEL_NAME: Optional[str] = Field(
+        None, description="Insight Engine LLM模型名称"
+    )
+    MEDIA_ENGINE_API_KEY: Optional[str] = Field(
+        None, description="Media Engine LLM API密钥，用于跨引擎章节修复"
+    )
+    MEDIA_ENGINE_BASE_URL: Optional[str] = Field(
+        None, description="Media Engine API Base URL"
+    )
+    MEDIA_ENGINE_MODEL_NAME: Optional[str] = Field(
+        None, description="Media Engine LLM模型名称"
+    )
     MAX_CONTENT_LENGTH: int = Field(200000, description="最大内容长度")
     OUTPUT_DIR: str = Field("final_reports", description="主输出目录")
     # 章节分块JSON会存储在该目录，便于溯源与断点续传
@@ -35,6 +63,9 @@ class Settings(BaseSettings):
     LOG_FILE: str = Field("logs/report.log", description="日志输出文件")
     ENABLE_PDF_EXPORT: bool = Field(True, description="是否允许导出PDF")
     CHART_STYLE: str = Field("modern", description="图表样式：modern/classic/")
+    JSON_ERROR_LOG_DIR: str = Field(
+        "logs/json_repair_failures", description="无法修复的JSON块落盘目录"
+    )
 
     class Config:
         """Pydantic配置：允许从.env读取并兼容大小写"""
