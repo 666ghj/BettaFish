@@ -1235,7 +1235,7 @@
         const configFieldGroups = [
             {
                 title: '数据库连接',
-                subtitle: '用于连接业务数据库的基本配置',
+                subtitle: '用于连接社媒数据库的基本配置，注意数据库默认为空，需要单独部署MindSpider爬取数据',
                 fields: [
                     { key: 'DB_DIALECT', label: '数据库类型', type: 'select', options: ['mysql', 'postgresql'] },
                     { key: 'DB_HOST', label: '主机地址' },
@@ -1248,7 +1248,7 @@
             },
             {
                 title: 'Insight Agent',
-                subtitle: '负责洞察分析的模型配置',
+                subtitle: 'OpenAi接入格式，推荐LLM：kimi-k2',
                 fields: [
                     { key: 'INSIGHT_ENGINE_API_KEY', label: 'API Key', type: 'password' },
                     { key: 'INSIGHT_ENGINE_BASE_URL', label: 'Base URL' },
@@ -1257,7 +1257,7 @@
             },
             {
                 title: 'Media Agent',
-                subtitle: '媒体内容理解与生成模型',
+                subtitle: 'OpenAi接入格式，推荐LLM：gemini-2.5-pro',
                 fields: [
                     { key: 'MEDIA_ENGINE_API_KEY', label: 'API Key', type: 'password' },
                     { key: 'MEDIA_ENGINE_BASE_URL', label: 'Base URL' },
@@ -1266,7 +1266,7 @@
             },
             {
                 title: 'Query Agent',
-                subtitle: '负责搜索与信息汇总的模型配置',
+                subtitle: 'OpenAi接入格式，推荐LLM：deepseek-chat',
                 fields: [
                     { key: 'QUERY_ENGINE_API_KEY', label: 'API Key', type: 'password' },
                     { key: 'QUERY_ENGINE_BASE_URL', label: 'Base URL' },
@@ -1275,7 +1275,7 @@
             },
             {
                 title: 'Report Agent',
-                subtitle: '报告生成使用的模型配置',
+                subtitle: 'OpenAi接入格式，推荐LLM：gemini-2.5-pro',
                 fields: [
                     { key: 'REPORT_ENGINE_API_KEY', label: 'API Key', type: 'password' },
                     { key: 'REPORT_ENGINE_BASE_URL', label: 'Base URL' },
@@ -1284,7 +1284,7 @@
             },
             {
                 title: 'Forum Host',
-                subtitle: '多智能体协同使用的模型配置',
+                subtitle: 'OpenAi接入格式，推荐LLM：qwen-plus',
                 fields: [
                     { key: 'FORUM_HOST_API_KEY', label: 'API Key', type: 'password' },
                     { key: 'FORUM_HOST_BASE_URL', label: 'Base URL' },
@@ -1293,7 +1293,7 @@
             },
             {
                 title: 'Keyword Optimizer',
-                subtitle: 'SQL / 关键词优化模型配置',
+                subtitle: 'OpenAi接入格式，推荐LLM：qwen-plus',
                 fields: [
                     { key: 'KEYWORD_OPTIMIZER_API_KEY', label: 'API Key', type: 'password' },
                     { key: 'KEYWORD_OPTIMIZER_BASE_URL', label: 'Base URL' },
@@ -1302,7 +1302,7 @@
             },
             {
                 title: '外部检索工具',
-                subtitle: '联动搜索引擎、网站抓取等在线服务',
+                subtitle: '联动搜索引擎、网站抓取等在线服务，两个都需配置',
                 fields: [
                     { key: 'TAVILY_API_KEY', label: 'Tavily API Key', type: 'password' },
                     { key: 'BOCHA_WEB_SEARCH_API_KEY', label: 'Bocha API Key', type: 'password' }

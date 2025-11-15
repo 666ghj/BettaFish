@@ -247,7 +247,9 @@ BettaFish/
 
 ### 1. 启动项目
 
-**运行命令：** 执行以下命令在**后台**启动所有服务：
+复制一份 `.env.example` 文件，命名为 `.env` ，并按需配置 `.env` 文件中的环境变量
+
+执行以下命令在后台启动所有服务：
 
 ```bash
 docker compose up -d
@@ -669,7 +671,7 @@ class DeepSearchAgent:
 
 ### 联系方式
 
-- 📧 **邮箱**：670939375@qq.com
+- 📧 **邮箱**：hangjiang@bupt.edu.cn
 
 ### 商务合作
 

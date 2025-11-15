@@ -668,7 +668,7 @@ This project is licensed under the [GPL-2.0 License](LICENSE). Please see the LI
 
 ### Contact Information
 
-- 📧 **Email**: 670939375@qq.com
+- 📧 **Email**: hangjiang@bupt.edu.cn
 
 ### Business Cooperation
 
