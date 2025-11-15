@@ -241,7 +241,7 @@ class HTMLRenderer:
   <div class="header-actions">
     <button id="theme-toggle" class="action-btn" type="button">🌗 主题切换</button>
     <button id="print-btn" class="action-btn" type="button">🖨️ 打印</button>
-    <button id="export-btn" class="action-btn" type="button">⬇️ 导出PDF</button>
+    <!-- <button id="export-btn" class="action-btn" type="button">⬇️ 导出PDF</button> -->
   </div>
 </header>
 """.strip()
