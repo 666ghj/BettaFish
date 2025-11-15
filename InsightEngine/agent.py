@@ -161,7 +161,7 @@ class DeepSearchAgent:
             # 从每个聚类采样
             sampled_results = []
             for cluster_id in range(n_clusters):
-                cluster_indices = np.where(labels == cluster_id)[0]
+                cluster_indices = np.flatnonzero(labels == cluster_id)
                 cluster_results = [(results[i], i) for i in cluster_indices]
                 cluster_results.sort(
                     key=lambda x: x[0].hotness_score or 0, reverse=True
