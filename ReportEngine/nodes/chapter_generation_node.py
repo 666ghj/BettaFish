@@ -26,7 +26,7 @@ from .base_node import BaseNode
 
 try:
     from json_repair import repair_json as _json_repair_fn
-except ImportError:  # pragma: no cover - optional dependency
+except ImportError:  # pragma: no cover - 可选依赖
     _json_repair_fn = None
 
 
@@ -552,7 +552,7 @@ class ChapterGenerationNode(BaseNode):
             return None
         try:
             fixed = _json_repair_fn(text)
-        except Exception as exc:  # pragma: no cover - library failure
+        except Exception as exc:  # pragma: no cover - 库级故障
             logger.warning(f"json_repair 修复章节JSON失败: {exc}")
             return None
         if fixed == text:

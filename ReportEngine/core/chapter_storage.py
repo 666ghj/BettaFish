@@ -68,7 +68,7 @@ class ChapterStorage:
         self.base_dir.mkdir(parents=True, exist_ok=True)
         self._manifests: Dict[str, Dict[str, object]] = {}
 
-    # ======== 会话 & manifest ========
+    # ======== 会话与清单 ========
 
     def start_session(self, report_id: str, metadata: Dict[str, object]) -> Path:
         """

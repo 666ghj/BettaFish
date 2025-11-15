@@ -51,19 +51,19 @@ class TemplateSection:
         }
 
 
-# The parsing expressions intentionally avoid `.*` to keep matching deterministic and
-# eliminate easy Regular-Expression-DoS gadgets on untrusted template text.
+# 解析表达式刻意避免使用 `.*`，以保持匹配的确定性，
+# 并规避不可信模板文本中常见的正则DoS风险。
 heading_pattern = re.compile(
     r"""
-    (?P<marker>\#{1,6})       # Markdown heading markers
-    [ \t]+                    # required whitespace
-    (?P<title>[^\r\n]+)       # heading text without newline characters
+    (?P<marker>\#{1,6})       # Markdown标题标记
+    [ \t]+                    # 必需的空白字符
+    (?P<title>[^\r\n]+)       # 不包含换行的标题文本
     """,
     re.VERBOSE,
 )
 bullet_pattern = re.compile(
     r"""
-    (?P<marker>[-*+])         # list bullet symbol
+    (?P<marker>[-*+])         # 列表项目符号
     [ \t]+
     (?P<title>[^\r\n]+)
     """,
@@ -130,7 +130,7 @@ def parse_template_sections(template_md: str) -> List[TemplateSection]:
             order += SECTION_ORDER_STEP
             continue
 
-        # outline
+        # 提纲条目
         if current:
             current.outline.append(meta["title"])
 

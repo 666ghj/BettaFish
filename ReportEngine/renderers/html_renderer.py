@@ -100,7 +100,7 @@ class HTMLRenderer:
         body = self._render_body()
         return f"<!DOCTYPE html>\n<html lang=\"zh-CN\" class=\"no-js\">\n{head}\n{body}\n</html>"
 
-    # ====== Head / Body ======
+    # ====== 头部 / 正文 ======
 
     def _resolve_color_value(self, value: Any, fallback: str) -> str:
         """从颜色token中提取字符串值"""
@@ -219,7 +219,7 @@ class HTMLRenderer:
 {hydration}
 </body>""".strip()
 
-    # ====== Header / Meta / TOC ======
+    # ====== 页眉 / 元信息 / 目录 ======
 
     def _render_header(self) -> str:
         """
@@ -653,7 +653,7 @@ class HTMLRenderer:
             words += numerals[ones]
         return words
 
-    # ====== 章节 & Block 渲染 ======
+    # ====== 章节与块级渲染 ======
 
     def _render_chapter(self, chapter: Dict[str, Any]) -> str:
         """
@@ -1074,7 +1074,7 @@ class HTMLRenderer:
         """
         return table_html
 
-    # ====== Front-matter guards ======
+    # ====== 前置信息防护 ======
 
     def _kpi_signature_from_items(self, items: Any) -> tuple | None:
         """将KPI数组转换为可比较的签名"""
@@ -1124,7 +1124,7 @@ class HTMLRenderer:
             return False
         return block_signature == self.hero_kpi_signature
 
-    # ====== Inline 渲染 ======
+    # ====== 行内渲染 ======
 
     def _normalize_inline_payload(self, run: Dict[str, Any]) -> tuple[str, List[Dict[str, Any]]]:
         """将嵌套inline node展平成基础文本与marks"""
@@ -1326,7 +1326,7 @@ class HTMLRenderer:
         escaped = html.escape(self._safe_text(value), quote=True)
         return escaped.replace("\n", " ").replace("\r", " ")
 
-    # ====== CSS / JS ======
+    # ====== CSS / JS（样式与脚本） ======
 
     def _build_css(self, tokens: Dict[str, Any]) -> str:
         """根据主题token拼接整页CSS，包括响应式与打印样式"""
