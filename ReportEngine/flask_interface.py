@@ -18,6 +18,7 @@ from flask import Blueprint, request, jsonify, Response, send_file, stream_with_
 from typing import Dict, Any, List, Optional
 from loguru import logger
 from .agent import ReportAgent, create_agent
+from .nodes import ChapterJsonParseError
 from .utils.config import settings
 
 
@@ -185,7 +186,7 @@ class ReportTask:
         self.task_id = task_id
         self.query = query
         self.custom_template = custom_template
-        self.status = "pending"  # pending, running, completed, error
+        self.status = "pending"  # 四种状态（pending/running/completed/error）
         self.progress = 0
         self.result = None
         self.error_message = ""
@@ -377,6 +378,25 @@ def run_report_generation(task: ReportTask, query: str, custom_template: str = "
                     stream_handler=stream_handler
                 )
                 break
+            except ChapterJsonParseError as err:
+                hint_message = "尝试将Report Engine的API更换为算力更强、上下文更长的LLM"
+                task.publish_event('warning', {
+                    'message': hint_message,
+                    'stage': 'agent_running',
+                    'attempt': attempt,
+                    'reason': 'chapter_json_parse',
+                    'error': str(err),
+                    'task': task.to_dict(),
+                })
+                # 旧逻辑：在JSON解析失败后重启Report Engine
+                # backoff = min(5 * attempt, 15)
+                # task.publish_event('stage', {
+                #     'message': f'{backoff} 秒后重试生成任务',
+                #     'stage': 'retry_wait',
+                #     'wait_seconds': backoff
+                # })
+                # time.sleep(backoff)
+                raise ChapterJsonParseError(hint_message) from err
             except Exception as err:
                 # 将错误即时推送至前端，方便观察重试策略
                 task.publish_event('warning', {
