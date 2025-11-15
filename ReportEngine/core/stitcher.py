@@ -51,6 +51,8 @@ class DocumentComposer:
             anchor = chapter.get("anchor") or f"section-{idx}"
             chapter["anchor"] = self._ensure_unique_anchor(anchor)
             chapter.setdefault("order", idx * 10)
+            if chapter.get("errorPlaceholder"):
+                self._ensure_heading_block(chapter)
 
         document = {
             "version": IR_VERSION,
@@ -75,6 +77,24 @@ class DocumentComposer:
             counter += 1
         self._seen_anchors.add(anchor)
         return anchor
+
+    def _ensure_heading_block(self, chapter: Dict[str, object]) -> None:
+        """保证占位章节仍然拥有可用于目录的heading block。"""
+        blocks = chapter.get("blocks")
+        if isinstance(blocks, list):
+            for block in blocks:
+                if isinstance(block, dict) and block.get("type") == "heading":
+                    return
+        heading = {
+            "type": "heading",
+            "level": 2,
+            "text": chapter.get("title") or "占位章节",
+            "anchor": chapter.get("anchor"),
+        }
+        if isinstance(blocks, list):
+            blocks.insert(0, heading)
+        else:
+            chapter["blocks"] = [heading]
 
 
 __all__ = ["DocumentComposer"]
