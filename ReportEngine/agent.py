@@ -464,12 +464,12 @@ class ReportAgent:
                         )
                         readable_label = "内容密度异常" if error_kind == "content_sparse" else "JSON解析失败"
                         logger.warning(
-                            "章节 %s %s（第 %s/%s 次尝试）: %s",
-                            section.title,
-                            readable_label,
-                            attempt,
-                            chapter_max_attempts,
-                            structured_error,
+                            "章节 {title} {label}（第 {attempt}/{total} 次尝试）: {error}",
+                            title=section.title,
+                            label=readable_label,
+                            attempt=attempt,
+                            total=chapter_max_attempts,
+                            error=structured_error,
                         )
                         emit('chapter_status', {
                             'chapterId': section.chapter_id,
@@ -487,11 +487,11 @@ class ReportAgent:
                         if not self._should_retry_inappropriate_content_error(chapter_error):
                             raise
                         logger.warning(
-                            "章节 %s 触发内容安全限制（第 %s/%s 次尝试），准备重新生成: %s",
-                            section.title,
-                            attempt,
-                            chapter_max_attempts,
-                            chapter_error,
+                            "章节 {title} 触发内容安全限制（第 {attempt}/{total} 次尝试），准备重新生成: {error}",
+                            title=section.title,
+                            attempt=attempt,
+                            total=chapter_max_attempts,
+                            error=chapter_error,
                         )
                         emit('chapter_status', {
                             'chapterId': section.chapter_id,
