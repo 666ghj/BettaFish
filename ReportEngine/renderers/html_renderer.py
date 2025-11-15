@@ -709,10 +709,36 @@ class HTMLRenderer:
         }
         handler = handlers.get(block_type)
         if handler:
-            return handler(block)
+            html_fragment = handler(block)
+            return self._wrap_error_block(html_fragment, block)
         if isinstance(block.get("blocks"), list):
-            return self._render_blocks(block["blocks"])
-        return f'<pre class="unknown-block">{self._escape_html(json.dumps(block, ensure_ascii=False, indent=2))}</pre>'
+            html_fragment = self._render_blocks(block["blocks"])
+            return self._wrap_error_block(html_fragment, block)
+        fallback = f'<pre class="unknown-block">{self._escape_html(json.dumps(block, ensure_ascii=False, indent=2))}</pre>'
+        return self._wrap_error_block(fallback, block)
+
+    def _wrap_error_block(self, html_fragment: str, block: Dict[str, Any]) -> str:
+        """若block标记了error元数据，则包裹提示容器并注入tooltip。"""
+        if not html_fragment:
+            return html_fragment
+        meta = block.get("meta") or {}
+        log_ref = meta.get("errorLogRef")
+        if not isinstance(log_ref, dict):
+            return html_fragment
+        raw_preview = (meta.get("rawJsonPreview") or "")[:1200]
+        error_message = meta.get("errorMessage") or "LLM返回块解析错误"
+        importance = meta.get("importance") or "standard"
+        ref_label = ""
+        if log_ref.get("relativeFile") and log_ref.get("entryId"):
+            ref_label = f"{log_ref['relativeFile']}#{log_ref['entryId']}"
+        tooltip = f"{error_message} | {ref_label}".strip()
+        attr_raw = self._escape_attr(raw_preview or tooltip)
+        attr_title = self._escape_attr(tooltip)
+        class_suffix = self._escape_attr(importance)
+        return (
+            f'<div class="llm-error-block importance-{class_suffix}" '
+            f'data-raw="{attr_raw}" title="{attr_title}">{html_fragment}</div>'
+        )
 
     def _render_heading(self, block: Dict[str, Any]) -> str:
         """渲染heading block，确保锚点存在"""
@@ -1497,6 +1523,41 @@ body {{
   font-size: 1.05rem;
   font-weight: 500;
   margin-top: 0;
+}}
+.llm-error-block {{
+  border: 1px dashed var(--secondary-color);
+  border-radius: 12px;
+  padding: 12px;
+  margin: 12px 0;
+  background: rgba(229,62,62,0.06);
+  position: relative;
+}}
+.llm-error-block.importance-critical {{
+  border-color: var(--secondary-color-dark);
+  background: rgba(229,62,62,0.12);
+}}
+.llm-error-block::after {{
+  content: attr(data-raw);
+  white-space: pre-wrap;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  max-height: 240px;
+  overflow: auto;
+  background: rgba(0,0,0,0.85);
+  color: #fff;
+  font-size: 0.85rem;
+  padding: 12px;
+  border-radius: 10px;
+  margin-bottom: 8px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 20;
+}}
+.llm-error-block:hover::after {{
+  opacity: 1;
 }}
 .report-header h1 {{
   margin: 0;
