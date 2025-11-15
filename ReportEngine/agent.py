@@ -10,6 +10,7 @@ Report Agent主类。
 
 import json
 import os
+from copy import deepcopy
 from pathlib import Path
 from uuid import uuid4
 from datetime import datetime
@@ -174,6 +175,8 @@ class ReportAgent:
     - 章节存储、IR装订、渲染器等产出链路；
     - 状态管理、日志、输入输出校验与持久化。
     """
+    _CONTENT_SPARSE_MIN_ATTEMPTS = 3
+    _CONTENT_SPARSE_WARNING_TEXT = "本章LLM生成的内容字数可能过低，必要时可以尝试重新运行程序。"
     
     def __init__(self, config: Optional[Settings] = None):
         """
@@ -466,7 +469,9 @@ class ReportAgent:
             emit('stage', {'stage': 'storage_ready', 'run_dir': str(run_dir)})
 
             chapters = []
-            chapter_max_attempts = max(1, self.config.CHAPTER_JSON_MAX_ATTEMPTS)
+            chapter_max_attempts = max(
+                self._CONTENT_SPARSE_MIN_ATTEMPTS, self.config.CHAPTER_JSON_MAX_ATTEMPTS
+            )
             for section in sections:
                 logger.info(f"生成章节: {section.title}")
                 emit('chapter_status', {
@@ -492,6 +497,9 @@ class ReportAgent:
 
                 chapter_payload: Dict[str, Any] | None = None
                 attempt = 1
+                best_sparse_candidate: Dict[str, Any] | None = None
+                best_sparse_score = -1
+                fallback_used = False
                 while attempt <= chapter_max_attempts:
                     try:
                         chapter_payload = self.chapter_generation_node.run(
@@ -506,6 +514,19 @@ class ReportAgent:
                             "content_sparse" if isinstance(structured_error, ChapterContentError) else "json_parse"
                         )
                         readable_label = "内容密度异常" if error_kind == "content_sparse" else "JSON解析失败"
+                        if isinstance(structured_error, ChapterContentError):
+                            candidate = getattr(structured_error, "chapter_payload", None)
+                            candidate_score = getattr(structured_error, "body_characters", 0) or 0
+                            if isinstance(candidate, dict) and candidate_score >= 0:
+                                if candidate_score > best_sparse_score:
+                                    best_sparse_candidate = deepcopy(candidate)
+                                    best_sparse_score = candidate_score
+                        will_fallback = (
+                            isinstance(structured_error, ChapterContentError)
+                            and attempt >= chapter_max_attempts
+                            and attempt >= self._CONTENT_SPARSE_MIN_ATTEMPTS
+                            and best_sparse_candidate is not None
+                        )
                         logger.warning(
                             "章节 {title} {label}（第 {attempt}/{total} 次尝试）: {error}",
                             title=section.title,
@@ -514,14 +535,27 @@ class ReportAgent:
                             total=chapter_max_attempts,
                             error=structured_error,
                         )
-                        emit('chapter_status', {
+                        status_value = 'retrying' if attempt < chapter_max_attempts or will_fallback else 'error'
+                        status_payload = {
                             'chapterId': section.chapter_id,
                             'title': section.title,
-                            'status': 'retrying' if attempt < chapter_max_attempts else 'error',
+                            'status': status_value,
                             'attempt': attempt,
                             'error': str(structured_error),
                             'reason': error_kind,
-                        })
+                        }
+                        if will_fallback:
+                            status_payload['warning'] = 'content_sparse_fallback_pending'
+                        emit('chapter_status', status_payload)
+                        if will_fallback:
+                            logger.warning(
+                                "章节 {title} 达到最大尝试次数，保留字数最多（约 {score} 字）的版本作为兜底输出",
+                                title=section.title,
+                                score=best_sparse_score,
+                            )
+                            chapter_payload = self._finalize_sparse_chapter(best_sparse_candidate)
+                            fallback_used = True
+                            break
                         if attempt >= chapter_max_attempts:
                             raise
                         attempt += 1
@@ -553,12 +587,16 @@ class ReportAgent:
                         f"{section.title} 章节JSON在 {chapter_max_attempts} 次尝试后仍无法解析"
                     )
                 chapters.append(chapter_payload)
-                emit('chapter_status', {
+                completion_status = {
                     'chapterId': section.chapter_id,
                     'title': section.title,
                     'status': 'completed',
                     'attempt': attempt,
-                })
+                }
+                if fallback_used:
+                    completion_status['warning'] = 'content_sparse_fallback'
+                    completion_status['warningMessage'] = self._CONTENT_SPARSE_WARNING_TEXT
+                emit('chapter_status', completion_status)
 
             document_ir = self.document_composer.build_document(
                 report_id,
@@ -778,6 +816,48 @@ class ReportAgent:
             "model-studio/error-code",
         ]
         return any(keyword in normalized for keyword in keywords)
+
+    def _finalize_sparse_chapter(self, chapter: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        构造内容稀疏兜底章节：复制原始payload并插入温馨提示段落。
+        """
+        safe_chapter = deepcopy(chapter or {})
+        if not isinstance(safe_chapter, dict):
+            safe_chapter = {}
+        self._ensure_sparse_warning_block(safe_chapter)
+        return safe_chapter
+
+    def _ensure_sparse_warning_block(self, chapter: Dict[str, Any]) -> None:
+        """
+        将提示段落插在章节标题后，提醒读者该章字数偏少。
+        """
+        warning_block = {
+            "type": "paragraph",
+            "inlines": [
+                {
+                    "text": self._CONTENT_SPARSE_WARNING_TEXT,
+                    "marks": [{"type": "italic"}],
+                }
+            ],
+            "meta": {"role": "content-sparse-warning"},
+        }
+        blocks = chapter.get("blocks")
+        if isinstance(blocks, list) and blocks:
+            inserted = False
+            for idx, block in enumerate(blocks):
+                if isinstance(block, dict) and block.get("type") == "heading":
+                    blocks.insert(idx + 1, warning_block)
+                    inserted = True
+                    break
+            if not inserted:
+                blocks.insert(0, warning_block)
+        else:
+            chapter["blocks"] = [warning_block]
+        meta = chapter.get("meta")
+        if isinstance(meta, dict):
+            meta["contentSparseWarning"] = True
+        else:
+            chapter["meta"] = {"contentSparseWarning": True}
 
     def _stringify(self, value: Any) -> str:
         """

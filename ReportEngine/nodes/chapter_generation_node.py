@@ -55,6 +55,20 @@ class ChapterContentError(ValueError):
     当LLM仅输出标题或正文不足以支撑一章时触发，驱动重试以保证报告质量。
     """
 
+    def __init__(
+        self,
+        message: str,
+        chapter: Optional[Dict[str, Any]] = None,
+        body_characters: int = 0,
+        narrative_characters: int = 0,
+        non_heading_blocks: int = 0,
+    ):
+        super().__init__(message)
+        self.chapter_payload: Optional[Dict[str, Any]] = chapter
+        self.body_characters: int = int(body_characters or 0)
+        self.narrative_characters: int = int(narrative_characters or 0)
+        self.non_heading_blocks: int = int(non_heading_blocks or 0)
+
 
 class ChapterGenerationNode(BaseNode):
     """
@@ -897,7 +911,13 @@ class ChapterGenerationNode(BaseNode):
         """
         blocks = chapter.get("blocks")
         if not isinstance(blocks, list) or not blocks:
-            raise ChapterContentError("章节缺少正文区块，无法输出内容")
+            raise ChapterContentError(
+                "章节缺少正文区块，无法输出内容",
+                chapter=chapter,
+                body_characters=0,
+                narrative_characters=0,
+                non_heading_blocks=0,
+            )
 
         non_heading_blocks = [
             block
@@ -905,16 +925,21 @@ class ChapterGenerationNode(BaseNode):
             if isinstance(block, dict)
             and block.get("type") not in {"heading", "divider", "toc"}
         ]
+        valid_block_count = len(non_heading_blocks)
         body_characters = self._count_body_characters(blocks)
         narrative_characters = self._count_narrative_characters(blocks)
 
         if (
-            len(non_heading_blocks) < self._MIN_NON_HEADING_BLOCKS
+            valid_block_count < self._MIN_NON_HEADING_BLOCKS
             or body_characters < self._MIN_BODY_CHARACTERS
             or narrative_characters < self._MIN_NARRATIVE_CHARACTERS
         ):
             raise ChapterContentError(
-                f"{chapter.get('title') or '该章节'} 正文不足：有效区块 {len(non_heading_blocks)} 个，估算字符数 {body_characters}，叙述性字符数 {narrative_characters}"
+                f"{chapter.get('title') or '该章节'} 正文不足：有效区块 {valid_block_count} 个，估算字符数 {body_characters}，叙述性字符数 {narrative_characters}",
+                chapter=chapter,
+                body_characters=body_characters,
+                narrative_characters=narrative_characters,
+                non_heading_blocks=valid_block_count,
             )
 
     def _count_body_characters(self, blocks: Any) -> int:
