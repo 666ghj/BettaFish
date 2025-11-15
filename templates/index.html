@@ -326,6 +326,16 @@
             min-height: 0; /* 允许内容缩小 */
         }
 
+        .console-layer {
+            display: none;
+            width: 100%;
+            min-height: 100%;
+        }
+
+        .console-layer.active {
+            display: block;
+        }
+
         .console-line {
             margin-bottom: 2px;
         }
@@ -1153,9 +1163,7 @@
                 </div>
 
                 <!-- 控制台输出 -->
-                <div class="console-output" id="consoleOutput">
-                    <div class="console-line">[系统] 等待连接...</div>
-                </div>
+                <div class="console-output" id="consoleOutput"></div>
             </div>
         </div>
 
@@ -1214,6 +1222,10 @@
         let socketConnected = false;
         let reportStreamConnected = false;
         let backendReachable = false;
+        const consoleLayerApps = ['insight', 'media', 'query', 'forum', 'report'];
+        const consoleLayers = {};
+        const consoleLayerScrollPositions = {};
+        let activeConsoleLayer = currentApp;
 
         const CONFIG_ENDPOINT = '/api/config';
         const SYSTEM_STATUS_ENDPOINT = '/api/system/status';
@@ -1318,9 +1330,11 @@
 
         // 初始化
         document.addEventListener('DOMContentLoaded', function() {
+            initializeConsoleLayers();
             initializeSocket();
             initializeEventListeners();
             ensureSystemReadyOnLoad();
+            loadConsoleOutput(currentApp);
             updateTime();
             setInterval(updateTime, 1000);
             checkStatus();
@@ -1370,9 +1384,7 @@
 
             socket.on('console_output', function(data) {
                 // 处理控制台输出
-                if (data.app === currentApp) {
-                    addConsoleOutput(data.line);
-                }
+                addConsoleOutput(data.line, data.app);
                 
                 // 如果是forum的输出，同时也处理为论坛消息
                 if (data.app === 'forum') {
@@ -2014,6 +2026,7 @@
             document.querySelector(`[data-app="${app}"]`).classList.add('active');
 
             currentApp = app;
+            setActiveConsoleLayer(app);
 
             // 根据应用类型处理不同的显示逻辑
             if (app === 'forum') {
@@ -2024,8 +2037,8 @@
                 document.getElementById('forumContainer').classList.add('active');
                 document.getElementById('reportContainer').classList.remove('active');
                 
-                // 清空控制台并加载forum日志
-                document.getElementById('consoleOutput').innerHTML = '<div class="console-line">[系统] 切换到论坛模式</div>';
+                // 追加提示并加载forum日志
+                appendConsoleTextLine('forum', '[系统] 切换到论坛模式');
                 loadForumLog();
                 
             } else if (app === 'report') {
@@ -2036,8 +2049,8 @@
                 document.getElementById('reportContainer').classList.add('active');
                 document.getElementById('forumContainer').classList.remove('active');
                 
-                // 清空控制台并加载report日志
-                document.getElementById('consoleOutput').innerHTML = '<div class="console-line">[系统] 切换到报告生成模式</div>';
+                // 追加提示并加载report日志
+                appendConsoleTextLine('report', '[系统] 切换到报告生成模式');
                 loadReportLog();
                 
                 // 只在报告界面未初始化时才重新加载
@@ -2059,11 +2072,8 @@
                 document.getElementById('forumContainer').classList.remove('active');
                 document.getElementById('reportContainer').classList.remove('active');
                 
-                // 清空并加载新的控制台输出
-                document.getElementById('consoleOutput').innerHTML = '<div class="console-line">[系统] 切换到 ' + appNames[app] + '</div>';
-                
-                // 重置行计数
-                lastLineCount[app] = 0;
+                // 追加提示并加载新的控制台输出
+                appendConsoleTextLine(app, '[系统] 切换到 ' + appNames[app]);
                 loadConsoleOutput(app);
             }
 
@@ -2073,6 +2083,127 @@
 
         // 存储最后显示的行数，避免重复加载
         let lastLineCount = {};
+
+        function getConsoleContainer() {
+            return document.getElementById('consoleOutput');
+        }
+
+        function initializeConsoleLayers() {
+            const container = getConsoleContainer();
+            if (!container) return;
+            container.innerHTML = '';
+
+            consoleLayerApps.forEach(app => {
+                const layer = document.createElement('div');
+                layer.className = 'console-layer';
+                layer.dataset.app = app;
+                if (app === currentApp) {
+                    layer.classList.add('active');
+                    layer.style.display = 'block';
+                    activeConsoleLayer = app;
+                } else {
+                    layer.style.display = 'none';
+                }
+
+                const placeholder = document.createElement('div');
+                placeholder.className = 'console-line';
+                placeholder.textContent = `[系统] ${appNames[app] || app} 日志就绪`;
+                layer.appendChild(placeholder);
+
+                container.appendChild(layer);
+                consoleLayers[app] = layer;
+            });
+
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function getConsoleLayer(app) {
+            if (consoleLayers[app]) {
+                return consoleLayers[app];
+            }
+
+            const container = getConsoleContainer();
+            if (!container) return null;
+
+            const layer = document.createElement('div');
+            layer.className = 'console-layer';
+            layer.dataset.app = app;
+            layer.style.display = app === currentApp ? 'block' : 'none';
+            if (app === currentApp) {
+                layer.classList.add('active');
+                activeConsoleLayer = app;
+            }
+
+            container.appendChild(layer);
+            consoleLayers[app] = layer;
+            return layer;
+        }
+
+        function setActiveConsoleLayer(app) {
+            const container = getConsoleContainer();
+            if (!container) return;
+
+            if (activeConsoleLayer && consoleLayers[activeConsoleLayer]) {
+                consoleLayerScrollPositions[activeConsoleLayer] = container.scrollTop;
+                consoleLayers[activeConsoleLayer].classList.remove('active');
+                consoleLayers[activeConsoleLayer].style.display = 'none';
+            }
+
+            const targetLayer = getConsoleLayer(app);
+            if (!targetLayer) return;
+
+            targetLayer.style.display = 'block';
+            targetLayer.classList.add('active');
+            activeConsoleLayer = app;
+
+            const storedScroll = consoleLayerScrollPositions[app];
+            if (typeof storedScroll === 'number') {
+                container.scrollTop = storedScroll;
+            } else {
+                container.scrollTop = container.scrollHeight;
+            }
+        }
+
+        function syncConsoleScroll(app) {
+            if (app !== currentApp) {
+                return;
+            }
+
+            const container = getConsoleContainer();
+            if (container) {
+                container.scrollTop = container.scrollHeight;
+                consoleLayerScrollPositions[app] = container.scrollTop;
+            }
+        }
+
+        function appendConsoleTextLine(app, text, className = 'console-line') {
+            const layer = getConsoleLayer(app);
+            if (!layer) return;
+
+            const line = document.createElement('div');
+            line.className = className;
+            line.textContent = text;
+            layer.appendChild(line);
+            syncConsoleScroll(app);
+        }
+
+        function appendConsoleElement(app, element) {
+            const layer = getConsoleLayer(app);
+            if (!layer || !element) return;
+
+            layer.appendChild(element);
+            syncConsoleScroll(app);
+        }
+
+        function clearConsoleLayer(app, message = null) {
+            const layer = getConsoleLayer(app);
+            if (!layer) return;
+
+            layer.innerHTML = '';
+            if (message) {
+                appendConsoleTextLine(app, message);
+            }
+        }
         
         // 加载控制台输出
         function loadConsoleOutput(app) {
@@ -2090,21 +2221,15 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success && data.output.length > 0) {
-                    const consoleOutput = document.getElementById('consoleOutput');
-                    
-                    // 只添加新的行
                     const lastCount = lastLineCount[app] || 0;
                     const newLines = data.output.slice(lastCount);
                     
-                    newLines.forEach(line => {
-                        const div = document.createElement('div');
-                        div.className = 'console-line';
-                        div.textContent = line;
-                        consoleOutput.appendChild(div);
-                    });
-                    
-                    lastLineCount[app] = data.output.length;
-                    consoleOutput.scrollTop = consoleOutput.scrollHeight;
+                    if (newLines.length > 0) {
+                        newLines.forEach(line => {
+                            appendConsoleTextLine(app, line);
+                        });
+                        lastLineCount[app] = data.output.length;
+                    }
                 }
             })
             .catch(error => {
@@ -2129,22 +2254,15 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.success && data.output.length > 0) {
-                        const consoleOutput = document.getElementById('consoleOutput');
-                        
                         // 只添加新的行
                         const lastCount = lastLineCount[currentApp] || 0;
                         const newLines = data.output.slice(lastCount);
                         
                         if (newLines.length > 0) {
                             newLines.forEach(line => {
-                                const div = document.createElement('div');
-                                div.className = 'console-line';
-                                div.textContent = line;
-                                consoleOutput.appendChild(div);
+                                appendConsoleTextLine(currentApp, line);
                             });
-                            
                             lastLineCount[currentApp] = data.output.length;
-                            consoleOutput.scrollTop = consoleOutput.scrollHeight;
                         }
                     }
                 })
@@ -2155,15 +2273,13 @@
         }
 
         // 添加控制台输出
-        function addConsoleOutput(line) {
-            const consoleOutput = document.getElementById('consoleOutput');
-            const div = document.createElement('div');
-            div.className = 'console-line';
-            div.textContent = line;
-            consoleOutput.appendChild(div);
+        function addConsoleOutput(line, app = currentApp) {
+            const targetApp = app || currentApp;
+            appendConsoleTextLine(targetApp, line);
 
-            // 自动滚动到底部显示最新内容
-            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            if (targetApp !== 'report') {
+                lastLineCount[targetApp] = (lastLineCount[targetApp] || 0) + 1;
+            }
         }
 
         // 预加载的iframe存储
@@ -2522,15 +2638,16 @@
                     `;
                     
                     // 加载控制台日志
-                    const consoleOutput = document.getElementById('consoleOutput');
-                    consoleOutput.innerHTML = '<div class="console-line">[系统] Forum Engine 日志输出</div>';
-                    
                     if (data.log_lines && data.log_lines.length > 0) {
-                        data.log_lines.forEach(line => {
-                            const div = document.createElement('div');
-                            div.className = 'console-line';
-                            div.textContent = line;
-                            consoleOutput.appendChild(div);
+                        if (forumLogLineCount === 0) {
+                            clearConsoleLayer('forum', '[系统] Forum Engine 日志输出');
+                        }
+
+                        const newLines = data.log_lines.slice(forumLogLineCount);
+                        const linesToProcess = forumLogLineCount === 0 ? data.log_lines : newLines;
+
+                        linesToProcess.forEach(line => {
+                            appendConsoleTextLine('forum', line);
                             
                             // 解析并添加到对话区
                             const parsed = parseForumMessage(line);
@@ -2553,7 +2670,6 @@
                         });
                     }
                     
-                    consoleOutput.scrollTop = consoleOutput.scrollHeight;
                 }
             })
             .catch(error => {
@@ -2567,15 +2683,10 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success && data.log_lines.length > forumLogLineCount) {
-                    const consoleOutput = document.getElementById('consoleOutput');
-                    
                     // 只添加新的行
                     const newLines = data.log_lines.slice(forumLogLineCount);
                     newLines.forEach(line => {
-                        const div = document.createElement('div');
-                        div.className = 'console-line';
-                        div.textContent = line;
-                        consoleOutput.appendChild(div);
+                        appendConsoleTextLine('forum', line);
                         
                         // 如果是论坛对话内容，也显示到左侧对话区
                         const parsed = parseForumMessage(line);
@@ -2585,7 +2696,6 @@
                     });
                     
                     forumLogLineCount = data.log_lines.length;
-                    consoleOutput.scrollTop = consoleOutput.scrollHeight;
                 }
             })
             .catch(error => {
@@ -2650,19 +2760,13 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success && data.log_lines.length > reportLogLineCount) {
-                    const consoleOutput = document.getElementById('consoleOutput');
-                    
                     // 只添加新的行
                     const newLines = data.log_lines.slice(reportLogLineCount);
                     newLines.forEach(line => {
-                        const div = document.createElement('div');
-                        div.className = 'console-line';
-                        div.textContent = line;
-                        consoleOutput.appendChild(div);
+                        appendConsoleTextLine('report', line);
                     });
                     
                     reportLogLineCount = data.log_lines.length;
-                    consoleOutput.scrollTop = consoleOutput.scrollHeight;
                 }
             })
             .catch(error => {
@@ -2676,15 +2780,16 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    const consoleOutput = document.getElementById('consoleOutput');
-                    consoleOutput.innerHTML = '<div class="console-line">[系统] Report Engine 日志监控已启动</div>';
-                    
+                    if (reportLogLineCount === 0) {
+                        clearConsoleLayer('report', '[系统] Report Engine 日志监控已启动');
+                    }
+
                     if (data.log_lines && data.log_lines.length > 0) {
-                        data.log_lines.forEach(line => {
-                            const div = document.createElement('div');
-                            div.className = 'console-line';
-                            div.textContent = line;
-                            consoleOutput.appendChild(div);
+                        const newLines = data.log_lines.slice(reportLogLineCount);
+                        const linesToProcess = reportLogLineCount === 0 ? data.log_lines : newLines;
+
+                        linesToProcess.forEach(line => {
+                            appendConsoleTextLine('report', line);
                         });
                         
                         // 重置计数器以确保后续消息能正确显示
@@ -2693,8 +2798,6 @@
                         // 如果没有日志，重置计数器
                         reportLogLineCount = 0;
                     }
-                    
-                    consoleOutput.scrollTop = consoleOutput.scrollHeight;
                 }
             })
             .catch(error => {
@@ -3168,8 +3271,7 @@
             safeCloseReportStream(true);
             
             // 清空控制台显示
-            const consoleOutput = document.getElementById('consoleOutput');
-            consoleOutput.innerHTML = '<div class="console-line">[系统] 开始生成报告，日志已重置</div>';
+            clearConsoleLayer('report', '[系统] 开始生成报告，日志已重置');
             resetReportStreamOutput('Report Engine 正在调度任务...');
             
             setGenerateButtonState(true);
@@ -3381,9 +3483,6 @@
 
         // 往黑色控制台输出区域追加一条流式日志
         function appendReportStreamLine(message, level = 'info', options = {}) {
-            const consoleOutput = document.getElementById('consoleOutput');
-            if (!consoleOutput) return;
-
             if (level === 'chunk' && !options.force) {
                 return; // 章节内容流式写入不再逐条输出
             }
@@ -3408,8 +3507,7 @@
             textSpan.textContent = message;
             line.appendChild(textSpan);
 
-            consoleOutput.appendChild(line);
-            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            appendConsoleElement('report', line);
         }
 
         function startStreamHeartbeat() {
