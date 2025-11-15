@@ -1028,6 +1028,75 @@ class HTMLRenderer:
             """
         return f'<div class="kpi-grid">{cards}</div>'
 
+    def _merge_dicts(
+        self, base: Dict[str, Any] | None, override: Dict[str, Any] | None
+    ) -> Dict[str, Any]:
+        """
+        递归合并两个字典，override覆盖base，均为新副本，避免副作用。
+        """
+        result = copy.deepcopy(base) if isinstance(base, dict) else {}
+        if not isinstance(override, dict):
+            return result
+        for key, value in override.items():
+            if isinstance(value, dict) and isinstance(result.get(key), dict):
+                result[key] = self._merge_dicts(result[key], value)
+            else:
+                result[key] = copy.deepcopy(value)
+        return result
+
+    def _looks_like_chart_dataset(self, candidate: Any) -> bool:
+        """启发式判断对象是否包含Chart.js常见的labels/datasets结构"""
+        if not isinstance(candidate, dict):
+            return False
+        labels = candidate.get("labels")
+        datasets = candidate.get("datasets")
+        return isinstance(labels, list) or isinstance(datasets, list)
+
+    def _coerce_chart_data_structure(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        兼容LLM输出的Chart.js完整配置（含type/data/options）。
+        若data中嵌套一个真正的labels/datasets结构，则提取并返回该结构。
+        """
+        if not isinstance(data, dict):
+            return {}
+        if self._looks_like_chart_dataset(data):
+            return data
+        for key in ("data", "chartData", "payload"):
+            nested = data.get(key)
+            if self._looks_like_chart_dataset(nested):
+                return copy.deepcopy(nested)
+        return data
+
+    def _prepare_widget_payload(
+        self, block: Dict[str, Any]
+    ) -> tuple[Dict[str, Any], Dict[str, Any]]:
+        """
+        预处理widget数据，兼容部分block将Chart.js配置写入data字段的情况。
+
+        返回:
+            tuple(props, data): 归一化后的props与chart数据
+        """
+        props = copy.deepcopy(block.get("props") or {})
+        raw_data = block.get("data")
+        data_copy = copy.deepcopy(raw_data) if isinstance(raw_data, dict) else raw_data
+        widget_type = block.get("widgetType") or ""
+        chart_like = isinstance(widget_type, str) and widget_type.startswith("chart.js")
+
+        if chart_like and isinstance(data_copy, dict):
+            inline_options = data_copy.pop("options", None)
+            inline_type = data_copy.pop("type", None)
+            normalized_data = self._coerce_chart_data_structure(data_copy)
+            if isinstance(inline_options, dict):
+                props["options"] = self._merge_dicts(props.get("options"), inline_options)
+            if isinstance(inline_type, str) and inline_type and not props.get("type"):
+                props["type"] = inline_type
+        elif isinstance(data_copy, dict):
+            normalized_data = data_copy
+        else:
+            normalized_data = {}
+
+        return props, normalized_data
+
     def _render_widget(self, block: Dict[str, Any]) -> str:
         """
         渲染Chart.js等交互组件的占位容器，并记录配置JSON。
@@ -1042,11 +1111,12 @@ class HTMLRenderer:
         canvas_id = f"chart-{self.chart_counter}"
         config_id = f"chart-config-{self.chart_counter}"
 
+        props, normalized_data = self._prepare_widget_payload(block)
         payload = {
             "widgetId": block.get("widgetId"),
             "widgetType": block.get("widgetType"),
-            "props": block.get("props", {}),
-            "data": block.get("data", {}),
+            "props": props,
+            "data": normalized_data,
             "dataRef": block.get("dataRef"),
         }
         config_json = json.dumps(payload, ensure_ascii=False).replace("</", "<\\/")
@@ -1054,9 +1124,9 @@ class HTMLRenderer:
             f'<script type="application/json" id="{config_id}">{config_json}</script>'
         )
 
-        title = block.get("props", {}).get("title")
+        title = props.get("title")
         title_html = f'<div class="chart-title">{self._escape_html(title)}</div>' if title else ""
-        fallback_html = self._render_widget_fallback(block)
+        fallback_html = self._render_widget_fallback(normalized_data)
         return f"""
         <div class="chart-card">
           {title_html}
@@ -1067,9 +1137,10 @@ class HTMLRenderer:
         </div>
         """
 
-    def _render_widget_fallback(self, block: Dict[str, Any]) -> str:
+    def _render_widget_fallback(self, data: Dict[str, Any]) -> str:
         """渲染图表数据的文本兜底视图，避免Chart.js加载失败时出现空白"""
-        data = block.get("data") or {}
+        if not isinstance(data, dict):
+            return ""
         labels = data.get("labels") or []
         datasets = data.get("datasets") or []
         if not labels or not datasets:
