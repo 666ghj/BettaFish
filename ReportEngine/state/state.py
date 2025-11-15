@@ -29,7 +29,11 @@ class ReportMetadata:
 
 @dataclass 
 class ReportState:
-    """简化的报告状态管理"""
+    """
+    简化的报告状态管理。
+
+    存储任务基本信息、输入、输出与元数据，供Agent与Flask层共享。
+    """
     # 基本信息
     task_id: str = ""                    # 任务ID
     query: str = ""                      # 原始查询
@@ -55,24 +59,24 @@ class ReportState:
         self.metadata.query = self.query
     
     def mark_processing(self):
-        """标记为处理中"""
+        """标记为处理中，后台线程开始调度生成流程。"""
         self.status = "processing"
     
     def mark_completed(self):
-        """标记为完成"""
+        """标记为完成，同时意味着 `html_content` 已可用。"""
         self.status = "completed"
     
     def mark_failed(self, error_message: str = ""):
-        """标记为失败"""
+        """标记为失败，并记录最后一次错误消息。"""
         self.status = "failed"
         self.error_message = error_message
     
     def is_completed(self) -> bool:
-        """检查是否完成"""
+        """检查是否完成，包括状态为completed且存在HTML内容。"""
         return self.status == "completed" and bool(self.html_content)
     
     def get_progress(self) -> float:
-        """获取进度百分比"""
+        """获取进度百分比，按照模板/内容两个阶段粗略估算。"""
         if self.status == "completed":
             return 100.0
         elif self.status == "processing":
@@ -87,7 +91,7 @@ class ReportState:
             return 0.0
     
     def to_dict(self) -> Dict[str, Any]:
-        """转换为字典格式"""
+        """转换为字典格式，方便序列化给前端。"""
         return {
             "task_id": self.task_id,
             "query": self.query,
@@ -100,7 +104,7 @@ class ReportState:
         }
     
     def save_to_file(self, file_path: str):
-        """保存状态到文件"""
+        """保存状态到文件，排除HTML正文以控制体积。"""
         try:
             state_data = self.to_dict()
             # 不保存完整的HTML内容到状态文件（太大）
@@ -113,7 +117,7 @@ class ReportState:
     
     @classmethod
     def load_from_file(cls, file_path: str) -> Optional["ReportState"]:
-        """从文件加载状态"""
+        """从文件加载状态，仅恢复关键字段便于调试。"""
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)

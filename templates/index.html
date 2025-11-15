@@ -326,6 +326,16 @@
             min-height: 0; /* 允许内容缩小 */
         }
 
+        .console-layer {
+            display: none;
+            width: 100%;
+            min-height: 100%;
+        }
+
+        .console-layer.active {
+            display: block;
+        }
+
         .console-line {
             margin-bottom: 2px;
         }
@@ -1027,6 +1037,49 @@
             display: none;
         }
 
+        .report-stream-line {
+            font-size: 12px;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            line-height: 1.5;
+        }
+
+        .report-stream-line .timestamp {
+            color: #cccccc;
+            min-width: 60px;
+        }
+
+        .report-stream-line .stream-badge {
+            border: 1px solid #444444;
+            padding: 1px 6px;
+            font-size: 10px;
+            text-transform: uppercase;
+            color: #ffffff;
+            letter-spacing: 0.5px;
+        }
+
+        .report-stream-line .line-text {
+            flex: 1;
+        }
+
+        .report-stream-line.chunk {
+            color: #8fd5ff;
+        }
+
+        .report-stream-line.warn {
+            color: #ffd166;
+        }
+
+        .report-stream-line.error {
+            color: #ff6b6b;
+        }
+
+        .report-stream-line.success {
+            color: #80ffb5;
+        }
+
         .report-loading {
             display: flex;
             align-items: center;
@@ -1038,6 +1091,7 @@
     </style>
 </head>
 <body>
+    <!-- 顶层容器：同时包裹搜索区、双列主工作区与状态栏 -->
     <div class="container">
         <!-- 搜索框区域 -->
         <div class="search-section">
@@ -1109,19 +1163,18 @@
                 </div>
 
                 <!-- 控制台输出 -->
-                <div class="console-output" id="consoleOutput">
-                    <div class="console-line">[系统] 等待连接...</div>
-                </div>
+                <div class="console-output" id="consoleOutput"></div>
             </div>
         </div>
 
-        <!-- 状态栏 -->
+        <!-- 状态栏：实时展示WebSocket连接状态与系统时钟 -->
         <div class="status-bar">
             <span id="connectionStatus">连接中...</span>
             <span id="systemTime"></span>
         </div>
     </div>
 
+    <!-- 配置弹窗：与后端.env互通，允许在线修改LLM参数 -->
     <div class="config-modal-overlay" id="configModal">
         <div class="config-modal">
             <div class="config-modal-header">
@@ -1144,9 +1197,10 @@
         </div>
     </div>
 
-    <!-- 消息提示 -->
+    <!-- 消息提示：右上角滑出式成功/错误提醒 -->
     <div class="message" id="message"></div>
 
+    <!-- 前端业务脚本：维护Socket连接、引擎启动状态与Report Engine交互 -->
     <script>
         // 全局变量
         let socket;
@@ -1165,6 +1219,13 @@
         let systemStarted = false;
         let systemStarting = false;
         let configModalLocked = false;
+        let socketConnected = false;
+        let reportStreamConnected = false;
+        let backendReachable = false;
+        const consoleLayerApps = ['insight', 'media', 'query', 'forum', 'report'];
+        const consoleLayers = {};
+        const consoleLayerScrollPositions = {};
+        let activeConsoleLayer = currentApp;
 
         const CONFIG_ENDPOINT = '/api/config';
         const SYSTEM_STATUS_ENDPOINT = '/api/system/status';
@@ -1269,13 +1330,16 @@
 
         // 初始化
         document.addEventListener('DOMContentLoaded', function() {
+            initializeConsoleLayers();
             initializeSocket();
             initializeEventListeners();
             ensureSystemReadyOnLoad();
+            loadConsoleOutput(currentApp);
             updateTime();
             setInterval(updateTime, 1000);
             checkStatus();
             setInterval(checkStatus, 5000);
+            startConnectionProbe();
             
             // 初始化密码切换功能（事件委托，只需调用一次）
             attachConfigPasswordToggles();
@@ -1308,19 +1372,19 @@
             socket = io();
 
             socket.on('connect', function() {
-                updateConnectionStatus('已连接');
+                socketConnected = true;
+                refreshConnectionStatus();
                 socket.emit('request_status');
             });
 
             socket.on('disconnect', function() {
-                updateConnectionStatus('连接断开');
+                socketConnected = false;
+                refreshConnectionStatus();
             });
 
             socket.on('console_output', function(data) {
                 // 处理控制台输出
-                if (data.app === currentApp) {
-                    addConsoleOutput(data.line);
-                }
+                addConsoleOutput(data.line, data.app);
                 
                 // 如果是forum的输出，同时也处理为论坛消息
                 if (data.app === 'forum') {
@@ -1962,6 +2026,7 @@
             document.querySelector(`[data-app="${app}"]`).classList.add('active');
 
             currentApp = app;
+            setActiveConsoleLayer(app);
 
             // 根据应用类型处理不同的显示逻辑
             if (app === 'forum') {
@@ -1972,8 +2037,8 @@
                 document.getElementById('forumContainer').classList.add('active');
                 document.getElementById('reportContainer').classList.remove('active');
                 
-                // 清空控制台并加载forum日志
-                document.getElementById('consoleOutput').innerHTML = '<div class="console-line">[系统] 切换到论坛模式</div>';
+                // 追加提示并加载forum日志
+                appendConsoleTextLine('forum', '[系统] 切换到论坛模式');
                 loadForumLog();
                 
             } else if (app === 'report') {
@@ -1984,8 +2049,8 @@
                 document.getElementById('reportContainer').classList.add('active');
                 document.getElementById('forumContainer').classList.remove('active');
                 
-                // 清空控制台并加载report日志
-                document.getElementById('consoleOutput').innerHTML = '<div class="console-line">[系统] 切换到报告生成模式</div>';
+                // 追加提示并加载report日志
+                appendConsoleTextLine('report', '[系统] 切换到报告生成模式');
                 loadReportLog();
                 
                 // 只在报告界面未初始化时才重新加载
@@ -2007,11 +2072,8 @@
                 document.getElementById('forumContainer').classList.remove('active');
                 document.getElementById('reportContainer').classList.remove('active');
                 
-                // 清空并加载新的控制台输出
-                document.getElementById('consoleOutput').innerHTML = '<div class="console-line">[系统] 切换到 ' + appNames[app] + '</div>';
-                
-                // 重置行计数
-                lastLineCount[app] = 0;
+                // 追加提示并加载新的控制台输出
+                appendConsoleTextLine(app, '[系统] 切换到 ' + appNames[app]);
                 loadConsoleOutput(app);
             }
 
@@ -2021,6 +2083,127 @@
 
         // 存储最后显示的行数，避免重复加载
         let lastLineCount = {};
+
+        function getConsoleContainer() {
+            return document.getElementById('consoleOutput');
+        }
+
+        function initializeConsoleLayers() {
+            const container = getConsoleContainer();
+            if (!container) return;
+            container.innerHTML = '';
+
+            consoleLayerApps.forEach(app => {
+                const layer = document.createElement('div');
+                layer.className = 'console-layer';
+                layer.dataset.app = app;
+                if (app === currentApp) {
+                    layer.classList.add('active');
+                    layer.style.display = 'block';
+                    activeConsoleLayer = app;
+                } else {
+                    layer.style.display = 'none';
+                }
+
+                const placeholder = document.createElement('div');
+                placeholder.className = 'console-line';
+                placeholder.textContent = `[系统] ${appNames[app] || app} 日志就绪`;
+                layer.appendChild(placeholder);
+
+                container.appendChild(layer);
+                consoleLayers[app] = layer;
+            });
+
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function getConsoleLayer(app) {
+            if (consoleLayers[app]) {
+                return consoleLayers[app];
+            }
+
+            const container = getConsoleContainer();
+            if (!container) return null;
+
+            const layer = document.createElement('div');
+            layer.className = 'console-layer';
+            layer.dataset.app = app;
+            layer.style.display = app === currentApp ? 'block' : 'none';
+            if (app === currentApp) {
+                layer.classList.add('active');
+                activeConsoleLayer = app;
+            }
+
+            container.appendChild(layer);
+            consoleLayers[app] = layer;
+            return layer;
+        }
+
+        function setActiveConsoleLayer(app) {
+            const container = getConsoleContainer();
+            if (!container) return;
+
+            if (activeConsoleLayer && consoleLayers[activeConsoleLayer]) {
+                consoleLayerScrollPositions[activeConsoleLayer] = container.scrollTop;
+                consoleLayers[activeConsoleLayer].classList.remove('active');
+                consoleLayers[activeConsoleLayer].style.display = 'none';
+            }
+
+            const targetLayer = getConsoleLayer(app);
+            if (!targetLayer) return;
+
+            targetLayer.style.display = 'block';
+            targetLayer.classList.add('active');
+            activeConsoleLayer = app;
+
+            const storedScroll = consoleLayerScrollPositions[app];
+            if (typeof storedScroll === 'number') {
+                container.scrollTop = storedScroll;
+            } else {
+                container.scrollTop = container.scrollHeight;
+            }
+        }
+
+        function syncConsoleScroll(app) {
+            if (app !== currentApp) {
+                return;
+            }
+
+            const container = getConsoleContainer();
+            if (container) {
+                container.scrollTop = container.scrollHeight;
+                consoleLayerScrollPositions[app] = container.scrollTop;
+            }
+        }
+
+        function appendConsoleTextLine(app, text, className = 'console-line') {
+            const layer = getConsoleLayer(app);
+            if (!layer) return;
+
+            const line = document.createElement('div');
+            line.className = className;
+            line.textContent = text;
+            layer.appendChild(line);
+            syncConsoleScroll(app);
+        }
+
+        function appendConsoleElement(app, element) {
+            const layer = getConsoleLayer(app);
+            if (!layer || !element) return;
+
+            layer.appendChild(element);
+            syncConsoleScroll(app);
+        }
+
+        function clearConsoleLayer(app, message = null) {
+            const layer = getConsoleLayer(app);
+            if (!layer) return;
+
+            layer.innerHTML = '';
+            if (message) {
+                appendConsoleTextLine(app, message);
+            }
+        }
         
         // 加载控制台输出
         function loadConsoleOutput(app) {
@@ -2038,21 +2221,15 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success && data.output.length > 0) {
-                    const consoleOutput = document.getElementById('consoleOutput');
-                    
-                    // 只添加新的行
                     const lastCount = lastLineCount[app] || 0;
                     const newLines = data.output.slice(lastCount);
                     
-                    newLines.forEach(line => {
-                        const div = document.createElement('div');
-                        div.className = 'console-line';
-                        div.textContent = line;
-                        consoleOutput.appendChild(div);
-                    });
-                    
-                    lastLineCount[app] = data.output.length;
-                    consoleOutput.scrollTop = consoleOutput.scrollHeight;
+                    if (newLines.length > 0) {
+                        newLines.forEach(line => {
+                            appendConsoleTextLine(app, line);
+                        });
+                        lastLineCount[app] = data.output.length;
+                    }
                 }
             })
             .catch(error => {
@@ -2077,22 +2254,15 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.success && data.output.length > 0) {
-                        const consoleOutput = document.getElementById('consoleOutput');
-                        
                         // 只添加新的行
                         const lastCount = lastLineCount[currentApp] || 0;
                         const newLines = data.output.slice(lastCount);
                         
                         if (newLines.length > 0) {
                             newLines.forEach(line => {
-                                const div = document.createElement('div');
-                                div.className = 'console-line';
-                                div.textContent = line;
-                                consoleOutput.appendChild(div);
+                                appendConsoleTextLine(currentApp, line);
                             });
-                            
                             lastLineCount[currentApp] = data.output.length;
-                            consoleOutput.scrollTop = consoleOutput.scrollHeight;
                         }
                     }
                 })
@@ -2103,15 +2273,13 @@
         }
 
         // 添加控制台输出
-        function addConsoleOutput(line) {
-            const consoleOutput = document.getElementById('consoleOutput');
-            const div = document.createElement('div');
-            div.className = 'console-line';
-            div.textContent = line;
-            consoleOutput.appendChild(div);
+        function addConsoleOutput(line, app = currentApp) {
+            const targetApp = app || currentApp;
+            appendConsoleTextLine(targetApp, line);
 
-            // 自动滚动到底部显示最新内容
-            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            if (targetApp !== 'report') {
+                lastLineCount[targetApp] = (lastLineCount[targetApp] || 0) + 1;
+            }
         }
 
         // 预加载的iframe存储
@@ -2255,10 +2423,38 @@
             fetch('/api/status')
             .then(response => response.json())
             .then(data => {
+                backendReachable = true;
                 updateAppStatus(data);
+                refreshConnectionStatus();
             })
             .catch(error => {
                 console.error('状态检查失败:', error);
+                backendReachable = false;
+                refreshConnectionStatus();
+            });
+        }
+
+        function startConnectionProbe() {
+            if (connectionProbeTimer) {
+                clearInterval(connectionProbeTimer);
+            }
+            probeBackendConnection();
+            connectionProbeTimer = setInterval(probeBackendConnection, CONNECTION_PROBE_INTERVAL);
+        }
+
+        function probeBackendConnection() {
+            fetch('/api/report/status?heartbeat=1', { cache: 'no-store' })
+            .then(response => {
+                if (!response.ok) throw new Error('heartbeat failed');
+                return response.json();
+            })
+            .then(() => {
+                backendReachable = true;
+                refreshConnectionStatus();
+            })
+            .catch(() => {
+                backendReachable = false;
+                refreshConnectionStatus();
             });
         }
 
@@ -2279,9 +2475,15 @@
             updateEmbeddedPage(currentApp);
         }
 
-        // 更新连接状态
-        function updateConnectionStatus(status) {
-            document.getElementById('connectionStatus').textContent = status;
+        // 根据当前的Socket/SSE状态刷新底部连接指示
+        function refreshConnectionStatus() {
+            const statusEl = document.getElementById('connectionStatus');
+            if (!statusEl) return;
+            if (socketConnected || reportStreamConnected || backendReachable) {
+                statusEl.textContent = '已连接';
+            } else {
+                statusEl.textContent = '连接断开';
+            }
         }
 
         // 更新时间
@@ -2436,15 +2638,16 @@
                     `;
                     
                     // 加载控制台日志
-                    const consoleOutput = document.getElementById('consoleOutput');
-                    consoleOutput.innerHTML = '<div class="console-line">[系统] Forum Engine 日志输出</div>';
-                    
                     if (data.log_lines && data.log_lines.length > 0) {
-                        data.log_lines.forEach(line => {
-                            const div = document.createElement('div');
-                            div.className = 'console-line';
-                            div.textContent = line;
-                            consoleOutput.appendChild(div);
+                        if (forumLogLineCount === 0) {
+                            clearConsoleLayer('forum', '[系统] Forum Engine 日志输出');
+                        }
+
+                        const newLines = data.log_lines.slice(forumLogLineCount);
+                        const linesToProcess = forumLogLineCount === 0 ? data.log_lines : newLines;
+
+                        linesToProcess.forEach(line => {
+                            appendConsoleTextLine('forum', line);
                             
                             // 解析并添加到对话区
                             const parsed = parseForumMessage(line);
@@ -2467,7 +2670,6 @@
                         });
                     }
                     
-                    consoleOutput.scrollTop = consoleOutput.scrollHeight;
                 }
             })
             .catch(error => {
@@ -2481,15 +2683,10 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success && data.log_lines.length > forumLogLineCount) {
-                    const consoleOutput = document.getElementById('consoleOutput');
-                    
                     // 只添加新的行
                     const newLines = data.log_lines.slice(forumLogLineCount);
                     newLines.forEach(line => {
-                        const div = document.createElement('div');
-                        div.className = 'console-line';
-                        div.textContent = line;
-                        consoleOutput.appendChild(div);
+                        appendConsoleTextLine('forum', line);
                         
                         // 如果是论坛对话内容，也显示到左侧对话区
                         const parsed = parseForumMessage(line);
@@ -2499,7 +2696,6 @@
                     });
                     
                     forumLogLineCount = data.log_lines.length;
-                    consoleOutput.scrollTop = consoleOutput.scrollHeight;
                 }
             })
             .catch(error => {
@@ -2564,19 +2760,13 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success && data.log_lines.length > reportLogLineCount) {
-                    const consoleOutput = document.getElementById('consoleOutput');
-                    
                     // 只添加新的行
                     const newLines = data.log_lines.slice(reportLogLineCount);
                     newLines.forEach(line => {
-                        const div = document.createElement('div');
-                        div.className = 'console-line';
-                        div.textContent = line;
-                        consoleOutput.appendChild(div);
+                        appendConsoleTextLine('report', line);
                     });
                     
                     reportLogLineCount = data.log_lines.length;
-                    consoleOutput.scrollTop = consoleOutput.scrollHeight;
                 }
             })
             .catch(error => {
@@ -2590,15 +2780,16 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    const consoleOutput = document.getElementById('consoleOutput');
-                    consoleOutput.innerHTML = '<div class="console-line">[系统] Report Engine 日志监控已启动</div>';
-                    
+                    if (reportLogLineCount === 0) {
+                        clearConsoleLayer('report', '[系统] Report Engine 日志监控已启动');
+                    }
+
                     if (data.log_lines && data.log_lines.length > 0) {
-                        data.log_lines.forEach(line => {
-                            const div = document.createElement('div');
-                            div.className = 'console-line';
-                            div.textContent = line;
-                            consoleOutput.appendChild(div);
+                        const newLines = data.log_lines.slice(reportLogLineCount);
+                        const linesToProcess = reportLogLineCount === 0 ? data.log_lines : newLines;
+
+                        linesToProcess.forEach(line => {
+                            appendConsoleTextLine('report', line);
                         });
                         
                         // 重置计数器以确保后续消息能正确显示
@@ -2607,8 +2798,6 @@
                         // 如果没有日志，重置计数器
                         reportLogLineCount = 0;
                     }
-                    
-                    consoleOutput.scrollTop = consoleOutput.scrollHeight;
                 }
             })
             .catch(error => {
@@ -2738,6 +2927,14 @@
         // Report Engine 相关函数
         let reportTaskId = null;
         let reportPollingInterval = null;
+        let reportEventSource = null;
+        let reportAutoPreviewLoaded = false;
+        let reportStreamReconnectTimer = null;
+        let reportStreamRetryDelay = 3000;
+        let streamHeartbeatTimeout = null;
+        let streamHeartbeatInterval = null;
+        let connectionProbeTimer = null;
+        const CONNECTION_PROBE_INTERVAL = 15000;
 
         // 加载报告界面
         function loadReportInterface() {
@@ -2811,6 +3008,8 @@
             
             reportContent.innerHTML = interfaceHTML;
             initializeReportControls();
+            resetReportStreamOutput('等待新的Report任务启动...');
+            updateReportStreamStatus('idle');
             
             // 立即更新状态信息
             updateEngineStatusDisplay(statusData);
@@ -2818,8 +3017,22 @@
             // 如果有当前任务，显示任务状态
             if (statusData.current_task) {
                 updateTaskProgressStatus(statusData.current_task);
+                if (statusData.current_task.status === 'running') {
+                    reportTaskId = statusData.current_task.task_id;
+                    reportAutoPreviewLoaded = false;
+                    if (window.EventSource) {
+                        openReportStream(reportTaskId);
+                    } else {
+                        startProgressPolling(reportTaskId);
+                    }
+                } else if (statusData.current_task.status === 'completed') {
+                    lastCompletedReportTask = statusData.current_task;
+                    updateDownloadButtonState(statusData.current_task);
+                }
             } else {
                 updateDownloadButtonState(null);
+                safeCloseReportStream();
+                reportTaskId = null;
             }
         }
 
@@ -3054,10 +3267,12 @@
             
             // 重置日志计数器，因为后台会清空日志文件
             reportLogLineCount = 0;
+            reportAutoPreviewLoaded = false;
+            safeCloseReportStream(true);
             
             // 清空控制台显示
-            const consoleOutput = document.getElementById('consoleOutput');
-            consoleOutput.innerHTML = '<div class="console-line">[系统] 开始生成报告，日志已重置</div>';
+            clearConsoleLayer('report', '[系统] 开始生成报告，日志已重置');
+            resetReportStreamOutput('Report Engine 正在调度任务...');
             
             setGenerateButtonState(true);
 
@@ -3099,14 +3314,21 @@
                         refreshReportLog();
                     }, 500);
                     
-                    // 开始轮询任务状态
-                    startProgressPolling(data.task_id);
+                    appendReportStreamLine('任务创建成功，正在建立流式连接...', 'info', { force: true });
+                    if (window.EventSource) {
+                        openReportStream(reportTaskId);
+                    } else {
+                        startProgressPolling(data.task_id);
+                    }
                 } else {
                     updateTaskProgressStatus(null, 'error', '启动失败: ' + data.error);
                     // 重置标志允许重新尝试
                     autoGenerateTriggered = false;
                     reportTaskId = null;
                     setGenerateButtonState(false);
+                    appendReportStreamLine('任务启动失败: ' + (data.error || '未知错误'), 'error');
+                    updateReportStreamStatus('error');
+                    safeCloseReportStream();
                 }
             })
             .catch(error => {
@@ -3116,6 +3338,9 @@
                 autoGenerateTriggered = false;
                 reportTaskId = null;
                 setGenerateButtonState(false);
+                appendReportStreamLine('任务启动阶段异常: ' + error.message, 'error');
+                updateReportStreamStatus('error');
+                safeCloseReportStream();
             });
         }
 
@@ -3147,6 +3372,7 @@
                         
                         // 自动显示报告
                         viewReport(taskId);
+                        reportAutoPreviewLoaded = true;
                         
                         // 重置自动生成标志，允许下次有新内容时自动生成
                         autoGenerateTriggered = false;
@@ -3223,6 +3449,315 @@
         // 更新进度显示（保持向后兼容）
         function updateProgressDisplay(task) {
             updateTaskProgressStatus(task);
+        }
+
+        // ====== Report Engine SSE流式辅助函数 ======
+        // 重置流式日志入口，将提示语写入控制台，保持与右侧黑框一致
+        function resetReportStreamOutput(message = '等待新的Report任务启动...') {
+            appendReportStreamLine(message, 'info', { badge: 'REPORT', force: true });
+        }
+
+        // 根据状态同步流式指示灯，与后端心跳保持一致
+        function updateReportStreamStatus(state) {
+            if (state === 'connected') {
+                reportStreamConnected = true;
+            } else if (['idle', 'error', 'connecting', 'reconnecting'].includes(state)) {
+                reportStreamConnected = false;
+            }
+
+            const statusEl = document.getElementById('reportStreamStatus');
+            if (statusEl) {
+                const textMap = {
+                    idle: '未连接',
+                    connecting: '连接中',
+                    connected: '实时更新中',
+                    reconnecting: '等待重连',
+                    error: '已断开'
+                };
+                statusEl.textContent = textMap[state] || state;
+                statusEl.dataset.state = state;
+            }
+
+            refreshConnectionStatus();
+        }
+
+        // 往黑色控制台输出区域追加一条流式日志
+        function appendReportStreamLine(message, level = 'info', options = {}) {
+            if (level === 'chunk' && !options.force) {
+                return; // 章节内容流式写入不再逐条输出
+            }
+
+            const line = document.createElement('div');
+            line.className = `console-line report-stream-line ${level}`;
+
+            const timestampSpan = document.createElement('span');
+            timestampSpan.className = 'timestamp';
+            timestampSpan.textContent = new Date().toLocaleTimeString('zh-CN');
+            line.appendChild(timestampSpan);
+
+            if (options.badge) {
+                const badge = document.createElement('span');
+                badge.className = 'stream-badge';
+                badge.textContent = options.badge;
+                line.appendChild(badge);
+            }
+
+            const textSpan = document.createElement('span');
+            textSpan.className = 'line-text';
+            textSpan.textContent = message;
+            line.appendChild(textSpan);
+
+            appendConsoleElement('report', line);
+        }
+
+        function startStreamHeartbeat() {
+            clearStreamHeartbeat();
+            const emitHeartbeat = () => {
+                appendReportStreamLine('Report Engine 正在流式生成，请耐心等待...', 'info', { badge: 'REPORT', force: true });
+            };
+
+            const scheduleFirstTick = () => {
+                const now = Date.now();
+                const msToNextMinute = 60000 - (now % 60000);
+                streamHeartbeatTimeout = setTimeout(() => {
+                    emitHeartbeat();
+                    streamHeartbeatInterval = setInterval(emitHeartbeat, 60000);
+                }, msToNextMinute);
+            };
+
+            scheduleFirstTick();
+        }
+
+        function clearStreamHeartbeat() {
+            if (streamHeartbeatTimeout) {
+                clearTimeout(streamHeartbeatTimeout);
+                streamHeartbeatTimeout = null;
+            }
+            if (streamHeartbeatInterval) {
+                clearInterval(streamHeartbeatInterval);
+                streamHeartbeatInterval = null;
+            }
+        }
+
+        // 建立SSE连接，实时订阅Report Engine推送
+        function openReportStream(taskId, isRetry = false) {
+            if (!taskId) return;
+            if (!window.EventSource) {
+                appendReportStreamLine('浏览器不支持SSE，已自动回退为轮询模式', 'warn', { badge: 'SSE', force: true });
+                updateReportStreamStatus('error');
+                clearStreamHeartbeat();
+                startProgressPolling(taskId);
+                return;
+            }
+            if (reportPollingInterval) {
+                clearInterval(reportPollingInterval);
+                reportPollingInterval = null;
+            }
+            if (reportEventSource && reportEventSource.__taskId === taskId) {
+                if (reportEventSource.readyState !== EventSource.CLOSED) {
+                    return;
+                }
+                safeCloseReportStream(true, true);
+            } else if (reportEventSource) {
+                safeCloseReportStream(true, true);
+            }
+
+            if (reportStreamReconnectTimer) {
+                clearTimeout(reportStreamReconnectTimer);
+                reportStreamReconnectTimer = null;
+            }
+
+            if (!isRetry) {
+                reportStreamRetryDelay = 3000;
+            }
+
+            updateReportStreamStatus('connecting');
+            appendReportStreamLine(
+                isRetry ? '尝试重连Report Engine流式通道...' : '正在建立Report Engine流式连接...',
+                'info',
+                { badge: 'SSE', force: true }
+            );
+
+            reportEventSource = new EventSource(`/api/report/stream/${taskId}`);
+            reportEventSource.__taskId = taskId;
+            reportEventSource.onopen = () => {
+                reportStreamRetryDelay = 3000;
+                updateReportStreamStatus('connected');
+                appendReportStreamLine(isRetry ? 'SSE重连成功' : 'Report Engine流式连接已建立', 'success', { badge: 'SSE' });
+                startStreamHeartbeat();
+            };
+            reportEventSource.onerror = () => {
+                appendReportStreamLine('检测到网络抖动，SSE正在等待自动重连...', 'warn', { badge: 'SSE' });
+                updateReportStreamStatus('reconnecting');
+                clearStreamHeartbeat();
+                safeCloseReportStream(true, true);
+                scheduleReportStreamReconnect(taskId);
+            };
+
+            const events = ['status', 'stage', 'chapter_status', 'chapter_chunk', 'warning', 'html_ready', 'completed', 'error', 'heartbeat'];
+            events.forEach(evt => {
+                reportEventSource.addEventListener(evt, (event) => dispatchReportStreamEvent(evt, event));
+            });
+            reportEventSource.onmessage = (event) => dispatchReportStreamEvent(event.type || 'message', event);
+        }
+
+        // 关闭SSE连接，可根据场景选择是否立即重置指示灯
+        function safeCloseReportStream(keepIndicator = false, preserveRetryDelay = false) {
+            if (reportEventSource) {
+                reportEventSource.close();
+                reportEventSource = null;
+            }
+            if (reportStreamReconnectTimer) {
+                clearTimeout(reportStreamReconnectTimer);
+                reportStreamReconnectTimer = null;
+            }
+            clearStreamHeartbeat();
+            if (!keepIndicator) {
+                updateReportStreamStatus('idle');
+            } else {
+                reportStreamConnected = false;
+                refreshConnectionStatus();
+            }
+            if (!preserveRetryDelay) {
+                reportStreamRetryDelay = 3000;
+            }
+        }
+
+        function scheduleReportStreamReconnect(taskId) {
+            if (!taskId || reportStreamReconnectTimer) {
+                return;
+            }
+            reportStreamReconnectTimer = setTimeout(() => {
+                reportStreamReconnectTimer = null;
+                if (reportTaskId === taskId) {
+                    openReportStream(taskId, true);
+                }
+            }, reportStreamRetryDelay);
+            reportStreamRetryDelay = Math.min(reportStreamRetryDelay * 2, 15000);
+        }
+
+        // 统一的事件派发入口，负责解析JSON并交给业务处理
+        function dispatchReportStreamEvent(eventType, event) {
+            try {
+                const data = JSON.parse(event.data);
+                handleReportStreamEvent(eventType, data);
+            } catch (error) {
+                console.warn('解析流式事件失败:', error);
+            }
+        }
+
+        // 结合事件类型输出控件/状态，确保网络抖动时也能及时反馈
+        function handleReportStreamEvent(eventType, eventData) {
+            if (!eventData) return;
+            const payload = eventData.payload || {};
+            const task = payload.task;
+
+            if (eventType === 'status' && task) {
+                updateTaskProgressStatus(task);
+                reportTaskId = task.status === 'running' ? task.task_id : null;
+                if (task.status === 'completed') {
+                    lastCompletedReportTask = task;
+                    setGenerateButtonState(false);
+                } else if (task.status === 'running') {
+                    setGenerateButtonState(true);
+                }
+            }
+
+            switch (eventType) {
+                case 'stage':
+                    appendReportStreamLine(
+                        payload.message || `阶段: ${payload.stage || ''}`,
+                        'info',
+                        {
+                            badge: payload.stage || '阶段',
+                            genericMessage: 'Report Engine 正在逐步生成，请耐心等待...'
+                        }
+                    );
+                    break;
+                case 'chapter_status':
+                    appendReportStreamLine(
+                        `${payload.title || payload.chapterId || '章节'} ${payload.status === 'completed' ? '已完成' : '生成中'}`,
+                        payload.status === 'completed' ? 'success' : 'info',
+                        {
+                            badge: '章节',
+                            genericMessage: payload.status === 'completed'
+                                ? `${payload.title || payload.chapterId || '章节'} 已完成`
+                                : '章节流式生成中，请稍候...'
+                        }
+                    );
+                    break;
+                case 'chapter_chunk':
+                    if (payload.delta) {
+                        appendReportStreamLine(
+                            formatStreamChunk(payload.delta),
+                            'chunk',
+                            {
+                                badge: payload.title || payload.chapterId || '章节流',
+                                genericMessage: '章节内容流式写入中...'
+                            }
+                        );
+                    }
+                    break;
+                case 'warning':
+                    appendReportStreamLine(payload.message || '检测到可重试的网络波动', 'warn');
+                    break;
+                case 'html_ready':
+                    appendReportStreamLine('HTML渲染完成，正在刷新预览...', 'success');
+                    if (task) {
+                        updateDownloadButtonState(task);
+                    }
+                    if (eventData.task_id && !reportAutoPreviewLoaded) {
+                        viewReport(eventData.task_id);
+                        reportAutoPreviewLoaded = true;
+                    }
+                    break;
+                case 'completed':
+                    appendReportStreamLine(payload.message || '任务完成', 'success');
+                    safeCloseReportStream();
+                    reportTaskId = null;
+                    setGenerateButtonState(false);
+                    if (task) {
+                        lastCompletedReportTask = task;
+                        updateDownloadButtonState(task);
+                    }
+                    if (eventData.task_id && !reportAutoPreviewLoaded) {
+                        viewReport(eventData.task_id);
+                        reportAutoPreviewLoaded = true;
+                    }
+                    break;
+                case 'cancelled':
+                    appendReportStreamLine(payload.message || '任务已取消', 'warn');
+                    safeCloseReportStream();
+                    updateReportStreamStatus('idle');
+                    reportTaskId = null;
+                    setGenerateButtonState(false);
+                    break;
+                case 'error':
+                    appendReportStreamLine(payload.message || '任务失败', 'error');
+                    safeCloseReportStream();
+                    updateReportStreamStatus('error');
+                    reportTaskId = null;
+                    setGenerateButtonState(false);
+                    break;
+                case 'heartbeat':
+                    updateReportStreamStatus('connected');
+                    appendReportStreamLine(payload.message || '流式连接正常，请稍候...', 'info', {
+                        badge: 'SSE',
+                        genericMessage: '流式连接正常，请耐心等待...'
+                    });
+                    break;
+                default:
+                    if (payload.message) {
+                        appendReportStreamLine(payload.message, 'info');
+                    }
+                    break;
+            }
+        }
+
+        // 清洗流式chunk，裁剪多余空白，避免影响UI
+        function formatStreamChunk(text) {
+            if (!text) return '';
+            return text.replace(/\s+/g, ' ').trim().slice(0, 200);
         }
 
         // 查看报告
