@@ -90,7 +90,8 @@ class ChapterGenerationNode(BaseNode):
     }
     # 章节若仅包含标题或字符过少则视为失败，强制LLM重新生成
     _MIN_NON_HEADING_BLOCKS = 2
-    _MIN_BODY_CHARACTERS = 400
+    _MIN_BODY_CHARACTERS = 600
+    _MIN_NARRATIVE_CHARACTERS = 300
     _PARAGRAPH_FRAGMENT_MAX_CHARS = 80
     _PARAGRAPH_FRAGMENT_NO_TERMINATOR_MAX_CHARS = 240
     _TERMINATION_PUNCTUATION = set("。！？!?；;……")
@@ -659,10 +660,15 @@ class ChapterGenerationNode(BaseNode):
             and block.get("type") not in {"heading", "divider", "toc"}
         ]
         body_characters = self._count_body_characters(blocks)
+        narrative_characters = self._count_narrative_characters(blocks)
 
-        if len(non_heading_blocks) < self._MIN_NON_HEADING_BLOCKS or body_characters < self._MIN_BODY_CHARACTERS:
+        if (
+            len(non_heading_blocks) < self._MIN_NON_HEADING_BLOCKS
+            or body_characters < self._MIN_BODY_CHARACTERS
+            or narrative_characters < self._MIN_NARRATIVE_CHARACTERS
+        ):
             raise ChapterContentError(
-                f"{chapter.get('title') or '该章节'} 正文不足：有效区块 {len(non_heading_blocks)} 个，估算字符数 {body_characters}"
+                f"{chapter.get('title') or '该章节'} 正文不足：有效区块 {len(non_heading_blocks)} 个，估算字符数 {body_characters}，叙述性字符数 {narrative_characters}"
             )
 
     def _count_body_characters(self, blocks: Any) -> int:
@@ -696,19 +702,7 @@ class ChapterGenerationNode(BaseNode):
                 return 0
 
             if block_type == "paragraph":
-                inlines = node.get("inlines")
-                if isinstance(inlines, list):
-                    total = 0
-                    for run in inlines:
-                        if isinstance(run, dict):
-                            text = run.get("text")
-                            if isinstance(text, str):
-                                total += len(text.strip())
-                    return total
-                text_value = node.get("text")
-                if isinstance(text_value, str):
-                    return len(text_value.strip())
-                return len(self._extract_block_text(node).strip())
+                return self._estimate_paragraph_characters(node)
 
             if block_type == "list":
                 total = 0
@@ -734,6 +728,57 @@ class ChapterGenerationNode(BaseNode):
             return len(self._extract_block_text(node).strip())
 
         return walk(blocks)
+
+    def _count_narrative_characters(self, blocks: Any) -> int:
+        """
+        统计paragraph/callout/list/blockquote等叙述性结构的字符数，避免被表格/图表“刷长”。
+        """
+
+        def walk(node: Any) -> int:
+            if node is None:
+                return 0
+            if isinstance(node, list):
+                return sum(walk(item) for item in node)
+            if isinstance(node, str):
+                return len(node.strip())
+            if not isinstance(node, dict):
+                return 0
+
+            block_type = node.get("type")
+            if block_type == "paragraph":
+                return self._estimate_paragraph_characters(node)
+            if block_type == "list":
+                total = 0
+                for item in node.get("items", []):
+                    total += walk(item)
+                return total
+            if block_type in {"callout", "blockquote"}:
+                return walk(node.get("blocks"))
+
+            # list项可能是匿名dict，兼容性遍历
+            if block_type is None:
+                nested = node.get("blocks")
+                if isinstance(nested, list):
+                    return walk(nested)
+            return 0
+
+        return walk(blocks)
+
+    def _estimate_paragraph_characters(self, block: Dict[str, Any]) -> int:
+        """提取paragraph文本长度，复用在多种统计中。"""
+        inlines = block.get("inlines")
+        if isinstance(inlines, list):
+            total = 0
+            for run in inlines:
+                if isinstance(run, dict):
+                    text = run.get("text")
+                    if isinstance(text, str):
+                        total += len(text.strip())
+            return total
+        text_value = block.get("text")
+        if isinstance(text_value, str):
+            return len(text_value.strip())
+        return len(self._extract_block_text(block).strip())
 
     def _sanitize_block_content(self, block: Dict[str, Any]):
         """根据类型做精细化修复，例如清理paragraph内的非法inline mark"""
