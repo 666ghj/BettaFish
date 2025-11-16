@@ -47,6 +47,16 @@ lxml>=4.9.0
 parsel==1.9.1
 pyexecjs==1.5.1
 
+# ===== Western Media Platform APIs =====
+praw>=7.7.0  # Reddit API wrapper
+feedparser>=6.0.0  # RSS feeds (Google News, HackerNews)
+google-api-python-client>=2.100.0  # YouTube Data API
+tweepy>=4.14.0  # Twitter/X API (requires API keys)
+ntscraper>=0.4.0  # Twitter scraper (no API needed, rate-limited)
+pyktok>=0.0.25  # TikTok scraper
+ratelimit>=2.2.1  # Rate limiting decorator
+fake-useragent>=1.5.0  # Random user agents for scraping
+
 # ===== 可视化 =====
 plotly>=5.17.0
 matplotlib==3.9.0
