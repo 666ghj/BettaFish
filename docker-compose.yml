@@ -2,12 +2,11 @@ version: "3.9"
 
 services:
   bettafish:
-    image: ghcr.io/666ghj/bettafish:latest
-    # Speed up mirror
-    # image: ghcr.nju.edu.cn/666ghj/bettafish:latest
+    build: .
     container_name: bettafish
     restart: unless-stopped
     environment:
+      - TZ=Asia/Shanghai
       - PYTHONUNBUFFERED=1
       - STREAMLIT_SERVER_ENABLE_FILE_WATCHER=false
     ports:
@@ -30,6 +29,7 @@ services:
     env_file:
       - .env
     environment:
+      - TZ=Asia/Shanghai
       POSTGRES_USER: ${POSTGRES_USER:-bettafish}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bettafish}
       POSTGRES_DB: ${POSTGRES_DB:-bettafish}

@@ -38,6 +38,7 @@ aiosqlite==0.21.0
 redis>=4.6.0
 SQLAlchemy==2.0.35
 asyncpg==0.29.0
+psycopg[binary]==3.1.19
 cryptography==42.0.7
 
 # ===== 爬虫相关 =====
