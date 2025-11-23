@@ -47,5 +47,27 @@ class ContextCache:
         data = payload or {}
         metadata = data.setdefault("metadata", {})
         metadata["cached_at"] = datetime.utcnow().isoformat()
+        # JSON 不支持 set，防御性将 set 转为 list
+        try:
+            safe_data = json.loads(json.dumps(data, default=self._default))
+        except TypeError:
+            safe_data = self._make_json_safe(data)
         with path.open("w", encoding="utf-8") as handle:
-            json.dump(data, handle, ensure_ascii=False, indent=2)
+            json.dump(safe_data, handle, ensure_ascii=False, indent=2)
+
+    @staticmethod
+    def _default(obj):
+        if isinstance(obj, set):
+            return list(obj)
+        raise TypeError(f"Object of type {obj.__class__.__name__} is not JSON serializable")
+
+    @classmethod
+    def _make_json_safe(cls, obj):
+        """递归转换 set 为 list，防御未知容器"""
+        if isinstance(obj, dict):
+            return {k: cls._make_json_safe(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [cls._make_json_safe(v) for v in obj]
+        if isinstance(obj, set):
+            return [cls._make_json_safe(v) for v in obj]
+        return obj

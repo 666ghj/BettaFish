@@ -5,6 +5,7 @@
 import os
 import sys
 import platform
+import subprocess
 from pathlib import Path
 from loguru import logger
 from ctypes import util as ctypes_util
@@ -16,6 +17,53 @@ try:
     RICH_AVAILABLE = True
 except ImportError:
     RICH_AVAILABLE = False
+
+WEASYPRINT_INSTALL_ATTEMPTED = False
+WEASYPRINT_INSTALL_SUCCEEDED = False
+
+
+def attempt_auto_install_weasyprint():
+    """
+    自动安装 WeasyPrint。重复调用会复用上次结果，避免多次安装。
+
+    Returns:
+        tuple[bool, str]: (是否安装成功, 结果消息)
+    """
+    global WEASYPRINT_INSTALL_ATTEMPTED, WEASYPRINT_INSTALL_SUCCEEDED
+
+    if WEASYPRINT_INSTALL_ATTEMPTED:
+        if WEASYPRINT_INSTALL_SUCCEEDED:
+            return True, "WeasyPrint 已自动安装成功，请按 Ctrl+C 退出并重启主程序后再试。"
+        return False, "已尝试自动安装 WeasyPrint，但未成功。请手动运行: pip install weasyprint"
+
+    WEASYPRINT_INSTALL_ATTEMPTED = True
+    cmd = [sys.executable, "-m", "pip", "install", "weasyprint"]
+    logger.warning("检测到 WeasyPrint 未安装，正在自动执行: %s", " ".join(cmd))
+
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=300,
+            encoding="utf-8",
+            errors="replace",
+        )
+        if result.returncode == 0:
+            WEASYPRINT_INSTALL_SUCCEEDED = True
+            success_msg = "WeasyPrint 自动安装成功，请按 Ctrl+C 退出并重启主程序后再试 PDF 导出。"
+            logger.success(success_msg)
+            return True, success_msg
+
+        detail = (result.stderr or result.stdout or "").strip()
+        detail = detail[-800:] if len(detail) > 800 else detail
+        fail_msg = f"自动安装 WeasyPrint 失败（退出码 {result.returncode}）。请手动运行: pip install weasyprint。输出: {detail}"
+        logger.error(fail_msg)
+        return False, fail_msg
+    except Exception as exc:  # pragma: no cover - 安全兜底
+        fail_msg = f"自动安装 WeasyPrint 失败: {exc}。请手动运行: pip install weasyprint"
+        logger.exception(fail_msg)
+        return False, fail_msg
 
 
 def _get_platform_specific_instructions():
@@ -286,8 +334,11 @@ def check_pango_available():
         content = "\n".join(content_lines)
         return False, content
     except ImportError as e:
-        # weasyprint 未安装
-        return False, "⚠ WeasyPrint 未安装\n解决方法: pip install weasyprint"
+        # weasyprint 未安装，尝试自动安装
+        installed, install_message = attempt_auto_install_weasyprint()
+        if installed:
+            return False, install_message
+        return False, f"⚠ WeasyPrint 未安装\n{install_message}"
     except Exception as e:
         # 其他未知错误
         return False, f"⚠ PDF 依赖检测失败: {e}"

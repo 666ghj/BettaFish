@@ -400,6 +400,8 @@ class StructuredContextBuilder:
         min_events_per_stage: int = 2,
         max_events_per_stage: int = 15,
         stage_retention_defaults: Optional[Dict[str, float]] = None,
+        relevance_min_label_overlap: int = 1,
+        relevance_min_keyword_overlap: int = 1,
     ):
         self.agent_name = agent_name
         self.labeler = labeler or SemanticPrototypeLabeler()
@@ -414,6 +416,8 @@ class StructuredContextBuilder:
             "reflection": 0.45,
             "default": 0.55,
         }
+        self.relevance_min_label_overlap = max(0, relevance_min_label_overlap)
+        self.relevance_min_keyword_overlap = max(0, relevance_min_keyword_overlap)
 
     # Public API ---------------------------------------------------------------------------
 
@@ -452,12 +456,25 @@ class StructuredContextBuilder:
         if not search_results:
             return search_results, context
 
+        origin_meta = context.get("metadata", {})
+        origin_labels = set(origin_meta.get("origin_dominant_labels") or [])
+        origin_tokens = origin_meta.get("_origin_tokens_cache")
+        if origin_tokens is None:
+            origin_tokens = {
+                token.lower()
+                for token in re.findall(r"[\w\u4e00-\u9fff]+", origin_meta.get("origin_query", "") or "")
+                if len(token) >= 2
+            }
+            origin_meta["_origin_tokens_cache"] = origin_tokens
+            context["metadata"] = origin_meta
+
         relations_index = {
             tuple(sorted((rel["source_event"], rel["target_event"])))
             for rel in context.get("relations", [])
         }
 
         decorated_results = []
+        dropped = 0
         for idx, result in enumerate(search_results):
             event = self._build_event(
                 result,
@@ -466,11 +483,19 @@ class StructuredContextBuilder:
                 stage=stage,
                 ordinal=idx,
             )
+            if not self._is_relevant_to_origin(event, origin_labels, origin_tokens):
+                dropped += 1
+                continue
             context["events"][event["event_id"]] = event
             self._update_token_statistics(context, event)
             self._update_relations(context, event, relations_index)
             self._update_origin_relation(context, event, relations_index)
             decorated_results.append(self._decorate_result(result, event))
+
+        if dropped:
+            logger.info(
+                f"[{self.agent_name}] 过滤 {dropped}/{len(search_results)} 条与主题无关的内容 (stage={stage})"
+            )
 
         self._refresh_views(context)
         context["metadata"].update(
@@ -723,6 +748,35 @@ class StructuredContextBuilder:
             "suppressed": False,
             "is_origin": False,
         }
+
+    def _is_relevant_to_origin(
+        self,
+        event: Dict[str, Any],
+        origin_labels: Set[str],
+        origin_tokens: Set[str],
+    ) -> bool:
+        """
+        粗过滤：若与原始主题几乎无标签/关键词重叠，则视为无关内容。
+        """
+        if not origin_labels and not origin_tokens:
+            return True
+
+        event_labels = set(event.get("dominant_labels") or [])
+        if origin_labels and len(event_labels.intersection(origin_labels)) >= self.relevance_min_label_overlap:
+            return True
+
+        summary_text = f"{event.get('summary', '')} {event.get('query', '')}".lower()
+        event_tokens = {
+            token
+            for token in re.findall(r"[\w\u4e00-\u9fff]+", summary_text)
+            if len(token) >= 2
+        }
+        if origin_tokens:
+            overlap = len(event_tokens.intersection(origin_tokens))
+            if overlap >= self.relevance_min_keyword_overlap:
+                return True
+
+        return False
 
     def _build_origin_event(self, origin_query: str) -> Dict[str, Any]:
         timestamp = datetime.utcnow().isoformat()

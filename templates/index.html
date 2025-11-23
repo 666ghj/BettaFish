@@ -1819,10 +1819,19 @@
             },
             {
                 title: '外部检索工具',
-                subtitle: '联动搜索引擎、网站抓取等在线服务，两个都需配置',
+                subtitle: '联动搜索引擎、网站抓取等在线服务，填好密钥并选择Bocha接口',
                 fields: [
                     { key: 'TAVILY_API_KEY', label: 'Tavily API Key', type: 'password' },
-                    { key: 'BOCHA_WEB_SEARCH_API_KEY', label: 'Bocha API Key', type: 'password' }
+                    { key: 'BOCHA_WEB_SEARCH_API_KEY', label: 'Bocha API Key', type: 'password' },
+                    { 
+                        key: 'BOCHA_BASE_URL',
+                        label: 'Bocha API 地址',
+                        type: 'select',
+                        options: [
+                            { label: 'ai-search', value: 'https://api.bocha.cn/v1/ai-search' },
+                            { label: 'web-search', value: 'https://api.bocha.cn/v1/web-search' }
+                        ]
+                    }
                 ]
             }
         ];
@@ -2114,17 +2123,33 @@
 
             const sections = configFieldGroups.map(group => {
                 const fieldsHtml = group.fields.map(field => {
-                    const value = values[field.key] !== undefined ? values[field.key] : '';
-                    const safeValue = escapeHtml(String(value || ''));
+                    const rawValue = values[field.key];
+                    const normalizedValue = rawValue !== undefined && rawValue !== null ? String(rawValue) : '';
+                    const safeValue = escapeHtml(normalizedValue || '');
 
                     let control;
 
                     if (field.type === 'select' && field.options) {
                         // 下拉选择框
-                        const optionsHtml = field.options.map(option => {
-                            const selected = option === value ? 'selected' : '';
-                            const safeOption = escapeHtml(String(option));
-                            return `<option value="${safeOption}" ${selected}>${safeOption}</option>`;
+                        const optionList = Array.isArray(field.options) ? [...field.options] : [];
+                        const hasMatch = optionList.some(option => {
+                            const optionValue = typeof option === 'object' ? option.value : option;
+                            return String(optionValue ?? '') === normalizedValue;
+                        });
+
+                        if (!hasMatch && normalizedValue) {
+                            optionList.unshift({ label: normalizedValue, value: normalizedValue });
+                        }
+
+                        const optionsHtml = optionList.map(option => {
+                            const optionValue = typeof option === 'object' ? option.value : option;
+                            const optionLabel = typeof option === 'object' && option.label !== undefined ? option.label : optionValue;
+                            const valueStr = optionValue !== undefined && optionValue !== null ? String(optionValue) : '';
+                            const labelStr = optionLabel !== undefined && optionLabel !== null ? String(optionLabel) : '';
+                            const selected = valueStr === normalizedValue ? 'selected' : '';
+                            const safeOptionValue = escapeHtml(valueStr);
+                            const safeOptionLabel = escapeHtml(labelStr);
+                            return `<option value="${safeOptionValue}" ${selected}>${safeOptionLabel}</option>`;
                         }).join('');
                         control = `
                             <select

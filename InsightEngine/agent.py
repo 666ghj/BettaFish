@@ -579,6 +579,16 @@ class DeepSearchAgent:
         
         # 更新状态中的搜索历史
         paragraph.research.add_search_results(search_query, search_results)
+
+        # 若无有效结果，直接给出“无证据”总结，避免幻觉
+        if not search_results:
+            paragraph.research.latest_summary = (
+                f"未找到与“{search_query}”相关的有效信息。"
+                "仅基于讨论思路提出提醒：等待其他 Agent 或后续数据补充，再形成事实结论；"
+                "当前不引用任何具体事件。"
+            )
+            logger.info("  - 未获取证据，跳过总结与反思，记录无结论提示（可在讨论区仅发表看法）。")
+            return
         
         # 生成初始总结
         logger.info("  - 生成初始总结...")
@@ -601,6 +611,9 @@ class DeepSearchAgent:
     def _reflection_loop(self, paragraph_index: int):
         """执行反思循环"""
         paragraph = self.state.paragraphs[paragraph_index]
+        if not paragraph.research.search_history:
+            logger.info("  - 无搜索结果，跳过反思阶段以避免幻觉输出。")
+            return
         
         for reflection_i in range(self.config.MAX_REFLECTIONS):
             logger.info(f"  - 反思 {reflection_i + 1}/{self.config.MAX_REFLECTIONS}...")

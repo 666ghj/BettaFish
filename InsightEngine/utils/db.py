@@ -54,6 +54,7 @@ def get_async_engine() -> AsyncEngine:
             database_url,
             pool_pre_ping=True,
             pool_recycle=1800,
+            connect_args={"connect_timeout": 10},
         )
     return _engine
 

@@ -68,6 +68,7 @@ class MediaCrawlerDB:
     W_SHARE = 10.0  # 分享/转发/收藏/投币等高价值互动
     W_VIEW = 0.1
     W_DANMAKU = 0.5
+    QUERY_TIMEOUT_SEC = 30
 
     def __init__(self):
         """
@@ -87,8 +88,14 @@ class MediaCrawlerDB:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
             
-            # 直接运行协程
-            return loop.run_until_complete(fetch_all(query, params))
+            # 直接运行协程，并设置超时，避免数据库连接卡死
+            return loop.run_until_complete(
+                asyncio.wait_for(fetch_all(query, params), timeout=self.QUERY_TIMEOUT_SEC)
+            )
+
+        except asyncio.TimeoutError:
+            logger.error(f"数据库查询超时 (>{self.QUERY_TIMEOUT_SEC}s): {query}")
+            return []
         
         except Exception as e:
             logger.exception(f"数据库查询时发生错误: {e}")

@@ -144,15 +144,13 @@ class MindSpider:
         db_host = settings.DB_HOST or "localhost"
         dialect = (settings.DB_DIALECT or "mysql").lower()
         db_port = str(settings.DB_PORT or ("3306" if dialect == "mysql" else "5432"))
-        
-        try:
-            # 运行数据库初始化脚本
+
+        def _run_init_script():
             init_script = self.schema_path / "init_database.py"
             if not init_script.exists():
                 logger.error("错误：找不到数据库初始化脚本")
-                return False
-            
-            result = subprocess.run(
+                return None
+            return subprocess.run(
                 [sys.executable, str(init_script)],
                 cwd=self.schema_path,
                 capture_output=True,
@@ -160,14 +158,18 @@ class MindSpider:
                 encoding='utf-8',
                 errors='replace'
             )
-            
-            if result.returncode == 0:
+
+        try:
+            result = _run_init_script()
+            if result and result.returncode == 0:
                 logger.info("数据库初始化成功")
                 return True
-            else:
-                logger.error(f"数据库初始化失败，目标地址: {db_host}:{db_port} (数据库类型: {dialect})")
-                logger.error(f"错误详情: {result.stderr}")
-                return False
+
+            stderr_text = (result.stderr if result else "") or ""
+            logger.error(f"数据库初始化失败，目标地址: {db_host}:{db_port} (数据库类型: {dialect})")
+            logger.error(f"错误详情: {stderr_text}")
+
+            return False
                 
         except Exception as e:
             logger.error(f"数据库初始化异常，目标地址: {db_host}:{db_port} (数据库类型: {dialect})")

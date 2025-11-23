@@ -94,7 +94,7 @@ class BochaMultimodalSearch:
     每个公共方法都设计为供 AI Agent 独立调用的工具。
     """
 
-    BOCHA_BASE_URL = settings.BOCHA_BASE_URL or "https://api.bochaai.com/v1/ai-search"
+    BOCHA_BASE_URL = settings.BOCHA_BASE_URL or "https://api.bocha.cn/v1/ai-search"
 
     def __init__(self, api_key: Optional[str] = None):
         """
@@ -120,6 +120,9 @@ class BochaMultimodalSearch:
         final_response.conversation_id = response_dict.get('conversation_id')
 
         messages = response_dict.get('messages', [])
+        data_block = response_dict.get("data") or {}
+
+        # --- 先解析 ai-search 风格的 messages ---
         for msg in messages:
             role = msg.get('role')
             if role != 'assistant':
@@ -167,6 +170,36 @@ class BochaMultimodalSearch:
                         card_type=content_type,
                         content=content_data
                     ))
+
+        # --- 兼容 web-search 风格的 data.webPages / data.images ---
+        web_pages = None
+        if isinstance(data_block, dict):
+            web_pages = data_block.get("webPages") or data_block.get("webpages")
+        if web_pages and isinstance(web_pages, dict):
+            web_values = web_pages.get("value") or []
+            for item in web_values:
+                final_response.webpages.append(WebpageResult(
+                    name=item.get('name'),
+                    url=item.get('url'),
+                    snippet=item.get('snippet'),
+                    display_url=item.get('displayUrl') or item.get('display_url'),
+                    date_last_crawled=item.get('dateLastCrawled') or item.get('date_last_crawled')
+                ))
+
+        images_block = None
+        if isinstance(data_block, dict):
+            images_block = data_block.get("images")
+        if images_block and isinstance(images_block, dict):
+            image_values = images_block.get("value") or []
+            for item in image_values:
+                final_response.images.append(ImageResult(
+                    name=item.get('name'),
+                    content_url=item.get('contentUrl') or item.get('content_url'),
+                    host_page_url=item.get('hostPageUrl') or item.get('host_page_url'),
+                    thumbnail_url=item.get('thumbnailUrl') or item.get('thumbnail_url'),
+                    width=item.get('width'),
+                    height=item.get('height')
+                ))
 
         return final_response
 
