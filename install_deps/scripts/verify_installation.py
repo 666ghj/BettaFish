@@ -95,7 +95,7 @@ def check_playwright():
         from playwright.sync_api import sync_playwright
 
         # 尝试启动浏览器（但不实际打开）
-        with sync_playwright() as p:
+        with sync_playwright():
             print("  ✅ Playwright 可用")
             return True
     except ImportError:

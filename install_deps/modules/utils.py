@@ -29,45 +29,56 @@ def run_command(command: List[str], check: bool = True, capture_output: bool = T
         )
         return result
     except subprocess.TimeoutExpired:
-        raise Exception(f"命令执行超时: {' '.join(command)}")
+        raise subprocess.TimeoutExpired(f"命令执行超时: {' '.join(command)}", 300)
     except subprocess.CalledProcessError as e:
-        raise Exception(f"命令执行失败: {' '.join(command)}\n错误信息: {e.stderr}")
+        raise subprocess.CalledProcessError(e.returncode, command, e.stdout, f"命令执行失败: {' '.join(command)}\n错误信息: {e.stderr}")
 
 
 def check_command_exists(command: str) -> bool:
     try:
         result = run_command(["which" if platform.system() != "Windows" else "where", command], check=False)
         return result.returncode == 0
-    except:
+    except (subprocess.SubprocessError, OSError, FileNotFoundError):
         return False
+
+
+def _build_prompt_text(prompt: str, default: Optional[str], choices: Optional[List[str]]) -> str:
+    """构建提示文本"""
+    if choices:
+        choice_str = "/".join(choices)
+        if default:
+            return f"{prompt} (默认: {default}) ({choice_str}): "
+        else:
+            return f"{prompt} ({choice_str}): "
+    else:
+        if default:
+            return f"{prompt} (默认: {default}): "
+        else:
+            return f"{prompt}: "
+
+
+def _validate_input(user_input: str, default: Optional[str], choices: Optional[List[str]]) -> Optional[str]:
+    """验证用户输入，返回有效输入或None"""
+    # 使用默认值
+    if not user_input and default:
+        return default
+
+    # 验证选择
+    if choices and user_input and user_input not in choices:
+        print(f"请选择以下选项之一: {', '.join(choices)}")
+        return None
+
+    return user_input
 
 
 def get_user_input(prompt: str, default: Optional[str] = None, choices: Optional[List[str]] = None) -> str:
     while True:
-        if choices:
-            choice_str = "/".join(choices)
-            if default:
-                prompt_text = f"{prompt} (默认: {default}) ({choice_str}): "
-            else:
-                prompt_text = f"{prompt} ({choice_str}): "
-        else:
-            if default:
-                prompt_text = f"{prompt} (默认: {default}): "
-            else:
-                prompt_text = f"{prompt}: "
-
+        prompt_text = _build_prompt_text(prompt, default, choices)
         user_input = input(prompt_text).strip()
 
-        # 使用默认值
-        if not user_input and default:
-            return default
-
-        # 验证选择
-        if choices and user_input not in choices:
-            print(f"请选择以下选项之一: {', '.join(choices)}")
-            continue
-
-        return user_input
+        validated_input = _validate_input(user_input, default, choices)
+        if validated_input is not None:
+            return validated_input
 
 
 def confirm(message: str, default: bool = True) -> bool:
@@ -103,9 +114,14 @@ def format_size(size_bytes: int) -> str:
 
 def get_free_space(path: str = ".") -> int:
     try:
-        stat = os.statvfs(path) if platform.system() != "Windows" else os.statvfs(path)
-        return stat.f_bavail * stat.f_frsize
-    except:
+        if platform.system() == "Windows":
+            import shutil
+            _, _, free_bytes = shutil.disk_usage(path)
+            return free_bytes
+        else:
+            stat = os.statvfs(path)
+            return stat.f_bavail * stat.f_frsize
+    except (OSError, AttributeError, ImportError):
         return 0
 
 

@@ -44,7 +44,8 @@ class InteractiveInstaller:
         choice = get_user_input("请选择安装模式", default="1", choices=choices)
         return mode_map[choice]
 
-    def decide_virtual_environment(self) -> Tuple[bool, str]:
+    def _show_virtual_env_explanation(self):
+        """显示虚拟环境的说明"""
         print("🔧 要不要创建虚拟环境？")
         print()
         print("虚拟环境就像是给这个项目单独建一个\"房间\"，")
@@ -62,23 +63,19 @@ class InteractiveInstaller:
         print("  • 以后删除项目时可能留下垃圾文件")
         print()
 
-        use_venv = confirm("要不要用虚拟环境？(推荐用)", default=True)
+    def _confirm_skip_virtual_env(self) -> bool:
+        """确认是否跳过虚拟环境"""
+        print()
+        print("⚠️  你确定不用虚拟环境吗？")
+        print("不用的话就直接装在你电脑的Python环境里了。")
+        return confirm("确定不用虚拟环境，继续安装？", default=True)
 
-        if not use_venv:
-            print()
-            print("⚠️  你确定不用虚拟环境吗？")
-            print("不用的话就直接装在你电脑的Python环境里了。")
-            if confirm("确定不用虚拟环境，继续安装？", default=True):
-                print()
-                print("✅ 直接安装在系统Python环境中")
-                return False, "none"
-
-        # 用户选择用虚拟环境，才开始选择环境管理工具
+    def _get_available_managers(self) -> List[str]:
+        """获取可用的环境管理器列表"""
         print()
         print("🐛 选择一个环境管理工具：")
         print()
 
-        # 检查可用的环境管理器
         available_managers = []
 
         print("1. venv (Python自带的)")
@@ -104,8 +101,10 @@ class InteractiveInstaller:
             available_managers.append("conda")
 
         print()
+        return available_managers
 
-        # 让用户选择
+    def _select_environment_manager(self, available_managers: List[str]) -> str:
+        """选择环境管理器"""
         choices = ["1", "2"]
         if len(available_managers) > 2:
             choices.append("3")
@@ -114,36 +113,64 @@ class InteractiveInstaller:
         choice = get_user_input("选哪个？", default=default_choice, choices=choices)
 
         manager_map = {"1": "venv", "2": "uv", "3": "conda"}
-        selected_manager = manager_map[choice]
+        return manager_map[choice]
+
+    def _handle_uv_installation(self) -> str:
+        """处理uv的安装"""
+        print()
+        print("🔧 uv还没安装，安装很简单：")
+        print("只需要运行: pip install uv")
+        print()
+        if confirm("现在就安装uv？", default=True):
+            try:
+                import subprocess
+                import sys
+                print("🔄 正在安装uv...")
+                subprocess.run([sys.executable, "-m", "pip", "install", "uv"], check=True)
+                print("✅ uv安装成功！")
+                return "uv"
+            except Exception as e:
+                print(f"❌ uv安装失败了: {e}")
+                print("没关系，我们可以用Python自带的venv")
+                return "venv"
+        return "uv"
+
+    def _handle_conda_check(self, selected_manager: str) -> str:
+        """处理conda检查"""
+        if selected_manager != "conda":
+            return selected_manager
+
+        print()
+        print("⚠️  没检测到conda")
+        print("你需要先安装Miniconda或Anaconda")
+        print("可以访问: https://docs.conda.io/en/latest/miniconda.html")
+        print()
+        if not confirm("还是想用conda？(需要你自己先安装)", default=False):
+            # 重新选择
+            return self.decide_virtual_environment()[1]
+        return selected_manager
+
+    def decide_virtual_environment(self) -> Tuple[bool, str]:
+        self._show_virtual_env_explanation()
+
+        use_venv = confirm("要不要用虚拟环境？(推荐用)", default=True)
+
+        if not use_venv:
+            if self._confirm_skip_virtual_env():
+                print()
+                print("✅ 直接安装在系统Python环境中")
+                return False, "none"
+
+        available_managers = self._get_available_managers()
+        selected_manager = self._select_environment_manager(available_managers)
 
         # 如果用户选了uv但没安装
         if selected_manager == "uv" and not check_command_exists("uv"):
-            print()
-            print("🔧 uv还没安装，安装很简单：")
-            print("只需要运行: pip install uv")
-            print()
-            if confirm("现在就安装uv？", default=True):
-                try:
-                    import subprocess
-                    import sys
-                    print("🔄 正在安装uv...")
-                    subprocess.run([sys.executable, "-m", "pip", "install", "uv"], check=True)
-                    print("✅ uv安装成功！")
-                except Exception as e:
-                    print(f"❌ uv安装失败了: {e}")
-                    print("没关系，我们可以用Python自带的venv")
-                    selected_manager = "venv"
+            selected_manager = self._handle_uv_installation()
 
         # 如果用户选了conda但没安装
         if selected_manager == "conda" and not check_command_exists("conda"):
-            print()
-            print("⚠️  没检测到conda")
-            print("你需要先安装Miniconda或Anaconda")
-            print("可以访问: https://docs.conda.io/en/latest/miniconda.html")
-            print()
-            if not confirm("还是想用conda？(需要你自己先安装)", default=False):
-                # 重新选择
-                return self.decide_virtual_environment()
+            selected_manager = self._handle_conda_check(selected_manager)
 
         print()
         print(f"✅ 已经选择了: {selected_manager}")
@@ -276,11 +303,11 @@ class InteractiveInstaller:
 
         for agent_key, agent_desc in components:
             print(f"🔧 {agent_desc} 配置:")
-            api_key = get_user_input(f"  API 密钥 (本地模型可填'local')", default="")
+            api_key = get_user_input("  API 密钥 (本地模型可填'local')", default="")
             if api_key:
                 config[f"{agent_key}_api_key"] = api_key
-                config[f"{agent_key}_base_url"] = get_user_input(f"  API 地址", default="")
-                config[f"{agent_key}_model_name"] = get_user_input(f"  模型名称", default="")
+                config[f"{agent_key}_base_url"] = get_user_input("  API 地址", default="")
+                config[f"{agent_key}_model_name"] = get_user_input("  模型名称", default="")
             else:
                 print(f"  ⏭️  跳过 {agent_desc}")
             print()
@@ -368,16 +395,17 @@ class InteractiveInstaller:
         if venv_info['use']:
             print(f"🐍 虚拟环境: 使用 {venv_info['manager']}")
         else:
-            print(f"🐍 虚拟环境: 不使用")
+            print("🐍 虚拟环境: 不使用")
 
         db_info = plan['database']
         print(f"🗄️  数据库: {db_info['db_type'].upper()}")
 
         if plan['llm_config'].get('use_recommended'):
-            print(f"🤖 LLM配置: 使用推荐配置")
+            print("🤖 LLM配置: 使用推荐配置")
         else:
             configured_agents = [k.replace('_api_key', '') for k in plan['llm_config'].keys() if 'api_key' in k]
-            print(f"🤖 LLM配置: 自定义 ({', '.join(configured_agents)})")
+            agents_str = ', '.join(configured_agents)
+            print(f"🤖 LLM配置: 自定义 ({agents_str})")
 
         components = plan['components']
         installed_comps = [k for k, v in components.items() if v]

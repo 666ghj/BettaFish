@@ -3,6 +3,9 @@ import sys
 import os
 from pathlib import Path
 
+# 虚拟环境目录常量
+VENV_DIR = ".venv"
+
 try:
     from install_deps.modules.utils import validate_python_version, get_system_info, format_size, get_free_space
     from install_deps.modules.interactive_installer import InteractiveInstaller
@@ -62,7 +65,7 @@ class BettaFishInstaller:
             result = subprocess.run(["dpkg", "-l", "libxml2-dev"], capture_output=True)
             if result.returncode != 0:
                 missing_deps.append("libxml2-dev")
-        except:
+        except (subprocess.SubprocessError, OSError, FileNotFoundError):
             missing_deps.append("libxml2-dev")
 
         try:
@@ -70,7 +73,7 @@ class BettaFishInstaller:
             result = subprocess.run(["dpkg", "-l", "libxslt1-dev"], capture_output=True)
             if result.returncode != 0:
                 missing_deps.append("libxslt1-dev")
-        except:
+        except (subprocess.SubprocessError, OSError, FileNotFoundError):
             missing_deps.append("libxslt1-dev")
 
         if missing_deps:
@@ -110,21 +113,21 @@ class BettaFishInstaller:
                 import subprocess
                 subprocess.run(["uv", "venv"], check=True)
                 print("✅ UV虚拟环境创建成功")
-                self.virtual_env_path = ".venv"
+                self.virtual_env_path = VENV_DIR
                 if os.name == 'nt':  # Windows
-                    self.python_executable = ".venv\\Scripts\\python.exe"
+                    self.python_executable = f"{VENV_DIR}\\Scripts\\python.exe"
                 else:
-                    self.python_executable = ".venv/bin/python"
+                    self.python_executable = f"{VENV_DIR}/bin/python"
                 print("💡 虚拟环境已自动激活")
             elif env_manager == "venv":
                 import subprocess
-                subprocess.run([sys.executable, "-m", "venv", ".venv"], check=True)
+                subprocess.run([sys.executable, "-m", "venv", VENV_DIR], check=True)
                 print("✅ Python虚拟环境创建成功")
-                self.virtual_env_path = ".venv"
+                self.virtual_env_path = VENV_DIR
                 if os.name == 'nt':  # Windows
-                    self.python_executable = ".venv\\Scripts\\python.exe"
+                    self.python_executable = f"{VENV_DIR}\\Scripts\\python.exe"
                 else:
-                    self.python_executable = ".venv/bin/python"
+                    self.python_executable = f"{VENV_DIR}/bin/python"
                 print("💡 虚拟环境已自动激活")
 
             return True
@@ -132,46 +135,59 @@ class BettaFishInstaller:
             print(f"❌ 虚拟环境创建失败: {e}")
             return False
 
+    def _check_requirements_file(self) -> Path:
+        """检查requirements.txt文件是否存在"""
+        requirements_path = Path("requirements.txt")
+        if not requirements_path.exists():
+            print("❌ 未找到 requirements.txt 文件")
+            raise FileNotFoundError("未找到 requirements.txt 文件")
+
+        print(f"📦 使用依赖文件: {requirements_path}")
+        return requirements_path
+
+    def _install_with_venv_manager(self, manager: str, requirements_path: Path) -> None:
+        """使用虚拟环境管理器安装依赖"""
+        import subprocess
+
+        if manager == "conda":
+            print("🔄 使用 Conda 安装依赖...")
+            subprocess.run(["conda", "run", "-n", "bettafish", "pip", "install", "-r", str(requirements_path)], check=True)
+        elif manager == "uv":
+            print("🔄 使用 UV 安装依赖...")
+            subprocess.run(["uv", "pip", "install", "-r", str(requirements_path)], check=True)
+        else:  # venv
+            print("🔄 使用虚拟环境的 Pip 安装依赖...")
+            subprocess.run([self.python_executable, "-m", "pip", "install", "-r", str(requirements_path)], check=True)
+
+    def _install_without_venv(self, requirements_path: Path) -> None:
+        """不使用虚拟环境安装依赖"""
+        import subprocess
+
+        try:
+            subprocess.run([self.python_executable, "-m", "pip", "install", "-r", str(requirements_path)], check=True)
+        except subprocess.CalledProcessError as e:
+            if "externally-managed-environment" in str(e):
+                print("⚠️  系统Python环境受保护")
+                from install_deps.modules.utils import confirm
+                if confirm("是否使用 --break-system-packages 强制安装？", default=False):
+                    subprocess.run([self.python_executable, "-m", "pip", "install", "--break-system-packages", "-r", str(requirements_path)], check=True)
+                else:
+                    print("❌ 安装被取消")
+                    raise Exception("安装被用户取消")
+            else:
+                raise e
+
     def install_dependencies(self, plan: dict) -> bool:
         print("📦 安装依赖包...")
 
         try:
-            # 检查当前目录的requirements.txt
-            requirements_path = Path("requirements.txt")
-            if not requirements_path.exists():
-                print("❌ 未找到 requirements.txt 文件")
-                return False
-
-            print(f"📦 使用依赖文件: {requirements_path}")
-
-            # 根据虚拟环境配置选择包管理器
+            requirements_path = self._check_requirements_file()
             import subprocess
 
             if plan['virtual_env']['use']:
-                if plan['virtual_env']['manager'] == "conda":
-                    print("🔄 使用 Conda 安装依赖...")
-                    subprocess.run(["conda", "run", "-n", "bettafish", "pip", "install", "-r", str(requirements_path)], check=True)
-                elif plan['virtual_env']['manager'] == "uv":
-                    print("🔄 使用 UV 安装依赖...")
-                    subprocess.run(["uv", "pip", "install", "-r", str(requirements_path)], check=True)
-                else:  # venv
-                    print("🔄 使用虚拟环境的 Pip 安装依赖...")
-                    subprocess.run([self.python_executable, "-m", "pip", "install", "-r", str(requirements_path)], check=True)
+                self._install_with_venv_manager(plan['virtual_env']['manager'], requirements_path)
             else:
-                # 系统级安装，先尝试正常安装
-                try:
-                    subprocess.run([self.python_executable, "-m", "pip", "install", "-r", str(requirements_path)], check=True)
-                except subprocess.CalledProcessError as e:
-                    if "externally-managed-environment" in str(e):
-                        print("⚠️  系统Python环境受保护")
-                        from install_deps.modules.utils import confirm
-                        if confirm("是否使用 --break-system-packages 强制安装？", default=False):
-                            subprocess.run([self.python_executable, "-m", "pip", "install", "--break-system-packages", "-r", str(requirements_path)], check=True)
-                        else:
-                            print("❌ 安装被取消")
-                            return False
-                    else:
-                        raise e
+                self._install_without_venv(requirements_path)
 
             print("✅ 依赖包安装完成")
             return True
@@ -295,12 +311,12 @@ REPORT_ENGINE_API_KEY=
             if env_manager == "conda":
                 print("  1. 激活虚拟环境: conda activate bettafish")
             elif env_manager == "uv":
-                print("  1. 激活虚拟环境: source .venv/bin/activate")
+                print("  1. 激活虚拟环境: source {VENV_DIR}/bin/activate")
             else:  # venv
                 if os.name == 'nt':  # Windows
-                    print("  1. 激活虚拟环境: .venv\\Scripts\\activate")
+                    print("  1. 激活虚拟环境: {VENV_DIR}\\Scripts\\activate")
                 else:
-                    print("  1. 激活虚拟环境: source .venv/bin/activate")
+                    print("  1. 激活虚拟环境: source {VENV_DIR}/bin/activate")
             print("  2. 编辑 .env 文件，填入API密钥")
             print("  3. 启动应用: python app.py")
         else:
