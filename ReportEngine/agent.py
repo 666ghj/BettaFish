@@ -526,6 +526,8 @@ class ReportAgent:
                 manifest_meta["themeTokens"] = layout_design["themeTokens"]
             if layout_design.get("tocPlan"):
                 manifest_meta["toc"]["customEntries"] = layout_design["tocPlan"]
+            # 将标题写入状态，便于持久化与后续文件命名
+            self.state.metadata.title = manifest_meta["title"]
             # 初始化章节输出目录并写入manifest，方便流式存盘
             run_dir = self.chapter_storage.start_session(report_id, manifest_meta)
             self._persist_planning_artifacts(run_dir, layout_design, word_plan, template_overview)
@@ -1238,7 +1240,7 @@ class ReportAgent:
         """
         保存HTML与IR到文件并返回路径信息。
 
-        生成基于查询和时间戳的易读文件名，同时也把运行态的
+        生成基于标题（或查询）和时间戳的易读文件名，同时也把运行态的
         `ReportState` 写入 JSON，方便下游排障或断点续跑。
 
         参数:
@@ -1250,22 +1252,26 @@ class ReportAgent:
             dict: 记录HTML/IR/State文件的绝对与相对路径信息。
         """
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        query_safe = "".join(
-            c for c in self.state.metadata.query if c.isalnum() or c in (" ", "-", "_")
-        ).rstrip()
-        query_safe = query_safe.replace(" ", "_")[:30] or "report"
 
-        html_filename = f"final_report_{query_safe}_{timestamp}.html"
+        def _make_safe_slug(value: str, fallback: str = "report", max_len: int = 80) -> str:
+            """清洗标题/查询为安全的文件名片段。"""
+            cleaned = "".join(c for c in value if c.isalnum() or c in (" ", "-", "_")).strip()
+            cleaned = cleaned.replace(" ", "_") or fallback
+            return cleaned[:max_len]
+
+        base_slug = _make_safe_slug(self.state.metadata.title or self.state.metadata.query, fallback="report")
+
+        html_filename = f"{base_slug}_{timestamp}.html"
         html_path = Path(self.config.OUTPUT_DIR) / html_filename
         html_path.write_text(html_content, encoding="utf-8")
         html_abs = str(html_path.resolve())
         html_rel = os.path.relpath(html_abs, os.getcwd())
 
-        ir_path = self._save_document_ir(document_ir, query_safe, timestamp)
+        ir_path = self._save_document_ir(document_ir, base_slug, timestamp)
         ir_abs = str(ir_path.resolve())
         ir_rel = os.path.relpath(ir_abs, os.getcwd())
 
-        state_filename = f"report_state_{query_safe}_{timestamp}.json"
+        state_filename = f"report_state_{base_slug}_{timestamp}.json"
         state_path = Path(self.config.OUTPUT_DIR) / state_filename
         self.state.save_to_file(str(state_path))
         state_abs = str(state_path.resolve())
@@ -1287,7 +1293,7 @@ class ReportAgent:
             'state_relative_path': state_rel,
         }
 
-    def _save_document_ir(self, document_ir: Dict[str, Any], query_safe: str, timestamp: str) -> Path:
+    def _save_document_ir(self, document_ir: Dict[str, Any], base_slug: str, timestamp: str) -> Path:
         """
         将整本IR写入独立目录。
 
@@ -1296,13 +1302,13 @@ class ReportAgent:
 
         参数:
             document_ir: 整本报告的IR结构。
-            query_safe: 已清洗的查询短语，用于文件命名。
+            base_slug: 已清洗的文件名片段（通常来自标题或查询）。
             timestamp: 运行时间戳，保证文件名唯一。
 
         返回:
             Path: 指向保存后的IR文件路径。
         """
-        filename = f"report_ir_{query_safe}_{timestamp}.json"
+        filename = f"report_ir_{base_slug}_{timestamp}.json"
         ir_path = Path(self.config.DOCUMENT_IR_OUTPUT_DIR) / filename
         ir_path.write_text(
             json.dumps(document_ir, ensure_ascii=False, indent=2),

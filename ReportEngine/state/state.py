@@ -13,6 +13,7 @@ from datetime import datetime
 class ReportMetadata:
     """简化的报告元数据"""
     query: str = ""                      # 原始查询
+    title: str = ""                      # 报告标题（用于命名/展示）
     template_used: str = ""              # 使用的模板名称
     generation_time: float = 0.0         # 生成耗时（秒）
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
@@ -21,6 +22,7 @@ class ReportMetadata:
         """转换为字典格式"""
         return {
             "query": self.query,
+            "title": self.title,
             "template_used": self.template_used,
             "generation_time": self.generation_time,
             "timestamp": self.timestamp
