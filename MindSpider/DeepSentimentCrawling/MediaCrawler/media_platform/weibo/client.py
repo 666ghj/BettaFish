@@ -66,7 +66,7 @@ class WeiboClient:
                 f"[WeiboClient.request] parse json failed, status={response.status_code}, "
                 f"url={url}, body_preview={preview}"
             )
-            raise DataFetchError("invalid json response")
+            raise DataFetchError(f"invalid json response, status={response.status_code}")
         ok_code = data.get("ok")
         if ok_code == 0:  # response error
             utils.logger.error(f"[WeiboClient.request] request {method}:{url} err, res:{data}")
