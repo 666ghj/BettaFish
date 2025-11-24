@@ -154,20 +154,20 @@ class DouYinClient(AbstractApiClient):
             'device_platform': 'webapp',
             'aid': '6383',
             'channel': 'channel_pc_web',
-            'search_channel': 'aweme_general',  # 必须是这个
+            'search_channel': 'aweme_general',
             'sort_type': '0',
             'publish_time': '0',
             'keyword': keyword,
-            'search_source': 'normal_search',   # 建议改为 normal_search 或 switch_tab
+            'search_source': 'normal_search',
             'query_correct_type': '1',
             'is_filter_search': '0',
             # 'from_group_id': '',  # 删掉或留空，不要硬编码过期的 ID
             'offset': offset,
-            'count': '10',          # 截图显示是 10
+            'count': '10',
             'need_filter_settings': '1',
-            # 'list_type': 'multi', # 截图里没有这个，注释掉
+            # 'list_type': 'multi', 注释掉
             'search_id': search_id,
-            'pc_client_type': '1',  # 截图中有
+            'pc_client_type': '1',
             'version_code': '190600',
             'version_name': '19.6.0',
             'cookie_enabled': 'true',
