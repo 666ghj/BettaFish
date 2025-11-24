@@ -25,6 +25,13 @@
 
         :root {
             --console-offset: 52px; /* app切换行 + 状态条的预留高度，运行时同步 */
+            --console-bg: #000000;
+            --console-text: #00ff00;
+        }
+
+        body[data-console-theme="neutral"] {
+            --console-bg: #1A1B1D;
+            --console-text: #AAAAAB;
         }
 
         .container {
@@ -322,8 +329,8 @@
         /* 控制台输出 */
         .console-output {
             flex: 1;
-            background-color: #000000;
-            color: #00ff00;
+            background-color: var(--console-bg, #000000);
+            color: var(--console-text, #00ff00);
             font-family: 'Courier New', monospace;
             font-size: 12px;
             overflow: hidden;        /* 【图层优化】容器本身不滚动，由console-layer滚动 */
@@ -388,6 +395,7 @@
             padding: var(--console-offset, 52px) 15px 15px; /* 顶部预留给状态栏与按钮，不影响滚动计算 */
             overflow-y: auto;        /* 允许独立滚动 */
             overflow-x: hidden;
+            color: var(--console-text, #00ff00);
             box-sizing: border-box;  /* 包含padding在width/height内 */
 
             /* 【Phase 2.4优化】增强GPU加速和CSS Containment */
@@ -929,6 +937,46 @@
         .message.error {
             border-color: #aa0000;
             background-color: #fff0f0;
+        }
+
+        .console-theme-switcher {
+            position: absolute;
+            right: 12px;
+            bottom: 12px;
+            display: flex;
+            gap: 8px;
+            z-index: 3;
+        }
+
+        .console-theme-button {
+            padding: 6px 10px;
+            border: 2px solid #000000;
+            background: #ffffff;
+            color: transparent;
+            font-size: 0;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            width: 44px;
+            height: 28px;
+            position: relative;
+            overflow: hidden;
+            padding: 0;
+        }
+
+        .console-theme-button:hover {
+            background-color: #f0f0f0;
+        }
+
+        .console-theme-button.active {
+            background-color: #000000;
+            color: #ffffff;
+            border-color: #000000;
+        }
+
+        .console-theme-button .swatch {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, var(--swatch-tl) 0%, var(--swatch-tl) 49%, var(--swatch-br) 51%, var(--swatch-br) 100%);
         }
 
         /* 重启确认弹窗 */
@@ -1480,6 +1528,14 @@
 
                 <!-- 控制台输出 -->
                 <div class="console-output" id="consoleOutput"></div>
+                <div class="console-theme-switcher">
+                    <button class="console-theme-button" data-theme="classic" id="themeClassicBtn" aria-label="黑底绿字">
+                        <span class="swatch" style="--swatch-tl: #00ff00; --swatch-br: #000000;"></span>
+                    </button>
+                    <button class="console-theme-button" data-theme="neutral" id="themeNeutralBtn" aria-label="灰底白字">
+                        <span class="swatch" style="--swatch-tl: #1A1B1D; --swatch-br: #AAAAAB;"></span>
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -1943,6 +1999,11 @@
             MEDIA: { key: 'media', label: 'Media Engine' },
             HOST: { key: 'host', label: 'Forum Host' }
         };
+        const CONSOLE_THEME_KEY = 'consoleTheme';
+        const CONSOLE_THEMES = {
+            classic: { label: '黑 + 绿' },
+            neutral: { label: '灰 + 白' }
+        };
 
         const configFieldGroups = [
             {
@@ -2051,6 +2112,7 @@
 
         // 初始化
         document.addEventListener('DOMContentLoaded', function() {
+            initializeConsoleTheme();
             initializeConsoleLayers();
             syncStatusBarPosition();
             initializeSocket();
@@ -2171,6 +2233,15 @@
             const openConfigButton = document.getElementById('openConfigButton');
             if (openConfigButton) {
                 openConfigButton.addEventListener('click', () => openConfigModal({ lock: !systemStarted }));
+            }
+
+            const themeClassicBtn = document.getElementById('themeClassicBtn');
+            const themeNeutralBtn = document.getElementById('themeNeutralBtn');
+            if (themeClassicBtn) {
+                themeClassicBtn.addEventListener('click', () => applyConsoleTheme('classic'));
+            }
+            if (themeNeutralBtn) {
+                themeNeutralBtn.addEventListener('click', () => applyConsoleTheme('neutral'));
             }
 
             const closeConfigButton = document.getElementById('closeConfigModal');
@@ -2635,6 +2706,41 @@
                 restartButton.disabled = false;
                 restartButton.textContent = RESTART_BUTTON_DEFAULT_TEXT;
             }
+        }
+
+        function applyConsoleTheme(theme) {
+            const nextTheme = CONSOLE_THEMES[theme] ? theme : 'classic';
+            document.body.dataset.consoleTheme = nextTheme;
+            try {
+                localStorage.setItem(CONSOLE_THEME_KEY, nextTheme);
+            } catch (error) {
+                console.warn('无法写入本地缓存的主题设置', error);
+            }
+            updateConsoleThemeButtons(nextTheme);
+        }
+
+        function updateConsoleThemeButtons(activeTheme) {
+            const classicBtn = document.getElementById('themeClassicBtn');
+            const neutralBtn = document.getElementById('themeNeutralBtn');
+            if (classicBtn) {
+                classicBtn.classList.toggle('active', activeTheme === 'classic');
+            }
+            if (neutralBtn) {
+                neutralBtn.classList.toggle('active', activeTheme === 'neutral');
+            }
+        }
+
+        function initializeConsoleTheme() {
+            let cachedTheme = 'classic';
+            try {
+                const stored = localStorage.getItem(CONSOLE_THEME_KEY);
+                if (stored && CONSOLE_THEMES[stored]) {
+                    cachedTheme = stored;
+                }
+            } catch (error) {
+                console.warn('读取本地缓存主题失败，使用默认主题', error);
+            }
+            applyConsoleTheme(cachedTheme);
         }
 
         function updateConfigCloseButton() {
