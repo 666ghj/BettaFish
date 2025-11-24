@@ -7,13 +7,15 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PATH="/root/.local/bin:${PATH}" \
-    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
+    TZ=Asia/Shanghai
 
 # Install system dependencies required by scientific Python stack, Playwright, Streamlit, and WeasyPrint PDF
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     git \
+    tzdata \
     libgl1 \
     libglib2.0-0 \
     libgtk-3-0 \
@@ -40,6 +42,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxshmfence1 \
     libgbm1 \
     ffmpeg \
+    && ln -snf /usr/share/zoneinfo/${TZ} /etc/localtime \
+    && echo ${TZ} > /etc/timezone \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install the latest uv release and expose it on PATH
