@@ -1552,6 +1552,7 @@
             report: 'stopped'  // Report Engine
         };
         let customTemplate = ''; // 存储用户上传的自定义模板内容
+        let lastUserQuery = ''; // 记录用户输入的问题，用于生成报告文件名
         let configValues = {};
         let configDirty = false;
         let configAutoRefreshTimer = null;
@@ -2150,6 +2151,9 @@
                 if (e.key === 'Enter') {
                     performSearch();
                 }
+            });
+            document.getElementById('searchInput').addEventListener('input', function(e) {
+                lastUserQuery = (e.target.value || '').trim();
             });
 
             // 文件上传
@@ -2920,6 +2924,7 @@
                 showMessage('请输入搜索内容', 'error');
                 return;
             }
+            lastUserQuery = query;
 
             const button = document.getElementById('searchButton');
             button.disabled = true;
@@ -4754,6 +4759,39 @@ function getConsoleContainer() {
             }
         }
 
+        function sanitizeFileBaseName(rawName) {
+            let base = (rawName || '').trim();
+            if (!base) {
+                base = '智能舆情分析报告';
+            }
+            // 去掉不合法文件名字符并压缩空格
+            base = base.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
+            if (!base) {
+                base = '智能舆情分析报告';
+            }
+            if (base.length > 80) {
+                base = base.slice(0, 80);
+            }
+            return base;
+        }
+
+        function buildReportFileNameFromQuery(rawQuery, ext = 'html') {
+            const base = sanitizeFileBaseName(rawQuery);
+            return `${base}.${ext}`;
+        }
+
+        function getQueryTextForTask(task) {
+            if (task && task.query) {
+                return task.query;
+            }
+            if (lastUserQuery) {
+                return lastUserQuery;
+            }
+            const input = document.getElementById('searchInput');
+            const inputVal = input ? input.value.trim() : '';
+            return inputVal || '智能舆情分析报告';
+        }
+
         function updateDownloadButtonState(task) {
             const downloadButton = document.getElementById('downloadReportButton');
             const downloadPdfButton = document.getElementById('downloadPdfButton');
@@ -4772,10 +4810,12 @@ function getConsoleContainer() {
             );
 
             if (htmlReady) {
+                const userQueryText = getQueryTextForTask(task);
+                const userFileName = buildReportFileNameFromQuery(userQueryText, 'html');
                 downloadButton.disabled = false;
                 downloadButton.dataset.taskId = task.task_id;
-                downloadButton.dataset.filename = task.report_file_name || '';
-                const label = task.report_file_name ? `下载HTML (${task.report_file_name})` : '下载HTML';
+                downloadButton.dataset.filename = userFileName;
+                const label = userFileName ? `下载HTML (${userFileName})` : '下载HTML';
                 downloadButton.textContent = label;
                 downloadPdfButton.disabled = !pdfReady;
                 downloadPdfButton.dataset.taskId = task.task_id;
@@ -4802,11 +4842,13 @@ function getConsoleContainer() {
                 return;
             }
 
-            let preferredFileName = '';
+            const queryTextForTask = lastCompletedReportTask && lastCompletedReportTask.task_id === targetTaskId
+                ? getQueryTextForTask(lastCompletedReportTask)
+                : getQueryTextForTask();
+
+            let preferredFileName = buildReportFileNameFromQuery(queryTextForTask, 'html');
             if (downloadButton && downloadButton.dataset.filename) {
                 preferredFileName = downloadButton.dataset.filename;
-            } else if (lastCompletedReportTask && lastCompletedReportTask.task_id === targetTaskId) {
-                preferredFileName = lastCompletedReportTask.report_file_name || '';
             }
 
             fetch(`/api/report/download/${targetTaskId}`)
@@ -4827,13 +4869,13 @@ function getConsoleContainer() {
                 let filename = preferredFileName;
                 if (!filename) {
                     const match = disposition.match(/filename="?([^";]+)"?/i);
-                    filename = match ? match[1] : `final_report_${targetTaskId}.html`;
+                    filename = match ? match[1] : buildReportFileNameFromQuery(queryTextForTask, 'html');
                 }
 
                 const url = window.URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
-                link.download = filename || 'final_report.html';
+                link.download = filename || buildReportFileNameFromQuery(queryTextForTask, 'html');
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
@@ -5000,6 +5042,7 @@ function getConsoleContainer() {
             }
 
             const query = document.getElementById('searchInput').value.trim() || '智能舆情分析报告';
+            lastUserQuery = query;
 
             // 【修复】先停止现有的日志轮询，避免与后端清空日志的竞态条件
             reportLogManager.stop();
