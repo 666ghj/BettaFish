@@ -29,7 +29,7 @@ services:
     env_file:
       - .env
     environment:
-      - TZ=Asia/Shanghai
+      TZ: Asia/Shanghai
       POSTGRES_USER: ${POSTGRES_USER:-bettafish}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bettafish}
       POSTGRES_DB: ${POSTGRES_DB:-bettafish}
