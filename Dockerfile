@@ -22,7 +22,7 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-ins
     libpango-1.0-0 \
     libpangocairo-1.0-0 \
     libpangoft2-1.0-0 \
-    libgdk-pixbuf2.0-0 \
+    libgdk-pixbuf-2.0-0 \
     libffi-dev \
     libcairo2 \
     libatk1.0-0 \
