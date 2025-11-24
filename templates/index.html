@@ -701,6 +701,30 @@
             cursor: not-allowed;
         }
 
+        .config-restart-button {
+            padding: 10px 22px;
+            border: 2px solid #000000;
+            background-color: #fff8e6;
+            color: #000000;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            display: none; /* 仅在系统已启动时显示 */
+        }
+
+        .config-restart-button:hover {
+            background-color: #000000;
+            color: #ffffff;
+        }
+
+        .config-restart-button:disabled {
+            background-color: #f0f0f0;
+            color: #999999;
+            border-color: #999999;
+            cursor: not-allowed;
+        }
+
         .loading {
             display: inline-block;
             width: 12px;
@@ -905,6 +929,145 @@
         .message.error {
             border-color: #aa0000;
             background-color: #fff0f0;
+        }
+
+        /* 重启确认弹窗 */
+        .confirm-overlay {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.35);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1200;
+            padding: 20px;
+        }
+
+        .confirm-overlay.visible {
+            display: flex;
+        }
+
+        .confirm-dialog {
+            background-color: #ffffff;
+            border: 2px solid #000000;
+            width: 420px;
+            max-width: 90vw;
+            box-shadow: 6px 6px 0 #000000;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .confirm-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 16px;
+            border-bottom: 2px solid #000000;
+        }
+
+        .confirm-title {
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .confirm-close {
+            width: 30px;
+            height: 30px;
+            border: 2px solid #000000;
+            background-color: #ffffff;
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .confirm-close:hover {
+            background-color: #000000;
+            color: #ffffff;
+        }
+
+        .confirm-body {
+            display: flex;
+            gap: 12px;
+            padding: 16px;
+            border-bottom: 2px solid #000000;
+            align-items: flex-start;
+        }
+
+        .confirm-icon {
+            width: 42px;
+            height: 42px;
+            border: 2px solid #000000;
+            border-radius: 50%;
+            background-color: #fff4e5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        .confirm-text {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .confirm-strong {
+            font-weight: bold;
+        }
+
+        .confirm-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .confirm-pill {
+            padding: 4px 10px;
+            border: 2px solid #000000;
+            background-color: #f5f5f0;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .confirm-subtext {
+            font-size: 12px;
+            color: #555555;
+            line-height: 1.5;
+        }
+
+        .confirm-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            padding: 12px 16px;
+        }
+
+        .confirm-button {
+            padding: 9px 18px;
+            border: 2px solid #000000;
+            background-color: #ffffff;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .confirm-button:hover {
+            background-color: #f0f0f0;
+        }
+
+        .confirm-button.primary {
+            background-color: #000000;
+            color: #ffffff;
+        }
+
+        .confirm-button.primary:hover {
+            background-color: #333333;
         }
 
         /* Forum Engine 专用样式 */
@@ -1345,7 +1508,30 @@
                 <div class="config-modal-footer-actions">
                     <button class="config-save-button" id="saveConfigButton">保存</button>
                     <button class="config-start-button" id="startSystemButton">保存并启动系统</button>
+                    <button class="config-restart-button" id="restartSystemButton">保存并重启</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 重启确认弹窗 -->
+    <div class="confirm-overlay" id="restartConfirmModal" aria-hidden="true">
+        <div class="confirm-dialog">
+            <div class="confirm-header">
+                <div class="confirm-title">确认重启</div>
+                <button class="confirm-close" id="closeRestartConfirm" aria-label="关闭重启确认">×</button>
+            </div>
+            <div class="confirm-body">
+                <div class="confirm-icon">!</div>
+                <div class="confirm-text">
+                    <div class="confirm-strong">部分 Agent 仍在运行，确定要重启吗？</div>
+                    <div class="confirm-list" id="restartRunningList"></div>
+                    <div class="confirm-subtext">重启会停止所有 Agent 并重新拉起，可能中断当前任务。</div>
+                </div>
+            </div>
+            <div class="confirm-actions">
+                <button class="confirm-button" id="cancelRestartButton">取消</button>
+                <button class="confirm-button primary" id="confirmRestartButton">仍要重启</button>
             </div>
         </div>
     </div>
@@ -1747,7 +1933,15 @@
         const CONFIG_ENDPOINT = '/api/config';
         const SYSTEM_STATUS_ENDPOINT = '/api/system/status';
         const SYSTEM_START_ENDPOINT = '/api/system/start';
+        const SYSTEM_RESTART_ENDPOINT = '/api/system/restart';
         const START_BUTTON_DEFAULT_TEXT = '保存并启动系统';
+        const RESTART_BUTTON_DEFAULT_TEXT = '保存并重启';
+        const FORUM_AGENT_MAP = {
+            QUERY: { key: 'query', label: 'Query Engine' },
+            INSIGHT: { key: 'insight', label: 'Insight Engine' },
+            MEDIA: { key: 'media', label: 'Media Engine' },
+            HOST: { key: 'host', label: 'Forum Host' }
+        };
 
         const configFieldGroups = [
             {
@@ -1995,6 +2189,29 @@
                 startSystemButton.addEventListener('click', () => startSystem());
             }
 
+            const restartSystemButton = document.getElementById('restartSystemButton');
+            if (restartSystemButton) {
+                restartSystemButton.addEventListener('click', () => handleRestartRequest());
+            }
+
+            const cancelRestartButton = document.getElementById('cancelRestartButton');
+            if (cancelRestartButton) {
+                cancelRestartButton.addEventListener('click', () => hideRestartConfirm());
+            }
+
+            const closeRestartButton = document.getElementById('closeRestartConfirm');
+            if (closeRestartButton) {
+                closeRestartButton.addEventListener('click', () => hideRestartConfirm());
+            }
+
+            const confirmRestartButton = document.getElementById('confirmRestartButton');
+            if (confirmRestartButton) {
+                confirmRestartButton.addEventListener('click', () => {
+                    hideRestartConfirm();
+                    restartSystem({ skipAgentWarning: true });
+                });
+            }
+
             const configModal = document.getElementById('configModal');
             if (configModal) {
                 configModal.addEventListener('click', (event) => {
@@ -2013,8 +2230,14 @@
             }
 
             document.addEventListener('keydown', function(event) {
-                if (event.key === 'Escape' && isConfigModalVisible()) {
-                    closeConfigModal();
+                if (event.key === 'Escape') {
+                    if (isConfigModalVisible()) {
+                        closeConfigModal();
+                    }
+                    const restartModal = document.getElementById('restartConfirmModal');
+                    if (restartModal && restartModal.classList.contains('visible')) {
+                        hideRestartConfirm();
+                    }
                 }
             });
         }
@@ -2368,6 +2591,7 @@
         function updateStartButtonState() {
             const startButton = document.getElementById('startSystemButton');
             if (!startButton) {
+                updateRestartButtonState();
                 return;
             }
 
@@ -2380,6 +2604,32 @@
             } else {
                 startButton.disabled = false;
                 startButton.textContent = START_BUTTON_DEFAULT_TEXT;
+            }
+
+            updateRestartButtonState();
+        }
+
+        function updateRestartButtonState() {
+            const restartButton = document.getElementById('restartSystemButton');
+            if (!restartButton) {
+                return;
+            }
+
+            if (!systemStarted) {
+                restartButton.style.display = 'none';
+                restartButton.disabled = true;
+                restartButton.textContent = RESTART_BUTTON_DEFAULT_TEXT;
+                return;
+            }
+
+            restartButton.style.display = 'inline-block';
+
+            if (systemStarting) {
+                restartButton.disabled = true;
+                restartButton.textContent = '重启中...';
+            } else {
+                restartButton.disabled = false;
+                restartButton.textContent = RESTART_BUTTON_DEFAULT_TEXT;
             }
         }
 
@@ -2444,6 +2694,98 @@
             }
         }
 
+        function hideRestartConfirm() {
+            const modal = document.getElementById('restartConfirmModal');
+            if (modal) {
+                modal.classList.remove('visible');
+                modal.setAttribute('aria-hidden', 'true');
+            }
+        }
+
+        function showRestartConfirm(runningAgents = []) {
+            const modal = document.getElementById('restartConfirmModal');
+            const list = document.getElementById('restartRunningList');
+
+            if (list) {
+                if (runningAgents.length === 0) {
+                    list.innerHTML = '<span class="confirm-pill">暂无运行中的 Agent</span>';
+                } else {
+                    list.innerHTML = runningAgents
+                        .map(app => {
+                            const display = (FORUM_AGENT_MAP[app.toUpperCase()] && FORUM_AGENT_MAP[app.toUpperCase()].label)
+                                || appNames[app]
+                                || app;
+                            return `<span class="confirm-pill">${display}</span>`;
+                        })
+                        .join('');
+                }
+            }
+
+            if (modal) {
+                modal.classList.add('visible');
+                modal.setAttribute('aria-hidden', 'false');
+            }
+        }
+
+        function normalizeForumSource(rawSource = '', rawSender = '') {
+            const source = (rawSource || rawSender || '').toString().trim().toUpperCase();
+            if (!source) return null;
+            if (source.includes('QUERY')) return 'QUERY';
+            if (source.includes('INSIGHT')) return 'INSIGHT';
+            if (source.includes('MEDIA')) return 'MEDIA';
+            if (source.includes('HOST')) return 'HOST';
+            return null;
+        }
+
+        async function detectActiveAgentsFromForum() {
+            try {
+                const response = await fetch('/api/forum/log', { cache: 'no-store' });
+                if (!response.ok) {
+                    throw new Error('论坛日志请求失败');
+                }
+                const data = await response.json();
+                if (!data || data.success === false) {
+                    throw new Error(data && data.message ? data.message : '论坛日志读取失败');
+                }
+
+                const parsed = Array.isArray(data.parsed_messages) ? data.parsed_messages : [];
+                const activeKeys = new Set();
+
+                parsed.forEach(msg => {
+                    const normalized = normalizeForumSource(msg.source, msg.sender);
+                    if (normalized && FORUM_AGENT_MAP[normalized]) {
+                        activeKeys.add(FORUM_AGENT_MAP[normalized].key);
+                    }
+                });
+
+                return Array.from(activeKeys);
+            } catch (error) {
+                console.warn('基于论坛日志检测 Agent 活动失败，将按无活动处理', error);
+                return [];
+            }
+        }
+
+        async function handleRestartRequest() {
+            if (!systemStarted) {
+                showMessage('系统尚未启动，无法重启', 'error');
+                setConfigStatus('系统尚未启动，请先启动系统', 'error');
+                return;
+            }
+
+            if (systemStarting) {
+                setConfigStatus('系统正在启动/重启，请稍候...', '');
+                return;
+            }
+
+            const runningAgents = await detectActiveAgentsFromForum();
+            if (runningAgents.length > 0) {
+                showRestartConfirm(runningAgents);
+                return;
+            }
+
+            restartSystem({ skipAgentWarning: true });
+        }
+
         async function startSystem() {
             if (systemStarting) {
                 setConfigStatus('系统正在启动，请稍候...', '');
@@ -2495,6 +2837,78 @@
             } finally {
                 systemStarting = false;
                 updateStartButtonState();
+                await fetchSystemStatus();
+            }
+        }
+
+        async function restartSystem(options = {}) {
+            const { skipAgentWarning = false } = options;
+
+            if (!systemStarted && !systemStarting) {
+                return startSystem();
+            }
+
+            if (systemStarting) {
+                setConfigStatus('系统正在启动/重启，请稍候...', '');
+                return;
+            }
+
+            systemStarting = true;
+            updateStartButtonState();
+
+            try {
+                if (configDirty) {
+                    setConfigStatus('检测到未保存的修改，正在保存配置...', '');
+                    const saved = await saveConfigUpdates({ silent: true });
+                    if (!saved) {
+                        systemStarting = false;
+                        updateStartButtonState();
+                        return;
+                    }
+                }
+
+                if (!skipAgentWarning) {
+                    const runningAgents = await detectActiveAgentsFromForum();
+                    if (runningAgents.length > 0) {
+                        systemStarting = false;
+                        updateStartButtonState();
+                        showRestartConfirm(runningAgents);
+                        return;
+                    }
+                }
+
+                setConfigStatus('正在重启系统...', '');
+                const response = await fetch(SYSTEM_RESTART_ENDPOINT, { method: 'POST' });
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    const message = data && data.message ? data.message : '系统重启失败';
+                    throw new Error(message);
+                }
+
+                showMessage('系统重启成功', 'success');
+                setConfigStatus('系统重启成功', 'success');
+                applySystemState({ started: true, starting: false });
+                configModalLocked = false;
+
+                setTimeout(() => {
+                    closeConfigModal();
+                }, 800);
+
+                setTimeout(() => {
+                    checkStatus();
+                }, 1000);
+
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1300);
+            } catch (error) {
+                setConfigStatus(`系统重启失败: ${error.message}`, 'error');
+                showMessage(`系统重启失败: ${error.message}`, 'error');
+                applySystemState({ started: false, starting: false });
+            } finally {
+                systemStarting = false;
+                updateStartButtonState();
+                updateRestartButtonState();
                 await fetchSystemStatus();
             }
         }

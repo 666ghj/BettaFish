@@ -1140,6 +1140,40 @@ def start_system():
     finally:
         _set_system_state(starting=False)
 
+
+@app.route('/api/system/restart', methods=['POST'])
+def restart_system():
+    """停止正在运行的组件并重新启动系统。"""
+    state = _get_system_state()
+    if state['starting']:
+        return jsonify({'success': False, 'message': '系统正在启动，请稍候'}), 400
+
+    _set_system_state(starting=True, started=False)
+
+    try:
+        # 先清理已有进程，避免端口占用或残留状态
+        cleanup_processes()
+        _set_system_state(starting=True, started=False)
+
+        success, logs, errors = initialize_system_components()
+        if success:
+            _set_system_state(started=True)
+            return jsonify({'success': True, 'message': '系统重启成功', 'logs': logs})
+
+        _set_system_state(started=False)
+        return jsonify({
+            'success': False,
+            'message': '系统重启失败',
+            'logs': logs,
+            'errors': errors
+        }), 500
+    except Exception as exc:  # pragma: no cover - 保底捕获
+        logger.exception("系统重启过程中出现异常")
+        _set_system_state(started=False)
+        return jsonify({'success': False, 'message': f'系统重启异常: {exc}'}), 500
+    finally:
+        _set_system_state(starting=False)
+
 @socketio.on('connect')
 def handle_connect():
     """客户端连接"""
