@@ -10,7 +10,7 @@
 
 
 # -*- coding: utf-8 -*-
-from typing import List
+from typing import Dict, List
 
 import config
 from base.base_crawler import AbstractStore
@@ -39,6 +39,69 @@ class ZhihuStoreFactory:
             raise ValueError("[ZhihuStoreFactory.create_store] Invalid save option only supported csv or db or json or sqlite or postgresql ...")
         return store_class()
 
+STRING_FIELDS_CONTENT = [
+    "content_id",
+    "content_type",
+    "content_text",
+    "content_url",
+    "question_id",
+    "title",
+    "desc",
+    "created_time",
+    "updated_time",
+    "source_keyword",
+    "user_id",
+    "user_link",
+    "user_nickname",
+    "user_avatar",
+    "user_url_token",
+]
+
+STRING_FIELDS_COMMENT = [
+    "comment_id",
+    "parent_comment_id",
+    "content",
+    "publish_time",
+    "content_id",
+    "content_type",
+    "user_id",
+    "user_link",
+    "user_nickname",
+    "user_avatar",
+]
+
+STRING_FIELDS_CREATOR = [
+    "user_id",
+    "user_link",
+    "user_nickname",
+    "user_avatar",
+    "url_token",
+    "gender",
+    "ip_location",
+]
+
+
+def _normalize_strings(payload: Dict, string_fields: List[str], context: str) -> Dict:
+    """
+    将原始字典中需要是字符串的字段强制转为字符串，并打印类型快照，便于排查 asyncpg DataError。
+    """
+    type_snapshot = {}
+    for key in string_fields:
+        if key not in payload:
+            continue
+        value = payload[key]
+        type_snapshot[key] = type(value).__name__
+        if value is None:
+            payload[key] = ""
+        elif not isinstance(value, str):
+            utils.logger.warning(
+                f"[store.zhihu.{context}] 字段 {key} 期望 str，实际 {type(value).__name__}，值={value}，已强制转为字符串"
+            )
+            payload[key] = str(value)
+    utils.logger.debug(f"[store.zhihu.{context}] 字段类型快照: {type_snapshot}")
+    return payload
+
+
 async def batch_update_zhihu_contents(contents: List[ZhihuContent]):
     """
     批量更新知乎内容
@@ -66,6 +129,7 @@ async def update_zhihu_content(content_item: ZhihuContent):
     content_item.source_keyword = source_keyword_var.get()
     local_db_item = content_item.model_dump()
     local_db_item.update({"last_modify_ts": utils.get_current_timestamp()})
+    local_db_item = _normalize_strings(local_db_item, STRING_FIELDS_CONTENT, "update_zhihu_content")
     utils.logger.info(f"[store.zhihu.update_zhihu_content] zhihu content: {local_db_item}")
     await ZhihuStoreFactory.create_store().store_content(local_db_item)
 
@@ -98,6 +162,7 @@ async def update_zhihu_content_comment(comment_item: ZhihuComment):
     """
     local_db_item = comment_item.model_dump()
     local_db_item.update({"last_modify_ts": utils.get_current_timestamp()})
+    local_db_item = _normalize_strings(local_db_item, STRING_FIELDS_COMMENT, "update_zhihu_content_comment")
     utils.logger.info(f"[store.zhihu.update_zhihu_note_comment] zhihu content comment:{local_db_item}")
     await ZhihuStoreFactory.create_store().store_comment(local_db_item)
 
@@ -115,4 +180,5 @@ async def save_creator(creator: ZhihuCreator):
         return
     local_db_item = creator.model_dump()
     local_db_item.update({"last_modify_ts": utils.get_current_timestamp()})
+    local_db_item = _normalize_strings(local_db_item, STRING_FIELDS_CREATOR, "save_creator")
     await ZhihuStoreFactory.create_store().store_creator(local_db_item)
