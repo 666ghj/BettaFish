@@ -326,6 +326,12 @@ BettaFish/
 
 ### 1. Starting the Project
 
+**Build locally with the current branch code:**
+
+```bash
+docker compose build bettafish
+```
+
 **Run Command:** Execute the following command to start all services in the **background**:
 
 ```bash
@@ -589,6 +595,12 @@ python main.py --broad-topic --date 2024-01-20
 
 # Run deep crawling only
 python main.py --deep-sentiment --platforms xhs dy wb
+
+# Use custom keywords to bypass automatic extraction
+python main.py --deep-sentiment --keywords "Wuhan University" sentiment
+
+# Load custom keywords from file (one per line)
+python main.py --deep-sentiment --keywords-file ./keywords.txt
 ```
 
 #### 6.4 Command-line Report Generation Tool

@@ -329,6 +329,12 @@ BettaFish/
 
 复制一份 `.env.example` 文件，命名为 `.env` ，并按需配置 `.env` 文件中的环境变量
 
+使用当前分支代码**本地构建镜像**：
+
+```bash
+docker compose build bettafish
+```
+
 执行以下命令在后台启动所有服务：
 
 ```bash
@@ -615,6 +621,12 @@ python main.py --broad-topic --date 2024-01-20
 
 # 仅运行深度爬取
 python main.py --deep-sentiment --platforms xhs dy wb
+
+# 使用自定义关键词直接深度爬取（覆盖自动提取）
+python main.py --deep-sentiment --keywords "武汉大学" 舆情分析
+
+# 从文件加载自定义关键词（每行一个）
+python main.py --deep-sentiment --keywords-file ./keywords.txt
 ```
 
 #### 6.4 命令行报告生成工具
