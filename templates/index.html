@@ -41,6 +41,7 @@
             flex-direction: column;
             border: 2px solid #000000;
             overflow: hidden; /* 防止整体滚动 */
+            position: relative;
         }
 
         /* 搜索框区域 */
@@ -64,6 +65,56 @@
             gap: 12px;
             max-width: 950px;
             margin: 0 auto 10px;
+        }
+
+        .page-actions {
+            position: absolute;
+            top: 16px;
+            right: 18px;
+            display: flex;
+            gap: 10px;
+            z-index: 20;
+        }
+
+        .page-action-button {
+            border: 2px solid #000000;
+            background-color: #ffffff;
+            color: #000000;
+            padding: 10px 14px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 4px 4px 0 #000000;
+            transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.2s ease, color 0.2s ease;
+            letter-spacing: 0.5px;
+        }
+
+        .page-action-button:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 6px 6px 0 #000000;
+            background-color: #f5f5f5;
+        }
+
+        .page-action-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: 2px 2px 0 #777777;
+        }
+
+        .page-action-button.refresh {
+            background-color: #ffffff;
+            color: #000000;
+        }
+
+        .page-action-button.shutdown {
+            background-color: #ffecec;
+            color: #b42318;
+            border-color: #000000;
+        }
+
+        .page-action-button.shutdown:hover {
+            background-color: #ffd9d9;
+            color: #8c1111;
         }
 
         .config-button {
@@ -1044,6 +1095,31 @@
             align-items: flex-start;
         }
 
+        .confirm-dialog.danger {
+            border-color: #b42318;
+            box-shadow: 6px 6px 0 #b42318;
+        }
+
+        .confirm-dialog.danger .confirm-header {
+            border-color: #b42318;
+        }
+
+        .confirm-dialog .confirm-button.danger {
+            background-color: #ffecec;
+            color: #b42318;
+        }
+
+        .confirm-dialog .confirm-button.danger:hover {
+            background-color: #ffc9c9;
+            color: #8c1111;
+        }
+
+        .confirm-dialog.danger .confirm-icon {
+            background-color: #ffecec;
+            border-color: #b42318;
+            color: #b42318;
+        }
+
         .confirm-icon {
             width: 42px;
             height: 42px;
@@ -1451,6 +1527,10 @@
 <body>
     <!-- 顶层容器：同时包裹搜索区、双列主工作区与状态栏 -->
     <div class="container">
+        <div class="page-actions">
+            <button class="page-action-button refresh" id="pageRefreshButton" aria-label="刷新页面数据">安全刷新</button>
+            <button class="page-action-button shutdown" id="shutdownButton" aria-label="关闭系统">关机</button>
+        </div>
         <!-- 搜索框区域 -->
         <div class="search-section">
             <div class="search-title">微舆 - 致力于打造简洁通用的舆情分析平台</div>
@@ -1592,6 +1672,28 @@
         </div>
     </div>
 
+    <!-- 关机确认弹窗 -->
+    <div class="confirm-overlay" id="shutdownConfirmModal" aria-hidden="true">
+        <div class="confirm-dialog danger">
+            <div class="confirm-header">
+                <div class="confirm-title">确认关闭系统</div>
+                <button class="confirm-close" id="closeShutdownConfirm" aria-label="关闭关机确认">×</button>
+            </div>
+            <div class="confirm-body">
+                <div class="confirm-icon">!</div>
+                <div class="confirm-text">
+                    <div class="confirm-strong" id="shutdownStrongText">确定要关闭吗？</div>
+                    <div class="confirm-list" id="shutdownRunningList"></div>
+                    <div class="confirm-subtext">关闭后所有 Agent 将停止工作，连接会断开。</div>
+                </div>
+            </div>
+            <div class="confirm-actions">
+                <button class="confirm-button" id="cancelShutdownButton">取消</button>
+                <button class="confirm-button danger" id="confirmShutdownButton">立即关闭</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 消息提示：右上角滑出式成功/错误提醒 -->
     <div class="message" id="message"></div>
 
@@ -1618,6 +1720,8 @@
         let socketConnected = false;
         let reportStreamConnected = false;
         let backendReachable = false;
+        let pageRefreshInProgress = false;
+        let shutdownInProgress = false;
         const consoleLayerApps = ['insight', 'media', 'query', 'forum', 'report'];
         const consoleLayers = {};
         let activeConsoleLayer = currentApp;
@@ -1991,6 +2095,7 @@
         const SYSTEM_STATUS_ENDPOINT = '/api/system/status';
         const SYSTEM_START_ENDPOINT = '/api/system/start';
         const SYSTEM_RESTART_ENDPOINT = '/api/system/restart';
+        const SYSTEM_SHUTDOWN_ENDPOINT = '/api/system/shutdown';
         const START_BUTTON_DEFAULT_TEXT = '保存并启动系统';
         const RESTART_BUTTON_DEFAULT_TEXT = '保存并重启';
         const FORUM_AGENT_MAP = {
@@ -2269,6 +2374,16 @@
                 restartSystemButton.addEventListener('click', () => handleRestartRequest());
             }
 
+            const refreshPageButton = document.getElementById('pageRefreshButton');
+            if (refreshPageButton) {
+                refreshPageButton.addEventListener('click', () => handleSafeRefresh());
+            }
+
+            const shutdownButton = document.getElementById('shutdownButton');
+            if (shutdownButton) {
+                shutdownButton.addEventListener('click', () => handleShutdownRequest());
+            }
+
             const cancelRestartButton = document.getElementById('cancelRestartButton');
             if (cancelRestartButton) {
                 cancelRestartButton.addEventListener('click', () => hideRestartConfirm());
@@ -2284,6 +2399,24 @@
                 confirmRestartButton.addEventListener('click', () => {
                     hideRestartConfirm();
                     restartSystem({ skipAgentWarning: true });
+                });
+            }
+
+            const cancelShutdownButton = document.getElementById('cancelShutdownButton');
+            if (cancelShutdownButton) {
+                cancelShutdownButton.addEventListener('click', () => hideShutdownConfirm());
+            }
+
+            const closeShutdownButton = document.getElementById('closeShutdownConfirm');
+            if (closeShutdownButton) {
+                closeShutdownButton.addEventListener('click', () => hideShutdownConfirm());
+            }
+
+            const confirmShutdownButton = document.getElementById('confirmShutdownButton');
+            if (confirmShutdownButton) {
+                confirmShutdownButton.addEventListener('click', () => {
+                    hideShutdownConfirm();
+                    shutdownSystem({ skipAgentWarning: true });
                 });
             }
 
@@ -2312,6 +2445,10 @@
                     const restartModal = document.getElementById('restartConfirmModal');
                     if (restartModal && restartModal.classList.contains('visible')) {
                         hideRestartConfirm();
+                    }
+                    const shutdownModal = document.getElementById('shutdownConfirmModal');
+                    if (shutdownModal && shutdownModal.classList.contains('visible')) {
+                        hideShutdownConfirm();
                     }
                 }
             });
@@ -2837,6 +2974,46 @@
             }
         }
 
+        function hideShutdownConfirm() {
+            const modal = document.getElementById('shutdownConfirmModal');
+            if (modal) {
+                modal.classList.remove('visible');
+                modal.setAttribute('aria-hidden', 'true');
+            }
+        }
+
+        function showShutdownConfirm(runningAgents = []) {
+            const modal = document.getElementById('shutdownConfirmModal');
+            const list = document.getElementById('shutdownRunningList');
+            const strongText = document.getElementById('shutdownStrongText');
+
+            if (strongText) {
+                strongText.textContent = runningAgents.length > 0
+                    ? '部分 Agent 正在运行，确定要关闭吗？'
+                    : '确定要关闭系统并结束所有进程吗？';
+            }
+
+            if (list) {
+                if (runningAgents.length === 0) {
+                    list.innerHTML = '<span class="confirm-pill">当前无运行中的 Agent</span>';
+                } else {
+                    list.innerHTML = runningAgents
+                        .map(app => {
+                            const display = (FORUM_AGENT_MAP[app.toUpperCase()] && FORUM_AGENT_MAP[app.toUpperCase()].label)
+                                || appNames[app]
+                                || app;
+                            return `<span class="confirm-pill">${display}</span>`;
+                        })
+                        .join('');
+                }
+            }
+
+            if (modal) {
+                modal.classList.add('visible');
+                modal.setAttribute('aria-hidden', 'false');
+            }
+        }
+
         function normalizeForumSource(rawSource = '', rawSender = '') {
             const source = (rawSource || rawSender || '').toString().trim().toUpperCase();
             if (!source) return null;
@@ -3020,6 +3197,155 @@
                 updateStartButtonState();
                 updateRestartButtonState();
                 await fetchSystemStatus();
+            }
+        }
+
+        async function handleSafeRefresh() {
+            if (pageRefreshInProgress) {
+                return;
+            }
+
+            pageRefreshInProgress = true;
+            const refreshButton = document.getElementById('pageRefreshButton');
+            const originalText = refreshButton ? refreshButton.textContent : '';
+            if (refreshButton) {
+                refreshButton.disabled = true;
+                refreshButton.textContent = '刷新中...';
+            }
+
+            try {
+                await fetchSystemStatus();
+                await checkStatus();
+                preloadAllConsoleOutputs();
+                refreshConsoleOutput();
+
+                if (currentApp === 'forum' || appStatus.forum === 'running') {
+                    refreshForumMessages();
+                }
+
+                if (currentApp === 'report' && reportLogManager && reportLogManager.isRunning) {
+                    reportLogManager.refresh();
+                }
+
+                if (isConfigModalVisible() && !configDirty) {
+                    refreshConfigFromServer(false, '已同步最新配置');
+                }
+
+                showMessage('已刷新最新状态与日志', 'success');
+            } catch (error) {
+                console.error('刷新页面数据失败', error);
+                showMessage(`刷新失败: ${error.message}`, 'error');
+            } finally {
+                pageRefreshInProgress = false;
+                if (refreshButton) {
+                    refreshButton.disabled = false;
+                    refreshButton.textContent = originalText || '安全刷新';
+                }
+            }
+        }
+
+        async function handleShutdownRequest() {
+            if (shutdownInProgress) {
+                return;
+            }
+
+            if (systemStarting) {
+                showMessage('系统正在启动/重启，请稍后再关闭', 'error');
+                return;
+            }
+
+            const runningAgents = await detectActiveAgentsFromForum();
+            if (runningAgents.length > 0) {
+                showShutdownConfirm(runningAgents);
+                return;
+            }
+
+            shutdownSystem({ skipAgentWarning: true });
+        }
+
+        async function shutdownSystem(options = {}) {
+            const { skipAgentWarning = false } = options;
+
+            if (shutdownInProgress) {
+                return;
+            }
+
+            if (!skipAgentWarning) {
+                const runningAgents = await detectActiveAgentsFromForum();
+                if (runningAgents.length > 0) {
+                    showShutdownConfirm(runningAgents);
+                    return;
+                }
+            }
+
+            shutdownInProgress = true;
+            const button = document.getElementById('shutdownButton');
+            const originalText = button ? button.textContent : '';
+            if (button) {
+                button.disabled = true;
+                button.textContent = '关闭中...';
+            }
+
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 4000);
+                const response = await fetch(SYSTEM_SHUTDOWN_ENDPOINT, { method: 'POST', signal: controller.signal });
+                clearTimeout(timeoutId);
+
+                let message = '系统正在关闭，请稍等...';
+                if (response.ok) {
+                    try {
+                        const data = await response.json();
+                        if (data && data.message) {
+                            message = data.message;
+                        }
+                    } catch (error) {
+                        console.warn('关闭响应解析失败，使用默认提示');
+                    }
+                } else {
+                    throw new Error(`服务返回 ${response.status}`);
+                }
+
+                setConfigStatus(message, 'success');
+                showMessage(message, 'success');
+
+                // 主动清理前端资源，等待后端退出
+                stopAllTimers();
+                safeCloseReportStream();
+                if (socket) {
+                    try {
+                        socket.close();
+                    } catch (error) {
+                        console.warn('关闭Socket失败', error);
+                    }
+                }
+                backendReachable = false;
+                refreshConnectionStatus();
+            } catch (error) {
+                const text = error.name === 'AbortError'
+                    ? '关闭指令已发送，服务即将退出'
+                    : `关闭失败: ${error.message}`;
+                showMessage(text, error.name === 'AbortError' ? 'success' : 'error');
+
+                if (error.name !== 'AbortError') {
+                    shutdownInProgress = false;
+                    if (button) {
+                        button.disabled = false;
+                        button.textContent = originalText || '关机';
+                    }
+                } else {
+                    stopAllTimers();
+                    safeCloseReportStream();
+                    if (socket) {
+                        try {
+                            socket.close();
+                        } catch (closeError) {
+                            console.warn('关闭Socket失败', closeError);
+                        }
+                    }
+                    backendReachable = false;
+                    refreshConnectionStatus();
+                }
             }
         }
 
