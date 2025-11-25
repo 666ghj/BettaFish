@@ -22,6 +22,63 @@ WEASYPRINT_INSTALL_ATTEMPTED = False
 WEASYPRINT_INSTALL_SUCCEEDED = False
 
 
+def _run_command(cmd, desc, timeout=300):
+    """
+    运行子进程命令，返回(bool, 输出或错误信息)
+    """
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            encoding="utf-8",
+            errors="replace",
+        )
+        if result.returncode == 0:
+            return True, (result.stdout or result.stderr or "").strip()
+
+        detail = (result.stderr or result.stdout or "").strip()
+        detail = detail[-800:] if len(detail) > 800 else detail
+        return False, f"{desc} 失败（退出码 {result.returncode}）。输出: {detail}"
+    except Exception as exc:  # pragma: no cover - 安全兜底
+        return False, f"{desc} 失败: {exc}"
+
+
+def _ensure_pip_available(python_exe: str):
+    """
+    确保当前解释器具备 pip（缺失时自动使用 ensurepip），并升级 pip。
+
+    Returns:
+        tuple[bool, str]: (是否成功, 结果消息)
+    """
+    ok, output = _run_command(
+        [python_exe, "-m", "pip", "--version"],
+        "检测 pip"
+    )
+    if ok:
+        return True, output
+
+    logger.warning("未检测到 pip，尝试使用 ensurepip 引导: %s -m ensurepip --upgrade", python_exe)
+    ok, msg = _run_command(
+        [python_exe, "-m", "ensurepip", "--upgrade"],
+        "ensurepip 引导 pip",
+        timeout=180,
+    )
+    if not ok:
+        return False, msg
+
+    ok, msg = _run_command(
+        [python_exe, "-m", "pip", "install", "--upgrade", "pip"],
+        "升级 pip",
+        timeout=180,
+    )
+    if not ok:
+        return False, msg
+
+    return True, "pip 已安装且升级完成"
+
+
 def attempt_auto_install_weasyprint():
     """
     自动安装 WeasyPrint。重复调用会复用上次结果，避免多次安装。
@@ -37,33 +94,27 @@ def attempt_auto_install_weasyprint():
         return False, "已尝试自动安装 WeasyPrint，但未成功。请手动运行: pip install weasyprint"
 
     WEASYPRINT_INSTALL_ATTEMPTED = True
-    cmd = [sys.executable, "-m", "pip", "install", "weasyprint"]
-    logger.warning("检测到 WeasyPrint 未安装，正在自动执行: %s", " ".join(cmd))
+    python_exe = sys.executable
 
-    try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=300,
-            encoding="utf-8",
-            errors="replace",
-        )
-        if result.returncode == 0:
-            WEASYPRINT_INSTALL_SUCCEEDED = True
-            success_msg = "WeasyPrint 自动安装成功，请按 Ctrl+C 退出并重启主程序后再试 PDF 导出。"
-            logger.success(success_msg)
-            return True, success_msg
-
-        detail = (result.stderr or result.stdout or "").strip()
-        detail = detail[-800:] if len(detail) > 800 else detail
-        fail_msg = f"自动安装 WeasyPrint 失败（退出码 {result.returncode}）。请手动运行: pip install weasyprint。输出: {detail}"
+    pip_ready, pip_msg = _ensure_pip_available(python_exe)
+    if not pip_ready:
+        fail_msg = f"自动安装 WeasyPrint 前置步骤失败: {pip_msg}"
         logger.error(fail_msg)
         return False, fail_msg
-    except Exception as exc:  # pragma: no cover - 安全兜底
-        fail_msg = f"自动安装 WeasyPrint 失败: {exc}。请手动运行: pip install weasyprint"
-        logger.exception(fail_msg)
-        return False, fail_msg
+
+    cmd = [python_exe, "-m", "pip", "install", "weasyprint"]
+    logger.warning("检测到 WeasyPrint 未安装，正在自动执行: %s", " ".join(cmd))
+
+    ok, msg = _run_command(cmd, "自动安装 WeasyPrint")
+    if ok:
+        WEASYPRINT_INSTALL_SUCCEEDED = True
+        success_msg = "WeasyPrint 自动安装成功，请按 Ctrl+C 退出并重启主程序后再试 PDF 导出。"
+        logger.success(success_msg)
+        return True, success_msg
+
+    fail_msg = f"{msg}。请手动运行: {python_exe} -m pip install weasyprint"
+    logger.error(fail_msg)
+    return False, fail_msg
 
 
 def _get_platform_specific_instructions():
