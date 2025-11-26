@@ -90,6 +90,9 @@ class HTMLRenderer:
             validator=self.chart_validator,
             llm_repair_fns=llm_repair_fns
         )
+        # 记录修复失败的图表，避免多次触发LLM循环修复
+        self._chart_failure_notes: Dict[str, str] = {}
+        self._chart_failure_recorded: set[str] = set()
 
         # 统计信息
         self.chart_validation_stats = {
@@ -260,6 +263,8 @@ class HTMLRenderer:
             'repaired_api': 0,
             'failed': 0
         }
+        # 每次渲染重新统计失败计数，但保留失败原因，避免重复LLM调用
+        self._chart_failure_recorded = set()
 
         metadata = self.metadata
         theme_tokens = metadata.get("themeTokens") or self.document.get("themeTokens", {})
@@ -1340,7 +1345,8 @@ class HTMLRenderer:
         if self._should_skip_overview_kpi(block):
             return ""
         cards = ""
-        for item in block.get("items", []):
+        items = block.get("items", [])
+        for item in items:
             delta = item.get("delta")
             delta_tone = item.get("deltaTone") or "neutral"
             delta_html = f'<span class="delta {delta_tone}">{self._escape_html(delta)}</span>' if delta else ""
@@ -1351,7 +1357,8 @@ class HTMLRenderer:
               {delta_html}
             </div>
             """
-        return f'<div class="kpi-grid">{cards}</div>'
+        count_attr = f' data-kpi-count="{len(items)}"' if items else ""
+        return f'<div class="kpi-grid"{count_attr}>{cards}</div>'
 
     def _merge_dicts(
         self, base: Dict[str, Any] | None, override: Dict[str, Any] | None
@@ -1441,6 +1448,82 @@ class HTMLRenderer:
 
         return True
 
+    def _chart_cache_key(self, block: Dict[str, Any]) -> str:
+        """使用修复器的缓存算法生成稳定的key，便于跨阶段共享结果"""
+        if hasattr(self, "chart_repairer") and block:
+            try:
+                return self.chart_repairer.build_cache_key(block)
+            except Exception:
+                pass
+        return str(id(block))
+
+    def _note_chart_failure(self, cache_key: str, reason: str) -> None:
+        """记录修复失败原因，后续渲染直接使用占位提示"""
+        if not cache_key:
+            return
+        if not reason:
+            reason = "LLM返回的图表信息格式有误，无法正常显示"
+        self._chart_failure_notes[cache_key] = reason
+
+    def _record_chart_failure_stat(self, cache_key: str | None = None) -> None:
+        """确保失败计数只统计一次"""
+        if cache_key and cache_key in self._chart_failure_recorded:
+            return
+        self.chart_validation_stats['failed'] += 1
+        if cache_key:
+            self._chart_failure_recorded.add(cache_key)
+
+    def _format_chart_error_reason(
+        self,
+        validation_result: ValidationResult | None = None,
+        fallback_reason: str | None = None
+    ) -> str:
+        """拼接友好的失败提示"""
+        base = "LLM返回的图表信息格式有误，已尝试本地与多模型修复但仍无法正常显示。"
+        detail = None
+        if validation_result:
+            if validation_result.errors:
+                detail = validation_result.errors[0]
+            elif validation_result.warnings:
+                detail = validation_result.warnings[0]
+        if not detail and fallback_reason:
+            detail = fallback_reason
+        if detail:
+            text = f"{base} 提示：{detail}"
+            return text[:180] + ("..." if len(text) > 180 else "")
+        return base
+
+    def _render_chart_error_placeholder(
+        self,
+        title: str | None,
+        reason: str,
+        widget_id: str | None = None
+    ) -> str:
+        """输出图表失败时的简洁占位提示，避免破坏HTML/PDF布局"""
+        safe_title = self._escape_html(title or "图表未能展示")
+        safe_reason = self._escape_html(reason)
+        widget_attr = f' data-widget-id="{self._escape_attr(widget_id)}"' if widget_id else ""
+        return f"""
+        <div class="chart-card chart-card--error"{widget_attr}>
+          <div class="chart-error">
+            <div class="chart-error__icon">!</div>
+            <div class="chart-error__body">
+              <div class="chart-error__title">{safe_title}</div>
+              <p class="chart-error__desc">{safe_reason}</p>
+            </div>
+          </div>
+        </div>
+        """
+
+    def _has_chart_failure(self, block: Dict[str, Any]) -> tuple[bool, str | None]:
+        """检查是否已有修复失败记录"""
+        cache_key = self._chart_cache_key(block)
+        if block.get("_chart_renderable") is False:
+            return True, block.get("_chart_error_reason")
+        if cache_key in self._chart_failure_notes:
+            return True, self._chart_failure_notes.get(cache_key)
+        return False, None
+
     def _normalize_chart_block(
         self,
         block: Dict[str, Any],
@@ -1522,7 +1605,7 @@ class HTMLRenderer:
         1. 验证图表数据格式
         2. 如果无效，尝试本地修复
         3. 如果本地修复失败，尝试API修复
-        4. 如果所有修复都失败，使用原始数据（前端会降级处理）
+        4. 如果所有修复都失败，输出提示占位并跳过再次修复
 
         参数:
             block: widget类型的block，包含widgetId/props/data。
@@ -1537,9 +1620,20 @@ class HTMLRenderer:
         widget_type = block.get('widgetType', '')
         is_chart = isinstance(widget_type, str) and widget_type.startswith('chart.js')
         is_wordcloud = isinstance(widget_type, str) and 'wordcloud' in widget_type.lower()
+        widget_id = block.get('widgetId')
+        cache_key = self._chart_cache_key(block) if is_chart else ""
+        props_snapshot = block.get("props") if isinstance(block.get("props"), dict) else {}
+        display_title = props_snapshot.get("title") or block.get("title") or widget_id or "图表"
 
         if is_chart:
             self.chart_validation_stats['total'] += 1
+
+            # 如果此前已记录失败，直接使用占位提示，避免重复修复
+            has_failed, cached_reason = self._has_chart_failure(block)
+            if has_failed:
+                self._record_chart_failure_stat(cache_key)
+                reason = cached_reason or "LLM返回的图表信息格式有误，无法正常显示"
+                return self._render_chart_error_placeholder(display_title, reason, widget_id)
 
             # 验证图表数据
             validation_result = self.chart_validator.validate(block)
@@ -1566,12 +1660,16 @@ class HTMLRenderer:
                     elif repair_result.method == 'api':
                         self.chart_validation_stats['repaired_api'] += 1
                 else:
-                    # 修复失败，使用原始数据，前端会尝试降级渲染
+                    # 修复失败，记录失败并输出占位提示
+                    fail_reason = self._format_chart_error_reason(validation_result)
+                    block["_chart_renderable"] = False
+                    block["_chart_error_reason"] = fail_reason
+                    self._note_chart_failure(cache_key, fail_reason)
+                    self._record_chart_failure_stat(cache_key)
                     logger.warning(
-                        f"图表 {block.get('widgetId', 'unknown')} 修复失败，"
-                        f"将使用原始数据（前端会尝试降级渲染或显示fallback）"
+                        f"图表 {block.get('widgetId', 'unknown')} 修复失败，已跳过渲染: {fail_reason}"
                     )
-                    self.chart_validation_stats['failed'] += 1
+                    return self._render_chart_error_placeholder(display_title, fail_reason, widget_id)
             else:
                 # 验证通过
                 self.chart_validation_stats['valid'] += 1
@@ -1725,7 +1823,7 @@ class HTMLRenderer:
             logger.warning(
                 f"  ✗ 修复失败: {stats['failed']} "
                 f"({stats['failed']/stats['total']*100:.1f}%) - "
-                f"这些图表将使用降级渲染或显示fallback表格"
+                f"这些图表将展示简洁占位提示"
             )
 
         logger.info("=" * 60)
@@ -2536,27 +2634,82 @@ table th {{
   margin: 20px 0;
 }}
 .kpi-card {{
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   padding: 16px;
   border-radius: 12px;
   background: rgba(0,0,0,0.02);
   border: 1px solid var(--border-color);
+  align-items: flex-start;
 }}
 .kpi-value {{
   font-size: 2rem;
   font-weight: 700;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  line-height: 1.25;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }}
 .kpi-label {{
   color: var(--secondary-color);
+  line-height: 1.35;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
 }}
 .delta.up {{ color: #27ae60; }}
 .delta.down {{ color: #e74c3c; }}
 .delta.neutral {{ color: var(--secondary-color); }}
+.delta {{
+  display: block;
+  line-height: 1.3;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}}
 .chart-card {{
   margin: 30px 0;
   padding: 20px;
   border: 1px solid var(--border-color);
   border-radius: 12px;
   background: rgba(0,0,0,0.01);
+}}
+.chart-card.chart-card--error {{
+  border-style: dashed;
+  background: linear-gradient(135deg, rgba(0,0,0,0.015), rgba(0,0,0,0.04));
+}}
+.chart-error {{
+  display: flex;
+  gap: 12px;
+  padding: 14px 12px;
+  border-radius: 10px;
+  align-items: flex-start;
+  background: rgba(0,0,0,0.03);
+  color: var(--secondary-color);
+}}
+.chart-error__icon {{
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: var(--secondary-color-dark);
+  background: rgba(0,0,0,0.06);
+  font-size: 0.9rem;
+}}
+.chart-error__title {{
+  font-weight: 600;
+  color: var(--text-color);
+}}
+.chart-error__desc {{
+  margin: 4px 0 0;
+  color: var(--secondary-color);
+  line-height: 1.6;
 }}
 .chart-card.wordcloud-card .chart-container {{
   min-height: 260px;
@@ -2748,6 +2901,17 @@ const CSS_VAR_COLOR_MAP = {
   'var(--color-success)': '#50C878',
   'var(--re-success-color)': '#50C878',
   'var(--re-success-color-translucent)': 'rgba(80, 200, 120, 0.08)',
+  'var(--color-accent-positive)': '#50C878',
+  'var(--color-accent-negative)': '#E85D75',
+  'var(--color-text-secondary)': '#6B7280',
+  'var(--accentPositive)': '#50C878',
+  'var(--accentNegative)': '#E85D75',
+  'var(--sentiment-positive, #28A745)': '#28A745',
+  'var(--sentiment-negative, #E53E3E)': '#E53E3E',
+  'var(--sentiment-neutral, #FFC107)': '#FFC107',
+  'var(--sentiment-positive)': '#28A745',
+  'var(--sentiment-negative)': '#E53E3E',
+  'var(--sentiment-neutral)': '#FFC107',
   'var(--color-primary)': '#3498DB',
   'var(--color-secondary)': '#95A5A6'
 };
@@ -2762,6 +2926,13 @@ function normalizeColorToken(color) {
   if (typeof color !== 'string') return color;
   const trimmed = color.trim();
   if (!trimmed) return null;
+  // 支持 var(--token, fallback) 形式，优先解析fallback
+  const varWithFallback = trimmed.match(/^var\(\s*--[^,)+]+,\s*([^)]+)\)/i);
+  if (varWithFallback && varWithFallback[1]) {
+    const fallback = varWithFallback[1].trim();
+    const normalizedFallback = normalizeColorToken(fallback);
+    if (normalizedFallback) return normalizedFallback;
+  }
   if (CSS_VAR_COLOR_MAP[trimmed]) {
     return CSS_VAR_COLOR_MAP[trimmed];
   }
@@ -2792,6 +2963,41 @@ function parseRgbString(color) {
   const parts = match[1].split(',').map(p => parseFloat(p.trim())).filter(v => !Number.isNaN(v));
   if (parts.length < 3) return null;
   return [parts[0], parts[1], parts[2]].map(v => Math.max(0, Math.min(255, v)));
+}
+
+function alphaFromColor(color) {
+  if (typeof color !== 'string') return null;
+  const raw = color.trim();
+  if (!raw) return null;
+  if (raw.toLowerCase() === 'transparent') return 0;
+
+  const extractAlpha = (source) => {
+    const match = source.match(/rgba?\s*\(([^)]+)\)/i);
+    if (!match) return null;
+    const parts = match[1].split(',').map(p => p.trim());
+    if (source.toLowerCase().startsWith('rgba') && parts.length >= 2) {
+      const alphaToken = parts[parts.length - 1];
+      const isPercent = /%$/.test(alphaToken);
+      const alphaVal = parseFloat(alphaToken.replace('%', ''));
+      if (!Number.isNaN(alphaVal)) {
+        const normalizedAlpha = isPercent ? alphaVal / 100 : alphaVal;
+        return Math.max(0, Math.min(1, normalizedAlpha));
+      }
+    }
+    if (parts.length >= 3) return 1;
+    return null;
+  };
+
+  const rawAlpha = extractAlpha(raw);
+  if (rawAlpha !== null) return rawAlpha;
+
+  const normalized = normalizeColorToken(raw);
+  if (typeof normalized === 'string' && normalized !== raw) {
+    const normalizedAlpha = extractAlpha(normalized);
+    if (normalizedAlpha !== null) return normalizedAlpha;
+  }
+
+  return null;
 }
 
 function rgbFromColor(color) {
@@ -2841,6 +3047,7 @@ function normalizeDatasetColors(payload, chartType) {
   }
   const type = chartType || 'bar';
   const needsArrayColors = type === 'pie' || type === 'doughnut' || type === 'polarArea';
+  const MIN_PIE_ALPHA = 0.6;
   const pickColor = (value, fallback) => {
     if (Array.isArray(value) && value.length) return value[0];
     return value || fallback;
@@ -2848,6 +3055,9 @@ function normalizeDatasetColors(payload, chartType) {
 
   data.datasets.forEach((dataset, idx) => {
     if (!isPlainObject(dataset)) return;
+    if (type === 'line') {
+      dataset.fill = true;  // 对折线图强制开启填充，便于区域对比
+    }
     const paletteColor = normalizeColorToken(DEFAULT_CHART_COLORS[idx % DEFAULT_CHART_COLORS.length]);
     const borderInput = dataset.borderColor;
     const backgroundInput = dataset.backgroundColor;
@@ -2862,13 +3072,29 @@ function normalizeDatasetColors(payload, chartType) {
       const dataLength = Array.isArray(dataset.data) ? dataset.data.length : 0;
       const total = Math.max(labelCount, rawColors.length, dataLength, 1);
       const normalizedColors = [];
+      let fixedTransparentCount = 0;
       for (let i = 0; i < total; i++) {
         const fallbackColor = DEFAULT_CHART_COLORS[(idx + i) % DEFAULT_CHART_COLORS.length];
-        const normalizedColor = liftDarkColor(rawColors[i] || fallbackColor);
+        const normalizedRaw = normalizeColorToken(rawColors[i]);
+        const alpha = alphaFromColor(normalizedRaw);
+        const isInvisible = typeof normalizedRaw === 'string' && normalizedRaw.toLowerCase() === 'transparent';
+        if (alpha === 0 || isInvisible) {
+          fixedTransparentCount += 1;
+        }
+        const baseColor = (!normalizedRaw || isInvisible) ? fallbackColor : normalizedRaw;
+        const targetAlpha = alpha === null ? 1 : alpha;
+        const normalizedColor = ensureAlpha(
+          liftDarkColor(baseColor),
+          Math.max(MIN_PIE_ALPHA, targetAlpha)
+        );
         normalizedColors.push(normalizedColor);
       }
       dataset.backgroundColor = normalizedColors;
-      changes.push(`dataset${idx}: 标准化扇区颜色(${normalizedColors.length})`);
+      dataset.borderColor = normalizedColors.map(col => ensureAlpha(liftDarkColor(col), 1));
+      const changeLabel = fixedTransparentCount
+        ? `dataset${idx}: 修正${fixedTransparentCount}个透明扇区`
+        : `dataset${idx}: 标准化扇区颜色(${normalizedColors.length})`;
+      changes.push(changeLabel);
       return;
     }
 
@@ -2882,7 +3108,7 @@ function normalizeDatasetColors(payload, chartType) {
     }
 
     const typeAlpha = type === 'line'
-      ? (dataset.fill ? 0.08 : 0.12)
+      ? (dataset.fill ? 0.25 : 0.18)
       : type === 'radar'
         ? 0.25
         : type === 'scatter' || type === 'bubble'

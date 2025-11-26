@@ -392,84 +392,11 @@ uv venv --python 3.11 # Create Python 3.11 environment
 
 ### 2. Install System Dependencies for PDF Export (Optional)
 
-> ⚠️ **Note**: If you need to use the PDF export function, please install system dependencies following the steps below. If you don't need PDF export, you can skip this step, and other system functions will not be affected.
-
-<details>
-<summary><b>📦 macOS Installation Steps</b></summary>
-
-```bash
-# 1. Install system dependencies (execute on host machine)
-brew install pango gdk-pixbuf libffi
-
-# 2. Set environment variable (required)
-# Apple Silicon
-export DYLD_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_LIBRARY_PATH
-# Intel Mac
-export DYLD_LIBRARY_PATH=/usr/local/lib:$DYLD_LIBRARY_PATH
-
-# Or permanently add to ~/.zshrc
-echo 'export DYLD_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_LIBRARY_PATH' >> ~/.zshrc
-# Intel users: echo 'export DYLD_LIBRARY_PATH=/usr/local/lib:$DYLD_LIBRARY_PATH' >> ~/.zshrc
-source ~/.zshrc
-```
-
-</details>
-
-<details>
-<summary><b>🐧 Ubuntu/Debian Installation Steps</b></summary>
-
-```bash
-# 1. Install system dependencies (execute on host machine)
-sudo apt-get update
-sudo apt-get install -y \
-    libpango-1.0-0 \
-    libpangoft2-1.0-0 \
-    libgdk-pixbuf2.0-0 \
-    libffi-dev \
-    libcairo2
-```
-
-</details>
-
-<details>
-<summary><b>🎩 CentOS/RHEL Installation Steps</b></summary>
-
-```bash
-# 1. Install system dependencies (execute on host machine)
-sudo yum install -y pango gdk-pixbuf2 libffi-devel cairo
-```
-
-</details>
-
-<details>
-<summary><b>🪟 Windows Installation Steps</b></summary>
-
-```powershell
-# 1. Download and install GTK3 Runtime (execute on host machine)
-# Visit: https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer/releases
-# Download the latest .exe file and install
-
-# 2. Add the GTK installation bin directory to PATH (open a new terminal afterwards)
-# Default path example (replace with your custom install path if different)
-set PATH=C:\Program Files\GTK3-Runtime Win64\bin;%PATH%
-
-# Optional: persist the setting
-setx PATH "C:\Program Files\GTK3-Runtime Win64\bin;%PATH%"
-
-# If installed to a custom path, replace with your actual path, or set GTK_BIN_PATH=<your-bin-path>, then reopen the terminal
-
-# 3. Verify in a new terminal
-python -m ReportEngine.utils.dependency_check
-# You should see “✓ Pango dependency check passed”
-```
-
-</details>
-
-> 💡 **Tip**: If using Docker deployment, no need to manually install these dependencies, the Docker image already contains all necessary system dependencies.
+This section contains detailed configuration instructions:[Configure the dependencies](./static/Partial%20README%20for%20PDF%20Exporting/README-EN.md)
 
 ### 3. Install Dependencies
 
-> If you skip step 2, the weasyprint library will fail to install, which is expected.
+> If Step 2 is skipped, the WeasyPrint library may not install correctly, and the PDF functionality may be unavailable.
 
 ```bash
 # Basic dependency installation

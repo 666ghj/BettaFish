@@ -45,6 +45,45 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-ins
     && ln -snf /usr/share/zoneinfo/${TZ} /etc/localtime \
     && echo ${TZ} > /etc/timezone \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN set -euo pipefail; \
+    apt-get update; \
+    if apt-cache show libgdk-pixbuf-2.0-0 >/dev/null 2>&1; then \
+        GDK_PIXBUF_PKG=libgdk-pixbuf-2.0-0; \
+    else \
+        GDK_PIXBUF_PKG=libgdk-pixbuf2.0-0; \
+    fi; \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        curl \
+        git \
+        libgl1 \
+        libglib2.0-0 \
+        libgtk-3-0 \
+        libpango-1.0-0 \
+        libpangocairo-1.0-0 \
+        libpangoft2-1.0-0 \
+        "${GDK_PIXBUF_PKG}" \
+        libffi-dev \
+        libcairo2 \
+        libatk1.0-0 \
+        libatk-bridge2.0-0 \
+        libxcb1 \
+        libxcomposite1 \
+        libxdamage1 \
+        libxext6 \
+        libxfixes3 \
+        libxi6 \
+        libxtst6 \
+        libnss3 \
+        libxrandr2 \
+        libxkbcommon0 \
+        libasound2 \
+        libx11-xcb1 \
+        libxshmfence1 \
+        libgbm1 \
+        ffmpeg; \
+    apt-get clean; \
+    rm -rf /var/lib/apt/lists/*
 
 # Install the latest uv release and expose it on PATH
 RUN curl -LsSf --retry 3 --retry-delay 2 --proto '=https' --proto-redir '=https' --tlsv1.2 https://astral.sh/uv/install.sh | sh

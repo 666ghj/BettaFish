@@ -67,9 +67,20 @@ class ChartLayout:
 @dataclass
 class GridLayout:
     """网格布局配置"""
-    columns: int = 2  # 每行列数
+    columns: int = 3  # 每行列数（正文默认三列）
     gap: int = 20  # 间距
     responsive_breakpoint: int = 768  # 响应式断点（宽度）
+
+
+@dataclass
+class DataBlockLayout:
+    """数据块（色块、KPI、表格等）的缩放配置"""
+    overview_text_scale: float = 0.93  # 文章总览数据块文字缩放（轻微缩小）
+    overview_kpi_scale: float = 0.88  # 总览KPI缩放
+    body_text_scale: float = 0.8      # 正文数据块文字缩放（大幅缩小）
+    body_kpi_scale: float = 0.76      # 正文KPI缩放
+    min_overview_font: int = 12       # 总览最小字号
+    min_body_font: int = 11           # 正文最小字号
 
 
 @dataclass
@@ -96,6 +107,7 @@ class PDFLayoutConfig:
     table: TableLayout
     chart: ChartLayout
     grid: GridLayout
+    data_block: DataBlockLayout
 
     # 优化策略配置
     auto_adjust_font_size: bool = True  # 自动调整字号
@@ -112,6 +124,7 @@ class PDFLayoutConfig:
             'table': asdict(self.table),
             'chart': asdict(self.chart),
             'grid': asdict(self.grid),
+            'data_block': asdict(self.data_block),
             'auto_adjust_font_size': self.auto_adjust_font_size,
             'auto_adjust_grid_columns': self.auto_adjust_grid_columns,
             'prevent_orphan_headers': self.prevent_orphan_headers,
@@ -128,6 +141,7 @@ class PDFLayoutConfig:
             table=TableLayout(**data['table']),
             chart=ChartLayout(**data['chart']),
             grid=GridLayout(**data['grid']),
+            data_block=DataBlockLayout(**data.get('data_block', {})),
             auto_adjust_font_size=data.get('auto_adjust_font_size', True),
             auto_adjust_grid_columns=data.get('auto_adjust_grid_columns', True),
             prevent_orphan_headers=data.get('prevent_orphan_headers', True),
@@ -174,6 +188,7 @@ class PDFLayoutOptimizer:
             table=TableLayout(),
             chart=ChartLayout(),
             grid=GridLayout(),
+            data_block=DataBlockLayout(),
         )
 
     def optimize_for_document(self, document_ir: Dict[str, Any]) -> PDFLayoutConfig:
@@ -469,6 +484,7 @@ class PDFLayoutOptimizer:
             table=TableLayout(**asdict(self.config.table)),
             chart=ChartLayout(**asdict(self.config.chart)),
             grid=GridLayout(**asdict(self.config.grid)),
+            data_block=DataBlockLayout(**asdict(self.config.data_block)),
             auto_adjust_font_size=self.config.auto_adjust_font_size,
             auto_adjust_grid_columns=self.config.auto_adjust_grid_columns,
             prevent_orphan_headers=self.config.prevent_orphan_headers,
@@ -531,30 +547,88 @@ class PDFLayoutOptimizer:
                     f"预防性调整字号为{config.kpi_card.font_size_value}px"
                 )
 
-        # 根据KPI数量调整网格布局和间距
+        # 收紧KPI字号上限，为正文数据块缩放留出空间
+        base = config.page.font_size_base
+        kpi_value_cap = max(base + 6, 20)
+        kpi_label_cap = max(base - 1, 12)
+        kpi_change_cap = max(base, 12)
+
+        original_value = config.kpi_card.font_size_value
+        original_label = config.kpi_card.font_size_label
+        original_change = config.kpi_card.font_size_change
+
+        config.kpi_card.font_size_value = min(original_value, kpi_value_cap)
+        config.kpi_card.font_size_value = max(config.kpi_card.font_size_value, base + 1)
+        config.kpi_card.font_size_label = min(original_label, kpi_label_cap)
+        config.kpi_card.font_size_label = max(config.kpi_card.font_size_label, 12)
+        config.kpi_card.font_size_change = min(original_change, kpi_change_cap)
+        config.kpi_card.font_size_change = max(config.kpi_card.font_size_change, 12)
+        self.optimization_log.append(
+            f"KPI字号上限收紧：数值{original_value}px→{config.kpi_card.font_size_value}px，"
+            f"标签{original_label}px→{config.kpi_card.font_size_label}px，"
+            f"变动{original_change}px→{config.kpi_card.font_size_change}px"
+        )
+
+        total_blocks = (stats['kpi_count'] + stats['table_count'] +
+                        stats['chart_count'] + stats['callout_count'])
+
+        # 分开收紧文章总览与正文数据块的文字
+        if stats['hero_kpi_count'] >= 3 or stats['max_hero_kpi_value_length'] > 6:
+            prev = config.data_block.overview_kpi_scale
+            config.data_block.overview_kpi_scale = min(prev, 0.86)
+            if config.data_block.overview_kpi_scale != prev:
+                self.optimization_log.append(
+                    f"文章总览KPI较密集，缩放系数 {prev:.2f}→{config.data_block.overview_kpi_scale:.2f}"
+                )
+
+        if stats['has_long_text'] or stats['max_table_columns'] > 6:
+            prev_text = config.data_block.body_text_scale
+            prev_kpi = config.data_block.body_kpi_scale
+            config.data_block.body_text_scale = min(prev_text, 0.78)
+            config.data_block.body_kpi_scale = min(prev_kpi, 0.74)
+            self.optimization_log.append(
+                f"正文数据块紧缩：长文本/宽表触发，文字缩放至{config.data_block.body_text_scale*100:.0f}%，"
+                f"KPI缩放至{config.data_block.body_kpi_scale*100:.0f}%"
+            )
+        elif total_blocks > 16:
+            prev_text = config.data_block.body_text_scale
+            prev_kpi = config.data_block.body_kpi_scale
+            config.data_block.body_text_scale = min(prev_text, 0.80)
+            config.data_block.body_kpi_scale = min(prev_kpi, 0.75)
+            self.optimization_log.append(
+                f"正文数据块缩放：内容块较多({total_blocks}个)，文字缩放至{config.data_block.body_text_scale*100:.0f}%，"
+                f"KPI缩放至{config.data_block.body_kpi_scale*100:.0f}%"
+            )
+        elif total_blocks > 10:
+            prev_text = config.data_block.body_text_scale
+            config.data_block.body_text_scale = min(prev_text, 0.82)
+            if config.data_block.body_text_scale != prev_text:
+                self.optimization_log.append(
+                    f"正文数据块轻量缩放({total_blocks}个块)，文字缩放系数 {prev_text:.2f}→{config.data_block.body_text_scale:.2f}"
+                )
+
+        # 根据KPI数量调整间距但保持正文默认三列装订
+        config.grid.columns = 3
         if stats['kpi_count'] > 6:
-            config.grid.columns = 3
             config.kpi_card.min_height = 100
             config.kpi_card.padding = 14  # 缩小padding以节省空间
             config.grid.gap = 16  # 减小间距
             self.optimization_log.append(
                 f"KPI卡片较多({stats['kpi_count']}个)，"
-                f"调整为3列布局并缩小内边距和间距"
+                f"保持三列布局并缩小内边距和间距"
             )
         elif stats['kpi_count'] > 4:
-            config.grid.columns = 2
             config.kpi_card.padding = 16
             config.grid.gap = 18
             self.optimization_log.append(
-                f"KPI卡片适中({stats['kpi_count']}个)，使用2列布局"
+                f"KPI卡片适中({stats['kpi_count']}个)，保持三列布局并适度调整间距"
             )
         elif stats['kpi_count'] <= 2:
-            config.grid.columns = 1
             config.kpi_card.padding = 22  # 较少卡片时增加padding
             config.grid.gap = 20
             self.optimization_log.append(
                 f"KPI卡片较少({stats['kpi_count']}个)，"
-                f"使用1列布局并增加内边距"
+                f"保持三列布局并增加内边距"
             )
 
         # 根据表格列数调整字号和间距
@@ -601,8 +675,6 @@ class PDFLayoutOptimizer:
             )
 
         # 如果内容较多，减小整体字号
-        total_blocks = (stats['kpi_count'] + stats['table_count'] +
-                       stats['chart_count'] + stats['callout_count'])
         if total_blocks > 20:
             config.page.font_size_base = 13
             config.page.font_size_h2 = 22
@@ -693,6 +765,32 @@ class PDFLayoutOptimizer:
             str: CSS样式字符串
         """
         cfg = self.config
+        db = cfg.data_block
+
+        def _scaled(value: float, scale: float, minimum: int) -> int:
+            """按比例缩放并下限保护，避免数据块文字过大或过小"""
+            try:
+                return max(int(round(value * scale)), minimum)
+            except Exception:
+                return minimum
+
+        # 文章总览数据块字体
+        overview_summary_font = _scaled(cfg.page.font_size_base, db.overview_text_scale, db.min_overview_font)
+        overview_badge_font = _scaled(max(cfg.page.font_size_base - 2, db.min_overview_font), db.overview_text_scale, db.min_overview_font)
+        overview_kpi_value = _scaled(cfg.kpi_card.font_size_value, db.overview_kpi_scale, db.min_overview_font + 1)
+        overview_kpi_label = _scaled(cfg.kpi_card.font_size_label, db.overview_kpi_scale, db.min_overview_font)
+        overview_kpi_delta = _scaled(cfg.kpi_card.font_size_change, db.overview_kpi_scale, db.min_overview_font)
+
+        # 正文数据块字体
+        body_kpi_value = _scaled(cfg.kpi_card.font_size_value, db.body_kpi_scale, db.min_body_font + 1)
+        body_kpi_label = _scaled(cfg.kpi_card.font_size_label, db.body_kpi_scale, db.min_body_font)
+        body_kpi_delta = _scaled(cfg.kpi_card.font_size_change, db.body_kpi_scale, db.min_body_font)
+        body_callout_title = _scaled(cfg.callout.font_size_title, db.body_text_scale, db.min_body_font + 1)
+        body_callout_content = _scaled(cfg.callout.font_size_content, db.body_text_scale, db.min_body_font)
+        body_table_header = _scaled(cfg.table.font_size_header, db.body_text_scale, db.min_body_font)
+        body_table_body = _scaled(cfg.table.font_size_body, db.body_text_scale, db.min_body_font)
+        body_chart_title = _scaled(cfg.chart.font_size_title, db.body_text_scale, db.min_body_font + 1)
+        body_badge_font = _scaled(max(cfg.page.font_size_base - 2, db.min_body_font), db.body_text_scale, db.min_body_font)
 
         css = f"""
 /* PDF布局优化样式 - 由PDFLayoutOptimizer自动生成 */
@@ -737,9 +835,74 @@ p {{
 /* KPI卡片优化 - 防止溢出 */
 .kpi-grid {{
     display: grid;
-    grid-template-columns: repeat({cfg.grid.columns}, 1fr);
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-auto-rows: minmax(auto, 1fr);
+    grid-auto-flow: row dense;
     gap: {cfg.grid.gap}px;
     margin: 20px 0;
+    align-items: stretch;
+}}
+
+.kpi-grid .kpi-card {{
+    grid-column: span 2;
+}}
+
+/* 单条/双条/三条的特殊列数 */
+.chapter .kpi-grid[data-kpi-count="1"] {{
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+    grid-auto-flow: row;
+}}
+.chapter .kpi-grid[data-kpi-count="1"] .kpi-card {{
+    grid-column: span 1;
+}}
+.chapter .kpi-grid[data-kpi-count="2"] {{
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}}
+.chapter .kpi-grid[data-kpi-count="2"] .kpi-card {{
+    grid-column: span 2;
+}}
+.chapter .kpi-grid[data-kpi-count="3"] {{
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+}}
+
+/* 四条时采用2x2排布 */
+.chapter .kpi-grid[data-kpi-count="4"] {{
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}}
+.chapter .kpi-grid[data-kpi-count="4"] .kpi-card {{
+    grid-column: span 2;
+}}
+
+/* 五条及以上默认三列（6栅格，每卡占2） */
+.chapter .kpi-grid[data-kpi-count="5"],
+.chapter .kpi-grid[data-kpi-count="6"],
+.chapter .kpi-grid[data-kpi-count="7"],
+.chapter .kpi-grid[data-kpi-count="8"],
+.chapter .kpi-grid[data-kpi-count="9"],
+.chapter .kpi-grid[data-kpi-count="10"],
+.chapter .kpi-grid[data-kpi-count="11"],
+.chapter .kpi-grid[data-kpi-count="12"],
+.chapter .kpi-grid[data-kpi-count="13"],
+.chapter .kpi-grid[data-kpi-count="14"],
+.chapter .kpi-grid[data-kpi-count="15"],
+.chapter .kpi-grid[data-kpi-count="16"] {{
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+}}
+
+/* 余数为2时，最后两张平分全宽 */
+.chapter .kpi-grid[data-kpi-count="5"] .kpi-card:nth-last-child(-n+2),
+.chapter .kpi-grid[data-kpi-count="8"] .kpi-card:nth-last-child(-n+2),
+.chapter .kpi-grid[data-kpi-count="11"] .kpi-card:nth-last-child(-n+2),
+.chapter .kpi-grid[data-kpi-count="14"] .kpi-card:nth-last-child(-n+2) {{
+    grid-column: span 3;
+}}
+
+/* 余数为1时，最后一张占满全宽 */
+.chapter .kpi-grid[data-kpi-count="7"] .kpi-card:last-child,
+.chapter .kpi-grid[data-kpi-count="10"] .kpi-card:last-child,
+.chapter .kpi-grid[data-kpi-count="13"] .kpi-card:last-child,
+.chapter .kpi-grid[data-kpi-count="16"] .kpi-card:last-child {{
+    grid-column: 1 / -1;
 }}
 
 .kpi-card {{
@@ -747,35 +910,39 @@ p {{
     min-height: {cfg.kpi_card.min_height}px;
     break-inside: avoid;
     page-break-inside: avoid;
-    /* 防止溢出的关键设置 */
-    overflow: hidden;
     box-sizing: border-box;
     max-width: 100%;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }}
 
-.kpi-card .value {{
-    font-size: {cfg.kpi_card.font_size_value}px !important;
-    line-height: 1.2;
-    /* 强制换行和溢出控制 */
+.kpi-card .kpi-value {{
+    font-size: {body_kpi_value}px !important;
+    line-height: 1.25;
     word-break: break-word;
     overflow-wrap: break-word;
     hyphens: auto;
     max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}}
-
-.kpi-card .label {{
-    font-size: {cfg.kpi_card.font_size_label}px !important;
-    /* 防止标签溢出 */
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 4px 6px;
+.kpi-card .kpi-label {{
+    font-size: {body_kpi_label}px !important;
     word-break: break-word;
     overflow-wrap: break-word;
     max-width: 100%;
+    line-height: 1.35;
 }}
 
-.kpi-card .change {{
-    font-size: {cfg.kpi_card.font_size_change}px !important;
+.kpi-card .change,
+.kpi-card .delta {{
+    font-size: {body_kpi_delta}px !important;
     word-break: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.3;
 }}
 
 /* 提示框优化 - 防止溢出 */
@@ -783,6 +950,7 @@ p {{
     padding: {cfg.callout.padding}px !important;
     margin: 20px 0;
     line-height: {cfg.callout.line_height};
+    font-size: {body_callout_content}px !important;
     break-inside: avoid;
     page-break-inside: avoid;
     /* 防止溢出 */
@@ -792,17 +960,29 @@ p {{
 }}
 
 .callout-title {{
-    font-size: {cfg.callout.font_size_title}px !important;
+    font-size: {body_callout_title}px !important;
     margin-bottom: 10px;
     word-break: break-word;
     line-height: 1.4;
 }}
 
 .callout-content {{
-    font-size: {cfg.callout.font_size_content}px !important;
+    font-size: {body_callout_content}px !important;
     word-break: break-word;
     overflow-wrap: break-word;
     line-height: {cfg.callout.line_height};
+}}
+
+.callout strong {{
+    font-size: {body_callout_title}px !important;
+}}
+
+.callout p,
+.callout li,
+.callout table,
+.callout td,
+.callout th {{
+    font-size: {body_callout_content}px !important;
 }}
 
 /* 确保 callout 内部最后一个元素不会溢出底部 */
@@ -824,7 +1004,7 @@ table {{
 }}
 
 th {{
-    font-size: {cfg.table.font_size_header}px !important;
+    font-size: {body_table_header}px !important;
     padding: {cfg.table.cell_padding}px !important;
     /* 表头文字控制 */
     word-break: break-word;
@@ -834,7 +1014,7 @@ th {{
 }}
 
 td {{
-    font-size: {cfg.table.font_size_body}px !important;
+    font-size: {body_table_body}px !important;
     padding: {cfg.table.cell_padding}px !important;
     max-width: {cfg.table.max_cell_width}px;
     /* 强制换行，防止溢出 */
@@ -859,7 +1039,7 @@ td {{
 }}
 
 .chart-title {{
-    font-size: {cfg.chart.font_size_title}px !important;
+    font-size: {body_chart_title}px !important;
     word-break: break-word;
 }}
 
@@ -928,19 +1108,26 @@ td {{
 .hero-side {{
     flex: 3;  /* 右侧占30% */
     min-width: 0;
+    min-height: 0;
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
     gap: {max(cfg.grid.gap - 2, 10)}px;
     overflow: hidden;
     box-sizing: border-box;
+    width: 100%;
 }}
 
 /* Hero区域的KPI卡片 - 横向拉长，每行显示一个内容 */
 .hero-kpi {{
+    background: #ffffff;
+    border-radius: 16px !important;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.08);
+    flex: 0 1 calc(50% - {max(cfg.grid.gap - 2, 10)}px);
+    max-width: calc(50% - {max(cfg.grid.gap - 2, 10)}px);
     padding: 12px 18px !important;  /* 增加横向padding */
     overflow: hidden;
     box-sizing: border-box;
-    max-width: 100%;
     min-height: 85px;  /* 增加高度以容纳三行 */
     display: flex;
     flex-direction: column;
@@ -948,7 +1135,7 @@ td {{
 }}
 
 .hero-kpi .label {{
-    font-size: {max(cfg.kpi_card.font_size_label - 3, 9)}px !important;  /* 减小标签字号 */
+    font-size: {overview_kpi_label}px !important;  /* 适度减小标签字号 */
     word-break: break-word;
     max-width: 100%;
     line-height: 1.2;
@@ -959,7 +1146,7 @@ td {{
 }}
 
 .hero-kpi .value {{
-    font-size: {max(cfg.kpi_card.font_size_value - 12, 14)}px !important;  /* 减小数值字号 */
+    font-size: {overview_kpi_value}px !important;  /* 适度减小数值字号 */
     word-break: break-word;
     overflow-wrap: break-word;
     max-width: 100%;
@@ -972,7 +1159,7 @@ td {{
 }}
 
 .hero-kpi .delta {{
-    font-size: {max(cfg.kpi_card.font_size_change - 3, 9)}px !important;  /* 减小变化值字号 */
+    font-size: {overview_kpi_delta}px !important;  /* 适度减小变化值字号 */
     word-break: break-word;
     margin-top: 3px;
     display: block;  /* 独占一行 */
@@ -984,7 +1171,7 @@ td {{
 
 /* Hero summary文本 */
 .hero-summary {{
-    font-size: {cfg.page.font_size_base}px !important;
+    font-size: {overview_summary_font}px !important;
     line-height: 1.65;
     margin-top: 0;
     margin-bottom: 18px;  /* 增加底部边距，与badges保持一致 */
@@ -1014,7 +1201,7 @@ td {{
 
 /* hero highlights中的badge - 拉长加宽的椭圆形背景，与上方文本对齐 */
 .hero-highlights .badge {{
-    font-size: {max(cfg.callout.font_size_content - 3, 10)}px !important;
+    font-size: {overview_badge_font}px !important;
     padding: 10px 20px !important;  /* 增加padding，更好的视觉效果 */
     max-width: 100%;
     width: 98%;  /* 占满宽度，与summary文本对齐 */
@@ -1105,7 +1292,7 @@ main > .chapter:first-of-type {{
     white-space: normal;
     /* 限制badge的最大尺寸 */
     padding: 4px 12px !important;
-    font-size: {max(cfg.page.font_size_base - 2, 12)}px !important;
+    font-size: {body_badge_font}px !important;
     line-height: 1.4 !important;
     /* 防止badge异常过大 */
     word-break: break-word;
@@ -1147,4 +1334,5 @@ __all__ = [
     'TableLayout',
     'ChartLayout',
     'GridLayout',
+    'DataBlockLayout',
 ]

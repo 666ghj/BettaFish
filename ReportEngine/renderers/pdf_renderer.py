@@ -239,8 +239,15 @@ class PDFRenderer:
                                 )
                             else:
                                 repair_stats['failed'] += 1
+                                reason = self.html_renderer._format_chart_error_reason(validation)
+                                block["_chart_renderable"] = False
+                                block["_chart_error_reason"] = reason
+                                self.html_renderer._note_chart_failure(
+                                    self.html_renderer._chart_cache_key(block),
+                                    reason
+                                )
                                 logger.warning(
-                                    f"图表 {block.get('widgetId')} 修复失败，将使用原始数据"
+                                    f"图表 {block.get('widgetId')} 修复失败，将使用占位提示: {reason}"
                                 )
 
                 # 递归处理嵌套的blocks
@@ -352,6 +359,13 @@ class PDFRenderer:
 
                 # 只处理chart.js类型的widget
                 if widget_id and widget_type.startswith('chart.js'):
+                    failed, fail_reason = self.html_renderer._has_chart_failure(block)
+                    if block.get("_chart_renderable") is False or failed:
+                        logger.debug(
+                            f"跳过转换失败的图表 {widget_id}"
+                            f"{f'，原因: {fail_reason}' if fail_reason else ''}"
+                        )
+                        continue
                     try:
                         svg_content = self.chart_converter.convert_widget_to_svg(
                             block,

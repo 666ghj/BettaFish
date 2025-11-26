@@ -68,6 +68,17 @@ class ChartToSVGConverter:
         'var(--color-success)': '#50C878',       # 翠绿色（从#28A745改为更明亮）
         'var(--re-success-color)': '#50C878',    # 翠绿色
         'var(--re-success-color-translucent)': (0.314, 0.784, 0.471, 0.08),  # 绿色极浅透明 rgba(80, 200, 120, 0.08)
+        'var(--color-accent-positive)': '#50C878',
+        'var(--color-accent-negative)': '#E85D75',
+        'var(--color-text-secondary)': '#6B7280',
+        'var(--accentPositive)': '#50C878',
+        'var(--accentNegative)': '#E85D75',
+        'var(--sentiment-positive, #28A745)': '#28A745',
+        'var(--sentiment-negative, #E53E3E)': '#E53E3E',
+        'var(--sentiment-neutral, #FFC107)': '#FFC107',
+        'var(--sentiment-positive)': '#28A745',
+        'var(--sentiment-negative)': '#E53E3E',
+        'var(--sentiment-neutral)': '#FFC107',
         'var(--color-primary)': '#3498DB',       # 天蓝色
         'var(--color-secondary)': '#95A5A6',     # 浅灰色
     }
@@ -188,7 +199,7 @@ class ChartToSVGConverter:
 
         return fig, ax
 
-    def _parse_color(self, color: Any) -> str:
+    def _parse_color(self, color: Any) -> Any:
         """
         解析颜色值，将CSS格式转换为matplotlib支持的格式
 
@@ -196,8 +207,39 @@ class ChartToSVGConverter:
             color: 颜色值（可能是CSS格式如rgba()或十六进制或CSS变量）
 
         返回:
-            str: matplotlib支持的颜色格式
+            matplotlib支持的颜色格式（hex字符串或RGB(A)元组）
         """
+        if color is None:
+            return None
+
+        # 处理numpy数组，统一转为原生列表
+        _np = globals().get("np")
+        if _np is not None and hasattr(_np, "ndarray") and isinstance(color, _np.ndarray):
+            color = color.tolist()
+
+        # 直接透传已经是序列的颜色（如 (r,g,b,a)），避免被转成字符串后失效
+        if isinstance(color, (list, tuple)):
+            if len(color) in (3, 4) and all(isinstance(c, (int, float)) for c in color):
+                normalized = []
+                for idx, channel in enumerate(color):
+                    # Matplotlib接受0-1之间的浮点数，若值>1则按0-255来源归一化
+                    value = float(channel)
+                    if value > 1:
+                        value = value / 255.0
+                    # 只对RGB通道做强制裁剪，alpha按0-1裁剪
+                    if idx < 3:
+                        value = max(0.0, min(value, 1.0))
+                    else:
+                        value = max(0.0, min(value, 1.0))
+                    normalized.append(value)
+                return tuple(normalized)
+
+            try:
+                return tuple(color)
+            except Exception:
+                return color
+
+        # 其余非字符串类型保持原有字符串回退策略
         if not isinstance(color, str):
             return str(color)
 
@@ -225,6 +267,13 @@ class ChartToSVGConverter:
         # 【增强】处理CSS变量，例如 var(--color-accent)
         # 使用预定义的颜色映射表替代CSS变量，确保不同变量有不同的颜色
         if color.startswith('var('):
+            # 解析 var(--token, fallback) 形式
+            fb_match = re.match(r'^var\(\s*--[^,)+]+,\s*([^)]+)\)', color)
+            if fb_match:
+                fb_raw = fb_match.group(1).strip()
+                fb_color = self._parse_color(fb_raw)
+                if fb_color:
+                    return fb_color
             # 尝试从映射表中查找对应的颜色
             mapped_color = self.CSS_VAR_COLOR_MAP.get(color)
             if mapped_color:
@@ -259,6 +308,25 @@ class ChartToSVGConverter:
 
         # 其他格式（十六进制、颜色名等）直接返回
         return color
+
+    def _ensure_visible_color(self, color: Any, fallback: str, min_alpha: float = 0.6) -> Any:
+        """
+        确保颜色在渲染时可见：避免透明值并提升过低的不透明度
+        """
+        base_color = fallback if color in (None, "", "transparent") else color
+        parsed = self._parse_color(base_color)
+        fallback_parsed = self._parse_color(fallback)
+
+        if isinstance(parsed, tuple):
+            if len(parsed) == 4:
+                r, g, b, a = parsed
+                return (r, g, b, max(a, min_alpha))
+            return parsed
+
+        if isinstance(parsed, str) and parsed.lower() == "transparent":
+            return fallback_parsed
+
+        return parsed if parsed is not None else fallback_parsed
 
     def _get_colors(self, datasets: List[Dict[str, Any]]) -> List[str]:
         """
@@ -406,7 +474,7 @@ class ChartToSVGConverter:
 
                 # 获取配置
                 y_axis_id = dataset.get('yAxisID', 'y')
-                fill = dataset.get('fill', False)
+                fill = True  # 强制开启填充，便于对比
                 tension = dataset.get('tension', 0)  # 0表示直线，0.4表示平滑曲线
                 border_color = self._parse_color(dataset.get('borderColor', color))
                 background_color = self._parse_color(dataset.get('backgroundColor', color))
@@ -449,7 +517,7 @@ class ChartToSVGConverter:
                                     color=border_color, linewidth=2, markersize=6)
 
                     if fill:
-                        ax.fill_between(x_data, y_data, alpha=0.08, color=background_color)
+                        ax.fill_between(x_data, y_data, alpha=0.2, color=background_color)
 
                     for pos, y_val, text in zip(x_data, y_data, annotations):
                         if text:
@@ -478,18 +546,18 @@ class ChartToSVGConverter:
 
                                 # 如果需要填充（使用极低透明度避免遮挡）
                                 if fill:
-                                    ax.fill_between(x_smooth, y_smooth, alpha=0.08, color=background_color)
+                                    ax.fill_between(x_smooth, y_smooth, alpha=0.2, color=background_color)
                             except:
                                 # 如果平滑失败，使用普通折线
                                 line, = ax.plot(x_data, dataset_data, marker='o', label=label,
                                               color=border_color, linewidth=2, markersize=6)
                                 if fill:
-                                    ax.fill_between(x_data, dataset_data, alpha=0.08, color=background_color)
+                                    ax.fill_between(x_data, dataset_data, alpha=0.2, color=background_color)
                         else:
                             line, = ax.plot(x_data, dataset_data, marker='o', label=label,
                                           color=border_color, linewidth=2, markersize=6)
                             if fill:
-                                ax.fill_between(x_data, dataset_data, alpha=0.08, color=background_color)
+                                ax.fill_between(x_data, dataset_data, alpha=0.2, color=background_color)
                     else:
                         # 直线连接（tension=0或scipy不可用）
                         line, = ax.plot(x_data, dataset_data, marker='o', label=label,
@@ -497,7 +565,7 @@ class ChartToSVGConverter:
 
                         # 如果需要填充（使用极低透明度避免遮挡）
                         if fill:
-                            ax.fill_between(x_data, dataset_data, alpha=0.08, color=background_color)
+                            ax.fill_between(x_data, dataset_data, alpha=0.2, color=background_color)
 
                 # 记录这条线属于哪个轴
                 axis_lines[y_axis_id].append(line)
@@ -641,12 +709,17 @@ class ChartToSVGConverter:
             fig, ax = self._create_figure(width, height, dpi, title)
 
             # 获取颜色
-            colors = dataset.get('backgroundColor', self.DEFAULT_COLORS[:len(labels)])
-            if not isinstance(colors, list):
-                colors = self.DEFAULT_COLORS[:len(labels)]
+            raw_colors = dataset.get('backgroundColor', self.DEFAULT_COLORS[:len(labels)])
+            if not isinstance(raw_colors, list):
+                raw_colors = self.DEFAULT_COLORS[:len(labels)]
 
-            # 【修复】解析每个颜色，将CSS格式转换为matplotlib格式
-            colors = [self._parse_color(c) for c in colors]
+            colors = [
+                self._ensure_visible_color(
+                    raw_colors[i] if i < len(raw_colors) else None,
+                    self.DEFAULT_COLORS[i % len(self.DEFAULT_COLORS)]
+                )
+                for i in range(len(labels))
+            ]
 
             # 绘制饼图
             wedges, texts, autotexts = ax.pie(
@@ -695,12 +768,17 @@ class ChartToSVGConverter:
             fig, ax = self._create_figure(width, height, dpi, title)
 
             # 获取颜色
-            colors = dataset.get('backgroundColor', self.DEFAULT_COLORS[:len(labels)])
-            if not isinstance(colors, list):
-                colors = self.DEFAULT_COLORS[:len(labels)]
+            raw_colors = dataset.get('backgroundColor', self.DEFAULT_COLORS[:len(labels)])
+            if not isinstance(raw_colors, list):
+                raw_colors = self.DEFAULT_COLORS[:len(labels)]
 
-            # 【修复】解析每个颜色，将CSS格式转换为matplotlib格式
-            colors = [self._parse_color(c) for c in colors]
+            colors = [
+                self._ensure_visible_color(
+                    raw_colors[i] if i < len(raw_colors) else None,
+                    self.DEFAULT_COLORS[i % len(self.DEFAULT_COLORS)]
+                )
+                for i in range(len(labels))
+            ]
 
             # 绘制圆环图（通过设置wedgeprops实现中空效果）
             wedges, texts, autotexts = ax.pie(
@@ -871,9 +949,17 @@ class ChartToSVGConverter:
                 ax.set_title(title, fontsize=14, fontweight='bold', pad=20)
 
             # 获取颜色
-            colors = dataset.get('backgroundColor', self.DEFAULT_COLORS[:len(labels)])
-            if not isinstance(colors, list):
-                colors = self.DEFAULT_COLORS[:len(labels)]
+            raw_colors = dataset.get('backgroundColor', self.DEFAULT_COLORS[:len(labels)])
+            if not isinstance(raw_colors, list):
+                raw_colors = self.DEFAULT_COLORS[:len(labels)]
+
+            colors = [
+                self._ensure_visible_color(
+                    raw_colors[i] if i < len(raw_colors) else None,
+                    self.DEFAULT_COLORS[i % len(self.DEFAULT_COLORS)]
+                )
+                for i in range(len(labels))
+            ]
 
             # 计算角度
             theta = np.linspace(0, 2 * np.pi, len(labels), endpoint=False)
