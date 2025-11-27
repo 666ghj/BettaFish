@@ -10,6 +10,7 @@ import copy
 import os
 import sys
 import io
+import re
 from pathlib import Path
 from typing import Any, Dict
 from datetime import datetime
@@ -359,6 +360,13 @@ class PDFRenderer:
 
                 # 只处理chart.js类型的widget
                 if widget_id and widget_type.startswith('chart.js'):
+                    widget_type_lower = widget_type.lower()
+                    props = block.get('props')
+                    props_type = str(props.get('type') or '').lower() if isinstance(props, dict) else ''
+                    if 'wordcloud' in widget_type_lower or 'wordcloud' in props_type:
+                        logger.debug(f"检测到词云 {widget_id}，跳过SVG转换并使用图片注入流程")
+                        continue
+
                     failed, fail_reason = self.html_renderer._has_chart_failure(block)
                     if block.get("_chart_renderable") is False or failed:
                         logger.debug(
@@ -420,7 +428,13 @@ class PDFRenderer:
                 widget_id = block.get('widgetId')
                 widget_type = block.get('widgetType', '')
 
-                if widget_id and isinstance(widget_type, str) and 'wordcloud' in widget_type.lower():
+                props = block.get('props')
+                props_type = str(props.get('type') or '') if isinstance(props, dict) else ''
+                is_wordcloud = (
+                    isinstance(widget_type, str) and 'wordcloud' in widget_type.lower()
+                ) or ('wordcloud' in props_type.lower())
+
+                if widget_id and is_wordcloud:
                     try:
                         data_uri = self._generate_wordcloud_image(block)
                         if data_uri:
@@ -492,12 +506,14 @@ class PDFRenderer:
 
         font_path = str(self._get_font_path())
         wc = WordCloud(
-            width=900,
-            height=520,
+            width=1000,
+            height=360,
             background_color="white",
             font_path=font_path,
-            prefer_horizontal=0.9,
+            prefer_horizontal=0.98,
             random_state=42,
+            max_words=180,
+            collocations=False,
         )
         wc.generate_from_frequencies(frequencies)
 
@@ -522,11 +538,12 @@ class PDFRenderer:
             logger.warning("数学公式转换器未初始化，跳过公式转换")
             return svg_map
 
-        # 遍历所有章节
+        # 遍历所有章节，保持全局计数器避免ID重复
+        block_counter = [0]
         chapters = document_ir.get('chapters', [])
         for chapter in chapters:
             blocks = chapter.get('blocks', [])
-            self._extract_and_convert_math_blocks(blocks, svg_map)
+            self._extract_and_convert_math_blocks(blocks, svg_map, block_counter)
 
         logger.info(f"成功转换 {len(svg_map)} 个数学公式为SVG")
         return svg_map
@@ -548,6 +565,73 @@ class PDFRenderer:
         if block_counter is None:
             block_counter = [0]
 
+        def _extract_inline_math_from_inlines(inlines: list):
+            """从段落内联节点中提取数学公式"""
+            if not isinstance(inlines, list):
+                return
+            for run in inlines:
+                if not isinstance(run, dict):
+                    continue
+                marks = run.get('marks') or []
+                math_mark = next((m for m in marks if m.get('type') == 'math'), None)
+
+                if math_mark:
+                    # 仅单个math mark
+                    raw = math_mark.get('value') or run.get('text') or ''
+                    latex = self._normalize_latex(raw)
+                    # 行内mark统一按inline处理，避免误将行内公式当成display
+                    is_display = False
+                    if not latex:
+                        continue
+                    block_counter[0] += 1
+                    math_id = run.get('mathId') or f"math-inline-{block_counter[0]}"
+                    run['mathId'] = math_id
+                    try:
+                        svg_content = (
+                            self.math_converter.convert_display_to_svg(latex)
+                            if is_display else
+                            self.math_converter.convert_inline_to_svg(latex)
+                        )
+                        if svg_content:
+                            svg_map[math_id] = svg_content
+                            logger.debug(f"公式 {math_id} 转换为SVG成功")
+                        else:
+                            logger.warning(f"公式 {math_id} 转换为SVG失败: {latex[:50]}...")
+                    except Exception as exc:
+                        logger.error(f"转换内联公式 {latex[:50]}... 时出错: {exc}")
+                    continue
+
+                # 无math mark，尝试解析文本中的多个公式
+                text_val = run.get('text')
+                if not isinstance(text_val, str):
+                    continue
+                segments = self._find_all_math_in_text(text_val)
+                if not segments:
+                    continue
+                ids_for_html: list[str] = []
+                for idx, (latex, is_display) in enumerate(segments, start=1):
+                    if not latex:
+                        continue
+                    block_counter[0] += 1
+                    math_id = f"auto-math-{block_counter[0]}"
+                    ids_for_html.append(math_id)
+                    try:
+                        svg_content = (
+                            self.math_converter.convert_display_to_svg(latex)
+                            if is_display else
+                            self.math_converter.convert_inline_to_svg(latex)
+                        )
+                        if svg_content:
+                            svg_map[math_id] = svg_content
+                            logger.debug(f"公式 {math_id} 转换为SVG成功")
+                        else:
+                            logger.warning(f"公式 {math_id} 转换为SVG失败: {latex[:50]}...")
+                    except Exception as exc:
+                        logger.error(f"转换内联公式 {latex[:50]}... 时出错: {exc}")
+                if ids_for_html:
+                    # 将ID列表写回run，便于HTML渲染时使用相同ID（顺序对应segments）
+                    run['mathIds'] = ids_for_html
+
         for block in blocks:
             if not isinstance(block, dict):
                 continue
@@ -556,11 +640,10 @@ class PDFRenderer:
 
             # 处理math类型
             if block_type == 'math':
-                latex = block.get('latex', '').strip()
+                latex = self._normalize_latex(block.get('latex', ''))
                 if latex:
                     block_counter[0] += 1
                     math_id = f"math-block-{block_counter[0]}"
-
                     try:
                         svg_content = self.math_converter.convert_display_to_svg(latex)
                         if svg_content:
@@ -572,6 +655,11 @@ class PDFRenderer:
                             logger.warning(f"公式 {math_id} 转换为SVG失败: {latex[:50]}...")
                     except Exception as e:
                         logger.error(f"转换公式 {latex[:50]}... 时出错: {e}")
+            else:
+                # 提取段落、表格等内部的内联公式
+                inlines = block.get('inlines')
+                if inlines:
+                    _extract_inline_math_from_inlines(inlines)
 
             # 递归处理嵌套的blocks
             nested_blocks = block.get('blocks')
@@ -627,9 +715,8 @@ class PDFRenderer:
             # 创建SVG容器HTML
             svg_html = f'<div class="chart-svg-container">{svg_content}</div>'
 
-            # 查找包含此widgetId的配置脚本
-            # 格式: <script type="application/json" id="chart-config-N">{"widgetId":"widget_id",...}</script>
-            config_pattern = rf'<script[^>]+id="([^"]+)"[^>]*>\s*\{{[^}}]*"widgetId"\s*:\s*"{re.escape(widget_id)}"[^}}]*\}}'
+            # 查找包含此widgetId的配置脚本（限制在同一个</script>内，避免跨标签误配）
+            config_pattern = rf'<script[^>]+id="([^"]+)"[^>]*>(?:(?!</script>).)*?"widgetId"\s*:\s*"{re.escape(widget_id)}"(?:(?!</script>).)*?</script>'
             match = re.search(config_pattern, html, re.DOTALL)
 
             if match:
@@ -640,13 +727,17 @@ class PDFRenderer:
                 canvas_pattern = rf'<canvas[^>]+data-config-id="{re.escape(config_id)}"[^>]*></canvas>'
 
                 # 【修复】替换canvas为SVG，使用lambda避免反斜杠转义问题
-                html = re.sub(canvas_pattern, lambda m: svg_html, html)
-                logger.debug(f"已替换图表 {widget_id} 的canvas为SVG")
+                html, replaced = re.subn(canvas_pattern, lambda m: svg_html, html, count=1)
+                if replaced:
+                    logger.debug(f"已替换图表 {widget_id} 的canvas为SVG")
+                else:
+                    logger.warning(f"未找到图表 {widget_id} 的canvas进行替换")
 
                 # 将对应fallback标记为隐藏，避免PDF中出现重复表格
                 fallback_pattern = rf'<div class="chart-fallback"([^>]*data-widget-id="{re.escape(widget_id)}"[^>]*)>'
 
                 def _hide_fallback(m: re.Match) -> str:
+                    """为匹配到的图表fallback添加隐藏类，防止PDF中重复渲染"""
                     tag = m.group(0)
                     if 'svg-hidden' in tag:
                         return tag
@@ -657,6 +748,74 @@ class PDFRenderer:
                 logger.warning(f"未找到图表 {widget_id} 对应的配置脚本")
 
         return html
+
+    @staticmethod
+    def _normalize_latex(raw: Any) -> str:
+        """去除外层数学定界符，兼容 $...$、$$...$$、\\(\\)、\\[\\] 等格式"""
+        if not isinstance(raw, str):
+            return ""
+        latex = raw.strip()
+        patterns = [
+            r'^\$\$(.*)\$\$$',
+            r'^\$(.*)\$$',
+            r'^\\\[(.*)\\\]$',
+            r'^\\\((.*)\\\)$',
+        ]
+        for pat in patterns:
+            m = re.match(pat, latex, re.DOTALL)
+            if m:
+                latex = m.group(1).strip()
+                break
+        # 清理控制字符、防止mathtext解析失败
+        latex = re.sub(r'[\x00-\x1f\x7f]', '', latex)
+        # 常见兼容：\tfrac/\dfrac -> \frac
+        latex = latex.replace(r'\tfrac', r'\frac').replace(r'\dfrac', r'\frac')
+        return latex
+
+    @staticmethod
+    def _find_first_math_in_text(text: Any) -> tuple[str, bool] | None:
+        """从纯文本中提取首个数学片段，返回(内容, 是否display)"""
+        if not isinstance(text, str):
+            return None
+        pattern = re.compile(r'\$\$(.+?)\$\$|\$(.+?)\$|\\\((.+?)\\\)|\\\[(.+?)\\\]', re.S)
+        matches = list(pattern.finditer(text))
+        if not matches:
+            return None
+        m = matches[0]
+        raw = next(g for g in m.groups() if g is not None)
+        latex = raw.strip()
+        is_display_raw = bool(m.group(1) or m.group(4))  # $$ or \[ \]
+        is_standalone = (
+            len(matches) == 1 and
+            not text[:m.start()].strip() and
+            not text[m.end():].strip()
+        )
+        return latex, bool(is_display_raw and is_standalone)
+
+    @staticmethod
+    def _find_all_math_in_text(text: Any) -> list[tuple[str, bool]]:
+        """从纯文本中提取所有数学片段，返回[(内容, 是否display)]"""
+        if not isinstance(text, str):
+            return []
+        pattern = re.compile(r'\$\$(.+?)\$\$|\$(.+?)\$|\\\((.+?)\\\)|\\\[(.+?)\\\]', re.S)
+        results = []
+        matches = list(pattern.finditer(text))
+        if not matches:
+            return results
+        total = len(matches)
+
+        for m in matches:
+            raw = next(g for g in m.groups() if g is not None)
+            latex = raw.strip()
+            is_display_raw = bool(m.group(1) or m.group(4))
+            is_standalone = (
+                total == 1 and
+                not text[:m.start()].strip() and
+                not text[m.end():].strip()
+            )
+            is_display = is_display_raw and is_standalone
+            results.append((latex, is_display))
+        return results
 
     def _inject_wordcloud_images(self, html: str, img_map: Dict[str, str]) -> str:
         """
@@ -674,7 +833,7 @@ class PDFRenderer:
                 f'</div>'
             )
 
-            config_pattern = rf'<script[^>]+id="([^"]+)"[^>]*>\s*\{{[^}}]*"widgetId"\s*:\s*"{re.escape(widget_id)}"[^}}]*\}}'
+            config_pattern = rf'<script[^>]+id="([^"]+)"[^>]*>(?:(?!</script>).)*?"widgetId"\s*:\s*"{re.escape(widget_id)}"(?:(?!</script>).)*?</script>'
             match = re.search(config_pattern, html, re.DOTALL)
             if not match:
                 logger.debug(f"未找到词云 {widget_id} 的配置脚本，跳过注入")
@@ -683,12 +842,16 @@ class PDFRenderer:
             config_id = match.group(1)
             canvas_pattern = rf'<canvas[^>]+data-config-id="{re.escape(config_id)}"[^>]*></canvas>'
 
-            html = re.sub(canvas_pattern, lambda m: img_html, html)
-            logger.debug(f"已替换词云 {widget_id} 的canvas为PNG图片")
+            html, replaced = re.subn(canvas_pattern, lambda m: img_html, html, count=1)
+            if replaced:
+                logger.debug(f"已替换词云 {widget_id} 的canvas为PNG图片")
+            else:
+                logger.warning(f"未找到词云 {widget_id} 的canvas进行替换")
 
             fallback_pattern = rf'<div class="chart-fallback"([^>]*data-widget-id="{re.escape(widget_id)}"[^>]*)>'
 
             def _hide_fallback(m: re.Match) -> str:
+                """匹配词云表格兜底并打上隐藏标记，避免SVG/图片重复显示"""
                 tag = m.group(0)
                 if 'svg-hidden' in tag:
                     return tag
@@ -714,32 +877,40 @@ class PDFRenderer:
 
         import re
 
-        # 为每个math block查找对应的div并替换为SVG
+        # 优先替换内联公式，再替换块级公式，保持顺序一致
         for math_id, svg_content in svg_map.items():
             # 清理SVG内容（移除XML声明，因为SVG将嵌入HTML）
             svg_content = re.sub(r'<\?xml[^>]+\?>', '', svg_content)
             svg_content = re.sub(r'<!DOCTYPE[^>]+>', '', svg_content)
             svg_content = svg_content.strip()
 
-            # 创建SVG容器HTML
-            svg_html = f'<div class="math-svg-container">{svg_content}</div>'
+            svg_block_html = f'<div class="math-svg-container">{svg_content}</div>'
+            svg_inline_html = f'<span class="math-svg-inline">{svg_content}</span>'
 
-            # 查找对应的math-block div
-            # 格式: <div class="math-block">$$ latex $$</div>
-            # 我们需要找到包含特定LaTeX内容的div
-            # 但由于我们在转换时已经给block添加了mathId，我们可以用另一种方式
+            replaced = False
+            # 优先按 data-math-id 精确替换
+            inline_pattern = rf'<span class="math-inline"[^>]*data-math-id="{re.escape(math_id)}"[^>]*>.*?</span>'
+            if re.search(inline_pattern, html, re.DOTALL):
+                html = re.sub(inline_pattern, lambda m: svg_inline_html, html, count=1)
+                replaced = True
+            else:
+                block_pattern = rf'<div class="math-block"[^>]*data-math-id="{re.escape(math_id)}"[^>]*>.*?</div>'
+                if re.search(block_pattern, html, re.DOTALL):
+                    html = re.sub(block_pattern, lambda m: svg_block_html, html, count=1)
+                    replaced = True
 
-            # 方案：在HTML渲染器中为math-block添加data-math-id属性
-            # 但这需要修改HTMLRenderer，暂时我们使用更简单的方法：
-            # 按顺序替换所有math-block
+            # 如果没有找到特定ID，按出现顺序兜底替换
+            if not replaced:
+                html, sub_inline = re.subn(r'<span class="math-inline">[^<]*</span>', lambda m: svg_inline_html, html, count=1)
+                if sub_inline:
+                    replaced = True
+                else:
+                    html, sub_block = re.subn(r'<div class="math-block">\$\$[^$]*\$\$</div>', lambda m: svg_block_html, html, count=1)
+                    if sub_block:
+                        replaced = True
 
-            # 暂时使用简单的替换方案
-            # 找到第一个math-block div并替换
-            math_block_pattern = r'<div class="math-block">\$\$[^$]*\$\$</div>'
-            # 【修复】使用lambda函数避免re.sub将SVG内容中的反斜杠解释为转义序列
-            # lambda函数中的返回值会被当作字面字符串，不会进行转义处理
-            html = re.sub(math_block_pattern, lambda m: svg_html, html, count=1)
-            logger.debug(f"已替换公式 {math_id} 为SVG")
+            if replaced:
+                logger.debug(f"已替换公式 {math_id} 为SVG")
 
         return html
 
@@ -800,10 +971,8 @@ class PDFRenderer:
         logger.info("开始转换数学公式为SVG矢量图形...")
         math_svg_map = self._convert_math_to_svg(preprocessed_ir)
 
-        # 使用HTML渲染器生成基础HTML（使用原始IR，因为HTMLRenderer会自己修复）
-        # 注意：这里仍使用原始document_ir，因为HTMLRenderer内部会进行相同的修复
-        # 这确保了HTML和SVG使用相同的修复逻辑
-        html = self.html_renderer.render(document_ir)
+        # 使用HTML渲染器生成基础HTML（使用预处理后的IR，以便复用mathId等标记）
+        html = self.html_renderer.render(preprocessed_ir)
 
         # 注入图表SVG
         if svg_map:

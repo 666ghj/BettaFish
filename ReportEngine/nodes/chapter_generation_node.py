@@ -64,6 +64,7 @@ class ChapterContentError(ValueError):
         narrative_characters: int = 0,
         non_heading_blocks: int = 0,
     ):
+        """保存本次异常的正文特征，供重试与兜底策略参考。"""
         super().__init__(message)
         self.chapter_payload: Optional[Dict[str, Any]] = chapter
         self.body_characters: int = int(body_characters or 0)
@@ -1018,6 +1019,7 @@ class ChapterGenerationNode(BaseNode):
         """
 
         def walk(node: Any) -> int:
+            """递归遍历叙述性节点，忽略图表/目录等非正文结构"""
             if node is None:
                 return 0
             if isinstance(node, list):

@@ -4,6 +4,7 @@ LaTeX 数学公式转 SVG 渲染器
 """
 
 import io
+import re
 from typing import Optional
 import matplotlib
 import matplotlib.pyplot as plt
@@ -40,8 +41,22 @@ class MathToSVG:
             SVG 字符串，如果转换失败则返回 None
         """
         try:
-            # 清理 LaTeX 字符串
-            latex = latex.strip()
+            # 清理 LaTeX 字符串，去除外层定界符，兼容 $...$ / $$...$$ / \\( \\) / \\[ \\]
+            latex = (latex or "").strip()
+            patterns = [
+                r'^\$\$(.*)\$\$$',
+                r'^\$(.*)\$$',
+                r'^\\\[(.*)\\\]$',
+                r'^\\\((.*)\\\)$',
+            ]
+            for pat in patterns:
+                m = re.match(pat, latex, re.DOTALL)
+                if m:
+                    latex = m.group(1).strip()
+                    break
+            # 清理控制字符并做常见兼容
+            latex = re.sub(r'[\x00-\x1f\x7f]', '', latex)
+            latex = latex.replace(r'\\tfrac', r'\\frac').replace(r'\\dfrac', r'\\frac')
             if not latex:
                 logger.warning("空的 LaTeX 公式")
                 return None

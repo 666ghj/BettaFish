@@ -160,6 +160,19 @@ class ChartToSVGConverter:
             if props.get('type'):
                 chart_type = props['type']
 
+            # Chart.js v4已移除horizontalBar类型，这里自动降级为bar并设置横向坐标
+            horizontal_bar = False
+            if chart_type and str(chart_type).lower() == 'horizontalbar':
+                chart_type = 'bar'
+                horizontal_bar = True
+
+            # 支持通过indexAxis: 'y' 强制横向柱状图
+            if isinstance(props, dict):
+                options = props.get('options') or {}
+                index_axis = (options.get('indexAxis') or props.get('indexAxis') or '').lower()
+                if index_axis == 'y':
+                    horizontal_bar = True
+
             # 提取数据
             data = widget_data.get('data', {})
             if not data:
@@ -167,10 +180,21 @@ class ChartToSVGConverter:
                 return None
 
             # 根据图表类型调用相应的渲染方法
-            render_method = getattr(self, f'_render_{chart_type}', None)
-            if not render_method:
-                logger.warning(f"不支持的图表类型: {chart_type}")
+            if 'wordcloud' in str(chart_type).lower():
+                # 词云由专用渲染逻辑处理，这里跳过SVG转换以避免告警
+                logger.debug("检测到词云图表，跳过chart_to_svg转换")
                 return None
+
+            # 分派渲染方法，特殊处理横向柱状图
+            if chart_type == 'bar':
+                return self._render_bar(data, props, width, height, dpi, horizontal=horizontal_bar)
+            elif chart_type == 'bubble':
+                return self._render_bubble(data, props, width, height, dpi)
+            else:
+                render_method = getattr(self, f'_render_{chart_type}', None)
+                if not render_method:
+                    logger.warning(f"不支持的图表类型: {chart_type}")
+                    return None
 
             # 创建图表并转换为SVG
             return render_method(data, props, width, height, dpi)
@@ -354,6 +378,57 @@ class ChartToSVGConverter:
             colors.append(color)
 
         return colors
+
+    def _align_labels_and_data(
+        self,
+        labels: Any,
+        dataset_data: Any,
+        chart_type: str,
+        require_positive_sum: bool = False
+    ) -> Tuple[List[str], List[float]]:
+        """
+        对齐类别型图表的标签与数据长度，并清理非数值值。
+
+        Matplotlib的饼图/圆环图要求labels与数据长度一致，否则会抛出错误。
+        """
+        original_label_len = len(labels) if isinstance(labels, list) else 0
+        original_data_len = len(dataset_data) if isinstance(dataset_data, list) else 0
+
+        aligned_labels = [str(label) for label in labels] if isinstance(labels, list) else []
+        raw_data = dataset_data if isinstance(dataset_data, list) else []
+
+        cleaned_data: List[float] = []
+        for value in raw_data:
+            try:
+                numeric = float(value) if value is not None else 0.0
+            except (TypeError, ValueError):
+                numeric = 0.0
+            if numeric < 0:
+                numeric = 0.0
+            cleaned_data.append(numeric)
+
+        target_len = max(len(aligned_labels), len(cleaned_data))
+        if target_len == 0:
+            return [], []
+
+        if len(aligned_labels) < target_len:
+            start = len(aligned_labels)
+            aligned_labels.extend([f"未命名{start + idx + 1}" for idx in range(target_len - start)])
+
+        if len(cleaned_data) < target_len:
+            cleaned_data.extend([0.0] * (target_len - len(cleaned_data)))
+
+        if original_label_len != original_data_len:
+            logger.warning(
+                f"{chart_type}图labels长度({original_label_len})与data长度({original_data_len})不一致，"
+                f"已对齐为{target_len}"
+            )
+
+        if require_positive_sum and not any(value > 0 for value in cleaned_data):
+            logger.warning(f"{chart_type}图数据为空，跳过渲染")
+            return [], []
+
+        return aligned_labels[:target_len], cleaned_data[:target_len]
 
     def _figure_to_svg(self, fig: Any) -> str:
         """
@@ -631,9 +706,10 @@ class ChartToSVGConverter:
         props: Dict[str, Any],
         width: int,
         height: int,
-        dpi: int
+        dpi: int,
+        horizontal: bool = False
     ) -> Optional[str]:
-        """渲染柱状图"""
+        """渲染柱状图（支持横向barh）"""
         try:
             labels = data.get('labels', [])
             datasets = data.get('datasets', [])
@@ -647,42 +723,146 @@ class ChartToSVGConverter:
             colors = self._get_colors(datasets)
 
             # 计算柱子位置
-            x = np.arange(len(labels))
+            positions = np.arange(len(labels))
             width_bar = 0.8 / len(datasets) if len(datasets) > 1 else 0.6
 
-            # 绘制每个数据系列
+            # 横向/纵向绘制
             for i, dataset in enumerate(datasets):
                 dataset_data = dataset.get('data', [])
                 label = dataset.get('label', f'系列{i+1}')
                 color = colors[i]
 
                 offset = (i - len(datasets)/2 + 0.5) * width_bar
-                ax.bar(
-                    x + offset,
-                    dataset_data,
-                    width_bar,
-                    label=label,
-                    color=color,
-                    alpha=0.8,
-                    edgecolor='white',
-                    linewidth=0.5
-                )
 
-            # 设置x轴标签
-            ax.set_xticks(x)
-            ax.set_xticklabels(labels, rotation=45, ha='right')
+                if horizontal:
+                    ax.barh(
+                        positions + offset,
+                        dataset_data,
+                        height=width_bar,
+                        label=label,
+                        color=color,
+                        alpha=0.8,
+                        edgecolor='white',
+                        linewidth=0.5
+                    )
+                else:
+                    ax.bar(
+                        positions + offset,
+                        dataset_data,
+                        width_bar,
+                        label=label,
+                        color=color,
+                        alpha=0.8,
+                        edgecolor='white',
+                        linewidth=0.5
+                    )
+
+            # 轴标签/网格
+            if horizontal:
+                ax.set_yticks(positions)
+                ax.set_yticklabels(labels)
+                ax.invert_yaxis()  # 与Chart.js横向排列保持一致
+                ax.grid(True, alpha=0.3, linestyle='--', axis='x')
+            else:
+                ax.set_xticks(positions)
+                ax.set_xticklabels(labels, rotation=45, ha='right')
+                ax.grid(True, alpha=0.3, linestyle='--', axis='y')
 
             # 显示图例
             if len(datasets) > 1:
                 ax.legend(loc='best', framealpha=0.9)
 
-            # 网格
-            ax.grid(True, alpha=0.3, linestyle='--', axis='y')
-
             return self._figure_to_svg(fig)
 
         except Exception as e:
             logger.error(f"渲染柱状图失败: {e}")
+            return None
+
+    def _render_bubble(
+        self,
+        data: Dict[str, Any],
+        props: Dict[str, Any],
+        width: int,
+        height: int,
+        dpi: int
+    ) -> Optional[str]:
+        """渲染气泡图"""
+        try:
+            datasets = data.get('datasets', [])
+            if not datasets:
+                return None
+
+            title = props.get('title')
+            fig, ax = self._create_figure(width, height, dpi, title)
+            colors = self._get_colors(datasets)
+
+            def _safe_radius(raw) -> float:
+                """将输入半径安全转为浮点并设置最小阈值，避免气泡完全消失"""
+                try:
+                    val = float(raw)
+                    return max(val, 0.5)
+                except Exception:
+                    return 1.0
+
+            all_x: list[float] = []
+            all_y: list[float] = []
+            max_r: float = 0.0
+
+            for i, dataset in enumerate(datasets):
+                points = dataset.get('data', [])
+                label = dataset.get('label', f'系列{i+1}')
+                color = colors[i]
+
+                if points and isinstance(points[0], dict):
+                    xs = [p.get('x', 0) for p in points]
+                    ys = [p.get('y', 0) for p in points]
+                    rs = [_safe_radius(p.get('r', 1)) for p in points]
+                else:
+                    xs = list(range(len(points)))
+                    ys = points
+                    rs = [1.0 for _ in points]
+
+                all_x.extend(xs)
+                all_y.extend(ys)
+                if rs:
+                    max_r = max(max_r, max(rs))
+
+                # 适度放大半径，近似Chart.js像素尺寸（动态尺度，避免过大遮挡）
+                size_scale = 8.0 if max_r <= 20 else 6.5
+                sizes = [(r * size_scale) ** 2 for r in rs]
+
+                ax.scatter(
+                    xs,
+                    ys,
+                    s=sizes,
+                    label=label,
+                    color=color,
+                    alpha=0.45,
+                    edgecolors='white',
+                    linewidth=0.6
+                )
+
+            if len(datasets) > 1:
+                ax.legend(loc='best', framealpha=0.9)
+
+            # 适度留白，避免大气泡被裁切
+            if all_x and all_y:
+                x_min, x_max = min(all_x), max(all_x)
+                y_min, y_max = min(all_y), max(all_y)
+                x_span = max(x_max - x_min, 1e-6)
+                y_span = max(y_max - y_min, 1e-6)
+                pad_x = max(x_span * 0.12, max_r * 1.2)
+                pad_y = max(y_span * 0.12, max_r * 1.2)
+                ax.set_xlim(x_min - pad_x, x_max + pad_x)
+                ax.set_ylim(y_min - pad_y, y_max + pad_y)
+                # 额外安全边距
+                ax.margins(x=0.05, y=0.05)
+
+            ax.grid(True, alpha=0.3, linestyle='--')
+            return self._figure_to_svg(fig)
+
+        except Exception as e:
+            logger.error(f"渲染气泡图失败: {e}", exc_info=True)
             return None
 
     def _render_pie(
@@ -704,6 +884,16 @@ class ChartToSVGConverter:
             # 饼图只使用第一个数据集
             dataset = datasets[0]
             dataset_data = dataset.get('data', [])
+
+            labels, dataset_data = self._align_labels_and_data(
+                labels,
+                dataset_data,
+                chart_type="饼",
+                require_positive_sum=True
+            )
+
+            if not labels or not dataset_data:
+                return None
 
             title = props.get('title')
             fig, ax = self._create_figure(width, height, dpi, title)
@@ -763,6 +953,16 @@ class ChartToSVGConverter:
             # 圆环图只使用第一个数据集
             dataset = datasets[0]
             dataset_data = dataset.get('data', [])
+
+            labels, dataset_data = self._align_labels_and_data(
+                labels,
+                dataset_data,
+                chart_type="圆环",
+                require_positive_sum=True
+            )
+
+            if not labels or not dataset_data:
+                return None
 
             title = props.get('title')
             fig, ax = self._create_figure(width, height, dpi, title)
@@ -940,6 +1140,16 @@ class ChartToSVGConverter:
             # 只使用第一个数据集
             dataset = datasets[0]
             dataset_data = dataset.get('data', [])
+
+            labels, dataset_data = self._align_labels_and_data(
+                labels,
+                dataset_data,
+                chart_type="极地区域",
+                require_positive_sum=False
+            )
+
+            if not labels or not dataset_data:
+                return None
 
             title = props.get('title')
             fig = plt.figure(figsize=(width/dpi, height/dpi), dpi=dpi)

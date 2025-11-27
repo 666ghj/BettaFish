@@ -14,7 +14,14 @@ sys.path.insert(0, str(Path(__file__).parent))
 from ReportEngine.renderers import PDFRenderer
 
 def find_latest_report():
-    """找到最新的报告IR文件"""
+    """
+    在 `final_reports/ir` 中查找最新的报告 IR JSON。
+
+    按修改时间倒序选择第一条，若目录或文件缺失则记录错误并返回 None。
+
+    返回:
+        Path | None: 最新 IR 文件路径；未找到则为 None。
+    """
     ir_dir = Path("final_reports/ir")
 
     if not ir_dir.exists():
@@ -34,7 +41,18 @@ def find_latest_report():
     return latest_file
 
 def load_document_ir(file_path):
-    """加载Document IR"""
+    """
+    读取指定路径的 Document IR JSON，并统计章节/图表数量。
+
+    解析失败时返回 None；成功时会打印章节数与图表数，便于确认
+    输入报告的规模。
+
+    参数:
+        file_path: IR 文件路径
+
+    返回:
+        dict | None: 解析后的 Document IR；失败返回 None。
+    """
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             document_ir = json.load(f)
@@ -46,6 +64,7 @@ def load_document_ir(file_path):
         chapters = document_ir.get('chapters', [])
 
         def count_charts(blocks):
+            """递归统计 block 列表中的 Chart.js 图表数量"""
             count = 0
             for block in blocks:
                 if isinstance(block, dict):
@@ -70,7 +89,18 @@ def load_document_ir(file_path):
         return None
 
 def generate_pdf_with_vector_charts(document_ir, output_path):
-    """使用SVG矢量图表生成PDF"""
+    """
+    使用 PDFRenderer 将 Document IR 渲染为包含 SVG 矢量图表的 PDF。
+
+    启用布局优化，生成后输出文件大小与成功提示；异常时返回 None。
+
+    参数:
+        document_ir: 完整的 Document IR
+        output_path: 目标 PDF 路径
+
+    返回:
+        Path | None: 成功时返回生成的 PDF 路径，失败返回 None。
+    """
     try:
         logger.info("=" * 60)
         logger.info("开始生成PDF（带矢量图表）")
@@ -102,7 +132,18 @@ def generate_pdf_with_vector_charts(document_ir, output_path):
         return None
 
 def main():
-    """主函数"""
+    """
+    主入口：重新生成最新报告的矢量 PDF。
+
+    步骤：
+        1) 查找最新 IR 文件；
+        2) 读取并统计报告结构；
+        3) 构造输出文件名并确保目录存在；
+        4) 调用渲染函数生成 PDF，输出路径与特性说明。
+
+    返回:
+        int: 0 表示成功，非 0 表示失败。
+    """
     logger.info("🚀 使用SVG矢量图表重新生成最新报告的PDF")
     logger.info("")
 

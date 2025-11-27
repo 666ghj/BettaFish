@@ -926,9 +926,15 @@ p {{
     hyphens: auto;
     max-width: 100%;
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: baseline;
     gap: 4px 6px;
+}}
+.kpi-card .kpi-value small {{
+    font-size: 0.65em;
+    white-space: nowrap;
+    align-self: baseline;
+}}
 .kpi-card .kpi-label {{
     font-size: {body_kpi_label}px !important;
     word-break: break-word;
@@ -1043,126 +1049,132 @@ td {{
     word-break: break-word;
 }}
 
-/* Hero区域合并版本 - 包含标题和内容，保留蓝色椭圆背景 */
+/* Hero区域合并版本 - 去掉大色块，首屏以卡片化排布呈现文章总览 */
 .hero-section-combined {{
-    padding: 45px 55px !important;
-    margin: 0 auto 40px auto !important;
-    min-height: 500px;
-    /* 使用100%宽度，填满整个页面 */
+    padding: 38px 44px !important;
+    margin: 0 auto 34px auto !important;
+    min-height: 420px;
     width: 100% !important;
     max-width: 100% !important;
     box-sizing: border-box;
     overflow: visible;
-    border-radius: 40px !important;
-    background: linear-gradient(135deg, #e8f4f8 0%, #d4e9f7 100%);
+    border-radius: 26px !important;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 18px 44px rgba(15, 23, 42, 0.06);
     page-break-after: always !important;
+    page-break-inside: avoid;
 }}
 
 /* Hero标题区域 */
 .hero-header {{
-    text-align: center;
-    margin-bottom: 25px;
-    padding-bottom: 18px;
-    border-bottom: 1px solid rgba(100, 150, 200, 0.2);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 6px;
+    margin-bottom: 22px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #eef1f5;
+    text-align: left;
 }}
 
 .hero-hint {{
     font-size: {max(cfg.page.font_size_base - 2, 11)}px !important;
-    color: #d32f2f;
-    margin: 0 0 6px 0;
-    font-weight: 500;
+    color: #556070;
+    margin: 0;
+    font-weight: 600;
+    letter-spacing: 0.04em;
 }}
 
 .hero-title {{
-    font-size: {max(cfg.page.font_size_base + 5, 19)}px !important;  /* 稍微减小标题字号 */
-    font-weight: 600;
-    margin: 6px 0;
-    color: #1a1a1a;
-    line-height: 1.3;
+    font-size: {max(cfg.page.font_size_base + 5, 19)}px !important;
+    font-weight: 700;
+    margin: 0;
+    color: #0f172a;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
 }}
 
 .hero-subtitle {{
     font-size: {max(cfg.page.font_size_base - 1, 12)}px !important;
-    color: #d32f2f;
-    margin: 6px 0 0 0;
-    font-weight: 400;
+    color: #475467;
+    margin: 2px 0 0 0;
+    font-weight: 500;
 }}
 
-/* Hero主体区域 - 左右分栏 */
+/* Hero主体区域 - 网格分栏 */
 .hero-body {{
-    display: flex;
-    gap: 28px;  /* 左右间距 */
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+    gap: 22px 28px;
     align-items: flex-start;
+    align-content: start;
 }}
 
-/* Hero左侧内容区 - 占蓝色背景的70% */
+/* 左侧摘要/亮点 */
 .hero-content {{
-    flex: 7;  /* 左侧占70% */
+    display: grid;
+    gap: 14px;
     min-width: 0;
-    padding-right: 25px;
-    box-sizing: border-box;
-    overflow: hidden;
+    align-content: start;
 }}
 
-/* Hero右侧KPI区域 - 占蓝色背景的30% */
+/* 右侧KPI区域 */
 .hero-side {{
-    flex: 3;  /* 右侧占30% */
-    min-width: 0;
-    min-height: 0;
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: {max(cfg.grid.gap - 2, 10)}px;
     overflow: hidden;
     box-sizing: border-box;
     width: 100%;
+    min-width: 0;
+    min-height: 0;
+    align-content: flex-start;
 }}
 
-/* Hero区域的KPI卡片 - 横向拉长，每行显示一个内容 */
+/* Hero区域的KPI卡片 */
 .hero-kpi {{
-    background: #ffffff;
-    border-radius: 16px !important;
-    border: 1px solid rgba(0, 0, 0, 0.06);
-    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.08);
-    flex: 0 1 calc(50% - {max(cfg.grid.gap - 2, 10)}px);
-    max-width: calc(50% - {max(cfg.grid.gap - 2, 10)}px);
-    padding: 12px 18px !important;  /* 增加横向padding */
+    background: #fdfdfd;
+    border-radius: 14px !important;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+    padding: 14px 16px !important;
     overflow: hidden;
     box-sizing: border-box;
-    min-height: 85px;  /* 增加高度以容纳三行 */
+    min-height: 110px;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    gap: 6px;
 }}
 
 .hero-kpi .label {{
-    font-size: {overview_kpi_label}px !important;  /* 适度减小标签字号 */
+    font-size: {overview_kpi_label}px !important;
     word-break: break-word;
     max-width: 100%;
-    line-height: 1.2;
-    margin-bottom: 4px;
+    line-height: 1.3;
     overflow: hidden;
     text-overflow: ellipsis;
-    display: block;  /* 独占一行 */
+    color: #556070;
 }}
 
 .hero-kpi .value {{
-    font-size: {overview_kpi_value}px !important;  /* 适度减小数值字号 */
+    font-size: {overview_kpi_value}px !important;
     word-break: break-word;
     overflow-wrap: break-word;
     max-width: 100%;
     line-height: 1.1;
-    display: block;  /* 独占一行 */
+    display: block;
     hyphens: auto;
     overflow: hidden;
     text-overflow: ellipsis;
-    margin-bottom: 3px;
+    margin-bottom: 2px;
+    color: #0f172a;
 }}
 
 .hero-kpi .delta {{
-    font-size: {overview_kpi_delta}px !important;  /* 适度减小变化值字号 */
+    font-size: {overview_kpi_delta}px !important;
     word-break: break-word;
-    margin-top: 3px;
-    display: block;  /* 独占一行 */
+    margin-top: 2px;
+    display: block;
     max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1173,23 +1185,28 @@ td {{
 .hero-summary {{
     font-size: {overview_summary_font}px !important;
     line-height: 1.65;
-    margin-top: 0;
-    margin-bottom: 18px;  /* 增加底部边距，与badges保持一致 */
+    margin: 0 0 12px 0;
+    padding: 0;
     word-break: break-word;
-    max-width: 98%;  /* 与badges宽度一致 */
-    overflow: hidden;
+    overflow-wrap: break-word;
+    white-space: normal;
+    width: 100%;
+    box-sizing: border-box;
+    align-self: start;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
 }}
 
-/* Hero highlights列表 - 横向排列，宽度与summary一致 */
+/* Hero highlights列表 - 网格排布 */
 .hero-highlights {{
     list-style: none;
     padding: 0;
-    margin: 16px 0;  /* 增加上下边距 */
-    display: flex;
-    flex-direction: column;
-    gap: 12px;  /* 增加间距，让椭圆之间有更多空间 */
-    max-width: 100%;
-    overflow: hidden;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px 12px;
 }}
 
 .hero-highlights li {{
@@ -1199,29 +1216,33 @@ td {{
     flex-grow: 0;
 }}
 
-/* hero highlights中的badge - 拉长加宽的椭圆形背景，与上方文本对齐 */
+/* hero highlights中的badge - 卡片化的小条目 */
 .hero-highlights .badge {{
     font-size: {overview_badge_font}px !important;
-    padding: 10px 20px !important;  /* 增加padding，更好的视觉效果 */
+    padding: 10px 12px !important;
     max-width: 100%;
-    width: 98%;  /* 占满宽度，与summary文本对齐 */
+    width: 100%;
     display: flex;
-    align-items: center;  /* 垂直居中文字 */
-    justify-content: flex-start;  /* 文字左对齐 */
+    align-items: center;
+    justify-content: flex-start;
+    flex-wrap: wrap;
     word-wrap: break-word;
     white-space: normal;
     overflow: hidden;
     text-overflow: ellipsis;
     box-sizing: border-box;
-    line-height: 1.5;  /* 增加行高，更好的可读性 */
-    min-height: 40px;  /* 增加最小高度 */
-    /* 拉长的椭圆形背景 */
-    background: rgba(100, 120, 150, 0.15) !important;
-    border-radius: 22px !important;  /* 稍微增加圆角 */
-    border: 1px solid rgba(100, 120, 150, 0.25);
+    line-height: 1.5;
+    min-height: 40px;
+    background: #f3f4f6 !important;
+    border-radius: 12px !important;
+    border: 1px solid #e5e7eb;
+    color: #111827;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    align-items: flex-start;
+    justify-content: flex-start;
 }}
 
-/* Hero actions按钮 - 确保不溢出椭圆 */
+/* Hero actions按钮 - PDF中仍隐藏，保留缩进样式 */
 .hero-actions {{
     margin-top: 12px;
     display: flex;
@@ -1234,7 +1255,7 @@ td {{
 .hero-actions button {{
     font-size: {max(cfg.page.font_size_base - 2, 11)}px !important;
     padding: 5px 10px !important;
-    max-width: 200px;  /* 限制按钮最大宽度 */
+    max-width: 200px;
     word-break: break-word;
     white-space: normal;
     overflow: hidden;

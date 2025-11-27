@@ -127,6 +127,7 @@ def _get_platform_specific_instructions():
     system = platform.system()
 
     def _box_lines(lines):
+        """批量将多行文本包装成带边框的提示块"""
         return "".join(_box_line(line) for line in lines)
 
     if system == "Darwin":  # macOS
@@ -207,6 +208,7 @@ def _ensure_windows_gtk_paths():
     seen = set()
 
     def _add_candidate(path_like):
+        """收集可能的GTK安装路径，避免重复并兼容用户自定义目录"""
         if not path_like:
             return
         p = Path(path_like)

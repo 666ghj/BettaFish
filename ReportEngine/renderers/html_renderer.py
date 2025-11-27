@@ -1094,8 +1094,36 @@ class HTMLRenderer:
 
     def _render_paragraph(self, block: Dict[str, Any]) -> str:
         """渲染段落，内部通过inline run保持混排样式"""
-        inlines = "".join(self._render_inline(run) for run in block.get("inlines", []))
+        inlines_data = block.get("inlines", [])
+        # 仅包含单个display公式时直接渲染为块，避免<p>内嵌<div>
+        if len(inlines_data) == 1:
+            standalone = self._render_standalone_math_inline(inlines_data[0])
+            if standalone:
+                return standalone
+
+        inlines = "".join(self._render_inline(run) for run in inlines_data)
         return f"<p>{inlines}</p>"
+
+    def _render_standalone_math_inline(self, run: Dict[str, Any] | str) -> str | None:
+        """当段落只包含单个display公式时，转为math-block避免破坏行内布局"""
+        if isinstance(run, dict):
+            text_value, marks = self._normalize_inline_payload(run)
+            if marks:
+                return None
+            math_id_hint = run.get("mathIds") or run.get("mathId")
+        else:
+            text_value = "" if run is None else str(run)
+            math_id_hint = None
+            marks = []
+
+        rendered = self._render_text_with_inline_math(
+            text_value,
+            math_id_hint,
+            allow_display_block=True
+        )
+        if rendered and rendered.strip().startswith('<div class="math-block"'):
+            return rendered
+        return None
 
     def _render_list(self, block: Dict[str, Any]) -> str:
         """渲染有序/无序/任务列表"""
@@ -1262,8 +1290,11 @@ class HTMLRenderer:
 
     def _render_math(self, block: Dict[str, Any]) -> str:
         """渲染数学公式，占位符交给外部MathJax或后处理"""
-        latex = self._escape_html(block.get("latex", ""))
-        return f'<div class="math-block">$$ {latex} $$</div>'
+        latex_raw = block.get("latex", "")
+        latex = self._escape_html(self._normalize_latex_string(latex_raw))
+        math_id = self._escape_attr(block.get("mathId", "")) if block.get("mathId") else ""
+        id_attr = f' data-math-id="{math_id}"' if math_id else ""
+        return f'<div class="math-block"{id_attr}>$$ {latex} $$</div>'
 
     def _render_figure(self, block: Dict[str, Any]) -> str:
         """根据新规范默认不渲染外部图片，改为友好提示"""
@@ -1628,56 +1659,60 @@ class HTMLRenderer:
         if is_chart:
             self.chart_validation_stats['total'] += 1
 
-            # 如果此前已记录失败，直接使用占位提示，避免重复修复
-            has_failed, cached_reason = self._has_chart_failure(block)
-            if has_failed:
-                self._record_chart_failure_stat(cache_key)
-                reason = cached_reason or "LLM返回的图表信息格式有误，无法正常显示"
-                return self._render_chart_error_placeholder(display_title, reason, widget_id)
-
-            # 验证图表数据
-            validation_result = self.chart_validator.validate(block)
-
-            if not validation_result.is_valid:
-                logger.warning(
-                    f"图表 {block.get('widgetId', 'unknown')} 验证失败: {validation_result.errors}"
-                )
-
-                # 尝试修复
-                repair_result = self.chart_repairer.repair(block, validation_result)
-
-                if repair_result.success and repair_result.repaired_block:
-                    # 修复成功，使用修复后的数据
-                    block = repair_result.repaired_block
-                    logger.info(
-                        f"图表 {block.get('widgetId', 'unknown')} 修复成功 "
-                        f"(方法: {repair_result.method}): {repair_result.changes}"
-                    )
-
-                    # 更新统计
-                    if repair_result.method == 'local':
-                        self.chart_validation_stats['repaired_locally'] += 1
-                    elif repair_result.method == 'api':
-                        self.chart_validation_stats['repaired_api'] += 1
-                else:
-                    # 修复失败，记录失败并输出占位提示
-                    fail_reason = self._format_chart_error_reason(validation_result)
-                    block["_chart_renderable"] = False
-                    block["_chart_error_reason"] = fail_reason
-                    self._note_chart_failure(cache_key, fail_reason)
-                    self._record_chart_failure_stat(cache_key)
-                    logger.warning(
-                        f"图表 {block.get('widgetId', 'unknown')} 修复失败，已跳过渲染: {fail_reason}"
-                    )
-                    return self._render_chart_error_placeholder(display_title, fail_reason, widget_id)
-            else:
-                # 验证通过
+            # 词云使用专用渲染逻辑，不按Chart.js规则验证，直接跳过防止误判
+            if is_wordcloud:
                 self.chart_validation_stats['valid'] += 1
-                if validation_result.warnings:
-                    logger.info(
-                        f"图表 {block.get('widgetId', 'unknown')} 验证通过，"
-                        f"但有警告: {validation_result.warnings}"
+            else:
+                # 如果此前已记录失败，直接使用占位提示，避免重复修复
+                has_failed, cached_reason = self._has_chart_failure(block)
+                if has_failed:
+                    self._record_chart_failure_stat(cache_key)
+                    reason = cached_reason or "LLM返回的图表信息格式有误，无法正常显示"
+                    return self._render_chart_error_placeholder(display_title, reason, widget_id)
+
+                # 验证图表数据
+                validation_result = self.chart_validator.validate(block)
+
+                if not validation_result.is_valid:
+                    logger.warning(
+                        f"图表 {block.get('widgetId', 'unknown')} 验证失败: {validation_result.errors}"
                     )
+
+                    # 尝试修复
+                    repair_result = self.chart_repairer.repair(block, validation_result)
+
+                    if repair_result.success and repair_result.repaired_block:
+                        # 修复成功，使用修复后的数据
+                        block = repair_result.repaired_block
+                        logger.info(
+                            f"图表 {block.get('widgetId', 'unknown')} 修复成功 "
+                            f"(方法: {repair_result.method}): {repair_result.changes}"
+                        )
+
+                        # 更新统计
+                        if repair_result.method == 'local':
+                            self.chart_validation_stats['repaired_locally'] += 1
+                        elif repair_result.method == 'api':
+                            self.chart_validation_stats['repaired_api'] += 1
+                    else:
+                        # 修复失败，记录失败并输出占位提示
+                        fail_reason = self._format_chart_error_reason(validation_result)
+                        block["_chart_renderable"] = False
+                        block["_chart_error_reason"] = fail_reason
+                        self._note_chart_failure(cache_key, fail_reason)
+                        self._record_chart_failure_stat(cache_key)
+                        logger.warning(
+                            f"图表 {block.get('widgetId', 'unknown')} 修复失败，已跳过渲染: {fail_reason}"
+                        )
+                        return self._render_chart_error_placeholder(display_title, fail_reason, widget_id)
+                else:
+                    # 验证通过
+                    self.chart_validation_stats['valid'] += 1
+                    if validation_result.warnings:
+                        logger.info(
+                            f"图表 {block.get('widgetId', 'unknown')} 验证通过，"
+                            f"但有警告: {validation_result.warnings}"
+                        )
 
         # 渲染图表HTML
         self.chart_counter += 1
@@ -1700,7 +1735,7 @@ class HTMLRenderer:
         title = props.get("title")
         title_html = f'<div class="chart-title">{self._escape_html(title)}</div>' if title else ""
         fallback_html = (
-            self._render_wordcloud_fallback(props, block.get("widgetId"))
+            self._render_wordcloud_fallback(props, block.get("widgetId"), block.get("data"))
             if is_wordcloud
             else self._render_widget_fallback(normalized_data, block.get("widgetId"))
         )
@@ -1750,25 +1785,90 @@ class HTMLRenderer:
         """
         return table_html
 
-    def _render_wordcloud_fallback(self, props: Dict[str, Any] | None, widget_id: str | None = None) -> str:
+    def _render_wordcloud_fallback(
+        self,
+        props: Dict[str, Any] | None,
+        widget_id: str | None = None,
+        block_data: Any | None = None,
+    ) -> str:
         """为词云提供表格兜底，避免WordCloud渲染失败后页面空白"""
-        words = []
-        if isinstance(props, dict):
-            raw = props.get("data")
+        def _collect_items(raw: Any) -> list[dict]:
+            """将多种词云输入格式（数组/对象/元组/纯文本）规整为统一的词条列表"""
+            collected: list[dict] = []
+            skip_keys = {"items", "data", "words", "labels", "datasets", "sourceData"}
             if isinstance(raw, list):
                 for item in raw:
-                    if not isinstance(item, dict):
-                        continue
-                    text = item.get("word") or item.get("text") or item.get("label")
-                    weight = item.get("weight")
-                    category = item.get("category") or ""
-                    if text:
-                        words.append({"word": str(text), "weight": weight, "category": str(category)})
+                    if isinstance(item, dict):
+                        text = item.get("word") or item.get("text") or item.get("label")
+                        weight = item.get("weight")
+                        category = item.get("category") or ""
+                        if text:
+                            collected.append({"word": str(text), "weight": weight, "category": str(category)})
+                        # 若嵌套了 items/words/data 列表，递归提取
+                        for nested_key in ("items", "words", "data"):
+                            nested = item.get(nested_key)
+                            if isinstance(nested, list):
+                                collected.extend(_collect_items(nested))
+                    elif isinstance(item, (list, tuple)) and item:
+                        text = item[0]
+                        weight = item[1] if len(item) > 1 else None
+                        category = item[2] if len(item) > 2 else ""
+                        if text:
+                            collected.append({"word": str(text), "weight": weight, "category": str(category)})
+                    elif isinstance(item, str):
+                        collected.append({"word": item, "weight": 1.0, "category": ""})
+            elif isinstance(raw, dict):
+                # 若包含 items/words/data 列表，优先递归提取，不把键名当词
+                handled = False
+                for nested_key in ("items", "words", "data"):
+                    nested = raw.get(nested_key)
+                    if isinstance(nested, list):
+                        collected.extend(_collect_items(nested))
+                        handled = True
+                if handled:
+                    return collected
+
+                # 非Chart结构且不包含skip_keys时，把key/value当作词云条目
+                if not {"labels", "datasets"}.intersection(raw.keys()):
+                    for text, weight in raw.items():
+                        if text in skip_keys:
+                            continue
+                        collected.append({"word": str(text), "weight": weight, "category": ""})
+            return collected
+
+        words: list[dict] = []
+        seen: set[str] = set()
+        candidates = []
+        if isinstance(props, dict):
+            # 仅接受明确的词条数组字段，避免将嵌套items误当作词条
+            if "data" in props and isinstance(props.get("data"), list):
+                candidates.append(props["data"])
+            if "words" in props and isinstance(props.get("words"), list):
+                candidates.append(props["words"])
+            if "items" in props and isinstance(props.get("items"), list):
+                candidates.append(props["items"])
+        candidates.append((props or {}).get("sourceData"))
+
+        # 允许使用block.data兜底，避免缺失props时出现空白
+        if block_data is not None:
+            if isinstance(block_data, dict) and "items" in block_data and isinstance(block_data.get("items"), list):
+                candidates.append(block_data["items"])
+            else:
+                candidates.append(block_data)
+
+        for raw in candidates:
+            for item in _collect_items(raw):
+                key = f"{item['word']}::{item.get('category','')}"
+                if key in seen:
+                    continue
+                seen.add(key)
+                words.append(item)
 
         if not words:
             return ""
 
         def _format_weight(value: Any) -> str:
+            """统一格式化权重，支持百分比/数值与字符串回退"""
             if isinstance(value, (int, float)) and not isinstance(value, bool):
                 if 0 <= value <= 1.5:
                     return f"{value * 100:.1f}%"
@@ -1944,6 +2044,82 @@ class HTMLRenderer:
         return text_value, marks
 
     @staticmethod
+    def _normalize_latex_string(raw: Any) -> str:
+        """去除外层数学定界符，兼容 $...$、$$...$$、\\(\\)、\\[\\] 等格式"""
+        if not isinstance(raw, str):
+            return ""
+        latex = raw.strip()
+        patterns = [
+            r'^\$\$(.*)\$\$$',
+            r'^\$(.*)\$$',
+            r'^\\\[(.*)\\\]$',
+            r'^\\\((.*)\\\)$',
+        ]
+        for pat in patterns:
+            m = re.match(pat, latex, re.DOTALL)
+            if m:
+                latex = m.group(1).strip()
+                break
+        return latex
+
+    def _render_text_with_inline_math(
+        self,
+        text: Any,
+        math_id: str | list | None = None,
+        allow_display_block: bool = False
+    ) -> str | None:
+        """
+        识别纯文本中的数学定界符并渲染为math-inline/math-block，提升兼容性。
+
+        - 支持 $...$、$$...$$、\\(\\)、\\[\\]。
+        - 若未检测到公式，返回None。
+        """
+        if not isinstance(text, str) or not text:
+            return None
+
+        pattern = re.compile(r'(\$\$(.+?)\$\$|\$(.+?)\$|\\\((.+?)\\\)|\\\[(.+?)\\\])', re.S)
+        matches = list(pattern.finditer(text))
+        if not matches:
+            return None
+
+        cursor = 0
+        parts: List[str] = []
+        id_iter = iter(math_id) if isinstance(math_id, list) else None
+
+        for idx, m in enumerate(matches, start=1):
+            start, end = m.span()
+            prefix = text[cursor:start]
+            raw = next(g for g in m.groups()[1:] if g is not None)
+            latex = self._normalize_latex_string(raw)
+            # 若已有math_id，直接使用，避免与SVG注入ID不一致；否则按局部序号生成
+            if id_iter:
+                mid = next(id_iter, f"auto-math-{idx}")
+            else:
+                mid = math_id or f"auto-math-{idx}"
+            id_attr = f' data-math-id="{self._escape_attr(mid)}"'
+            is_display = m.group(1).startswith('$$') or m.group(1).startswith('\\[')
+            is_standalone = (
+                len(matches) == 1 and
+                not text[:start].strip() and
+                not text[end:].strip()
+            )
+            use_block = allow_display_block and is_display and is_standalone
+            if use_block:
+                # 独立display公式，跳过两侧空白，直接渲染块级
+                parts.append(f'<div class="math-block"{id_attr}>$$ {self._escape_html(latex)} $$</div>')
+                cursor = len(text)
+                break
+            else:
+                if prefix:
+                    parts.append(self._escape_html(prefix))
+                parts.append(f'<span class="math-inline"{id_attr}>\\( {self._escape_html(latex)} \\)</span>')
+            cursor = end
+
+        if cursor < len(text):
+            parts.append(self._escape_html(text[cursor:]))
+        return "".join(parts)
+
+    @staticmethod
     def _coerce_inline_payload(payload: Dict[str, Any]) -> Dict[str, Any] | None:
         """尽力将字符串里的内联节点恢复为dict，修复渲染遗漏"""
         if not isinstance(payload, dict):
@@ -1968,10 +2144,19 @@ class HTMLRenderer:
         text_value, marks = self._normalize_inline_payload(run)
         math_mark = next((mark for mark in marks if mark.get("type") == "math"), None)
         if math_mark:
-            latex = math_mark.get("value")
+            latex = self._normalize_latex_string(math_mark.get("value"))
             if not isinstance(latex, str) or not latex.strip():
-                latex = text_value
-            return f'<span class="math-inline">\\( {self._escape_html(latex)} \\)</span>'
+                latex = self._normalize_latex_string(text_value)
+            math_id = self._escape_attr(run.get("mathId", "")) if run.get("mathId") else ""
+            id_attr = f' data-math-id="{math_id}"' if math_id else ""
+            return f'<span class="math-inline"{id_attr}>\\( {self._escape_html(latex)} \\)</span>'
+
+        # 尝试从纯文本中提取数学公式（即便没有math mark）
+        math_id_hint = run.get("mathIds") or run.get("mathId")
+        mathified = self._render_text_with_inline_math(text_value, math_id_hint)
+        if mathified is not None:
+            return mathified
+
         text = self._escape_html(text_value)
         styles: List[str] = []
         prefix: List[str] = []
@@ -2647,11 +2832,16 @@ table th {{
   font-size: 2rem;
   font-weight: 700;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 4px 6px;
   line-height: 1.25;
   word-break: break-word;
   overflow-wrap: break-word;
+}}
+.kpi-value small {{
+  font-size: 0.65em;
+  align-self: baseline;
+  white-space: nowrap;
 }}
 .kpi-label {{
   color: var(--secondary-color);
@@ -2712,11 +2902,11 @@ table th {{
   line-height: 1.6;
 }}
 .chart-card.wordcloud-card .chart-container {{
-  min-height: 260px;
+  min-height: 180px;
 }}
 .chart-container {{
   position: relative;
-  min-height: 320px;
+  min-height: 220px;
 }}
 .chart-fallback {{
   display: none;
@@ -2742,6 +2932,31 @@ table th {{
 }}
 .chart-fallback th {{
   background: rgba(0,0,0,0.04);
+}}
+.wordcloud-fallback .wordcloud-badges {{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}}
+.wordcloud-badge {{
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(74, 144, 226, 0.35);
+  color: var(--text-color);
+  background: linear-gradient(135deg, rgba(74, 144, 226, 0.14) 0%, rgba(74, 144, 226, 0.24) 100%);
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.06);
+}}
+.dark-mode .wordcloud-badge {{
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+}}
+.wordcloud-badge small {{
+  color: var(--secondary-color);
+  font-weight: 600;
+  font-size: 0.75rem;
 }}
 .chart-note {{
   margin-top: 8px;
@@ -3039,6 +3254,45 @@ function liftDarkColor(color) {
   return normalized;
 }
 
+function mixColors(colorA, colorB, amount) {
+  const rgbA = rgbFromColor(colorA);
+  const rgbB = rgbFromColor(colorB);
+  if (!rgbA && !rgbB) return colorA || colorB;
+  if (!rgbA) return colorB;
+  if (!rgbB) return colorA;
+  const t = Math.min(1, Math.max(0, amount || 0));
+  const mixed = rgbA.map((v, idx) => Math.round(v * (1 - t) + rgbB[idx] * t));
+  return `rgb(${mixed[0]}, ${mixed[1]}, ${mixed[2]})`;
+}
+
+function pickComputedColor(keys, fallback, styles) {
+  const styleRef = styles || getComputedStyle(document.body);
+  for (const key of keys) {
+    const val = styleRef.getPropertyValue(key);
+    if (val && val.trim()) {
+      const normalized = normalizeColorToken(val.trim());
+      if (normalized) return normalized;
+    }
+  }
+  return fallback;
+}
+
+function resolveWordcloudTheme() {
+  const styles = getComputedStyle(document.body);
+  const isDark = document.body.classList.contains('dark-mode');
+  const text = pickComputedColor(['--text-color'], isDark ? '#e5e7eb' : '#111827', styles);
+  const secondary = pickComputedColor(['--secondary-color', '--color-text-secondary'], isDark ? '#cbd5e1' : '#475569', styles);
+  const accent = liftDarkColor(
+    pickComputedColor(['--primary-color', '--color-accent', '--re-accent-color'], '#4A90E2', styles)
+  );
+  const cardBg = pickComputedColor(
+    ['--card-bg', '--paper-bg', '--bg', '--bg-color', '--background', '--page-bg'],
+    isDark ? '#0f172a' : '#ffffff',
+    styles
+  );
+  return { text, secondary, accent, cardBg, isDark };
+}
+
 function normalizeDatasetColors(payload, chartType) {
   const changes = [];
   const data = payload && payload.data;
@@ -3246,29 +3500,79 @@ function isWordCloudWidget(payload) {
   return typeof type === 'string' && type.toLowerCase().includes('wordcloud');
 }
 
+function hashString(str) {
+  let h = 0;
+  if (!str) return h;
+  for (let i = 0; i < str.length; i++) {
+    h = (h << 5) - h + str.charCodeAt(i);
+    h |= 0;
+  }
+  return h;
+}
+
 function normalizeWordcloudItems(payload) {
-  const source = payload && payload.props && payload.props.data;
-  if (!Array.isArray(source)) return [];
-  return source.map(item => {
-    if (!item || typeof item !== 'object') return null;
-    const word = item.word || item.text || item.label;
-    if (!word) return null;
-    const rawWeight = item.weight;
-    let weight = 0;
-    if (typeof rawWeight === 'number' && !Number.isNaN(rawWeight)) {
-      weight = rawWeight;
-    } else if (typeof rawWeight === 'string') {
-      const parsed = parseFloat(rawWeight);
-      weight = Number.isNaN(parsed) ? 0 : parsed;
+  const sources = [];
+  const props = payload && payload.props;
+  const dataField = payload && payload.data;
+  if (props) {
+    ['data', 'items', 'words', 'sourceData'].forEach(key => {
+      if (props[key]) sources.push(props[key]);
+    });
+  }
+  if (dataField) {
+    sources.push(dataField);
+  }
+
+  const seen = new Map();
+  const pushItem = (word, weight, category) => {
+    if (!word) return;
+    let numeric = 1;
+    if (typeof weight === 'number' && Number.isFinite(weight)) {
+      numeric = weight;
+    } else if (typeof weight === 'string') {
+      const parsed = parseFloat(weight);
+      numeric = Number.isFinite(parsed) ? parsed : 1;
     }
-    const category = (item.category || '').toString().toLowerCase();
-    return { word: String(word), weight, category };
-  }).filter(Boolean);
+    if (!(numeric > 0)) numeric = 1;
+    const cat = (category || '').toString().toLowerCase();
+    const key = `${word}__${cat}`;
+    const existing = seen.get(key);
+    const payloadItem = { word: String(word), weight: numeric, category: cat };
+    if (!existing || numeric > existing.weight) {
+      seen.set(key, payloadItem);
+    }
+  };
+
+  const consume = (raw) => {
+    if (!raw) return;
+    if (Array.isArray(raw)) {
+      raw.forEach(item => {
+        if (!item) return;
+        if (Array.isArray(item)) {
+          pushItem(item[0], item[1], item[2]);
+        } else if (typeof item === 'object') {
+          pushItem(item.word || item.text || item.label, item.weight, item.category);
+        } else if (typeof item === 'string') {
+          pushItem(item, 1, '');
+        }
+      });
+    } else if (typeof raw === 'object') {
+      Object.entries(raw).forEach(([word, weight]) => pushItem(word, weight, ''));
+    }
+  };
+
+  sources.forEach(consume);
+
+  const items = Array.from(seen.values());
+  items.sort((a, b) => (b.weight || 0) - (a.weight || 0));
+  return items.slice(0, 150);
 }
 
 function wordcloudColor(category) {
   const key = typeof category === 'string' ? category.toLowerCase() : '';
-  return WORDCLOUD_CATEGORY_COLORS[key] || '#334155';
+  const palette = resolveWordcloudTheme();
+  const base = WORDCLOUD_CATEGORY_COLORS[key] || palette.accent || palette.secondary || '#334155';
+  return liftDarkColor(base);
 }
 
 function renderWordCloudFallback(canvas, items, reason) {
@@ -3282,26 +3586,44 @@ function renderWordCloudFallback(canvas, items, reason) {
   } else {
     canvas.style.display = 'none';
   }
-  let fallback = card.querySelector('.chart-fallback');
+  let fallback = card.querySelector('.chart-fallback[data-dynamic="true"]');
+  if (!fallback) {
+    fallback = card.querySelector('.chart-fallback');
+  }
   if (!fallback) {
     fallback = document.createElement('div');
-    fallback.className = 'chart-fallback wordcloud-fallback';
-    fallback.setAttribute('data-dynamic', 'true');
     card.appendChild(fallback);
   }
+  fallback.className = 'chart-fallback wordcloud-fallback';
+  fallback.setAttribute('data-dynamic', 'true');
   fallback.style.display = 'block';
+  fallback.innerHTML = '';
   card.setAttribute('data-chart-state', 'fallback');
-  if (reason) {
-    let notice = fallback.querySelector('.chart-fallback__notice');
-    if (!notice) {
-      notice = document.createElement('p');
-      notice.className = 'chart-fallback__notice';
-      fallback.insertBefore(notice, fallback.firstChild || null);
+  const buildBadge = (item, maxWeight) => {
+    const badge = document.createElement('span');
+    badge.className = 'wordcloud-badge';
+    const clampedWeight = Math.max(0.5, (item.weight || 1));
+    const normalized = Math.min(1, clampedWeight / (maxWeight || 1));
+    const fontSize = 0.85 + normalized * 0.9;
+    badge.style.fontSize = `${fontSize}rem`;
+    badge.style.background = `linear-gradient(135deg, ${lightenColor(wordcloudColor(item.category), 0.05)} 0%, ${lightenColor(wordcloudColor(item.category), 0.15)} 100%)`;
+    badge.style.borderColor = lightenColor(wordcloudColor(item.category), 0.25);
+    badge.textContent = item.word;
+    if (item.weight !== undefined && item.weight !== null) {
+      const meta = document.createElement('small');
+      meta.textContent = item.weight >= 0 && item.weight <= 1.5
+        ? `${(item.weight * 100).toFixed(0)}%`
+        : item.weight.toFixed(1).replace(/\.0+$/, '').replace(/0+$/, '').replace(/\.$/, '');
+      badge.appendChild(meta);
     }
-    notice.textContent = `词云未能渲染${reason ? `（${reason}）` : ''}，已展示数据表。`;
-  }
-  if (fallback.querySelector('table')) {
-    return;
+    return badge;
+  };
+
+  if (reason) {
+    const notice = document.createElement('p');
+    notice.className = 'chart-fallback__notice';
+    notice.textContent = `词云未能渲染${reason ? `（${reason}）` : ''}，已展示关键词列表。`;
+    fallback.appendChild(notice);
   }
   if (!items || !items.length) {
     const empty = document.createElement('p');
@@ -3309,39 +3631,13 @@ function renderWordCloudFallback(canvas, items, reason) {
     fallback.appendChild(empty);
     return;
   }
-  const table = document.createElement('table');
-  const thead = document.createElement('thead');
-  const headRow = document.createElement('tr');
-  ['关键词', '权重', '类别'].forEach(text => {
-    const th = document.createElement('th');
-    th.textContent = text;
-    headRow.appendChild(th);
-  });
-  thead.appendChild(headRow);
-  table.appendChild(thead);
-  const tbody = document.createElement('tbody');
+  const badges = document.createElement('div');
+  badges.className = 'wordcloud-badges';
+  const maxWeight = items.reduce((max, item) => Math.max(max, item.weight || 0), 1);
   items.forEach(item => {
-    const row = document.createElement('tr');
-    const wordCell = document.createElement('td');
-    wordCell.textContent = item.word;
-    const weightCell = document.createElement('td');
-    if (typeof item.weight === 'number' && !Number.isNaN(item.weight)) {
-      weightCell.textContent = item.weight >= 0 && item.weight <= 1.5
-        ? `${(item.weight * 100).toFixed(1)}%`
-        : item.weight.toFixed(2).replace(/\.0+$/, '').replace(/0+$/, '').replace(/\.$/, '');
-    } else {
-      weightCell.textContent = item.weight !== undefined && item.weight !== null ? String(item.weight) : '—';
-    }
-    const categoryCell = document.createElement('td');
-    categoryCell.textContent = item.category || '—';
-    categoryCell.style.color = wordcloudColor(item.category);
-    row.appendChild(wordCell);
-    row.appendChild(weightCell);
-    row.appendChild(categoryCell);
-    tbody.appendChild(row);
+    badges.appendChild(buildBadge(item, maxWeight));
   });
-  table.appendChild(tbody);
-  fallback.appendChild(table);
+  fallback.appendChild(badges);
 }
 
 function renderWordCloud(canvas, payload, skipRegistry) {
@@ -3358,38 +3654,82 @@ function renderWordCloud(canvas, payload, skipRegistry) {
     renderWordCloudFallback(canvas, items, '词云依赖未加载');
     return;
   }
+  const theme = resolveWordcloudTheme();
   const dpr = Math.max(1, window.devicePixelRatio || 1);
-  const width = Math.max(240, (container ? container.clientWidth : canvas.clientWidth || canvas.width || 320));
-  const height = Math.max(180, Math.round(width * 0.62));
+  const width = Math.max(260, (container ? container.clientWidth : canvas.clientWidth || canvas.width || 320));
+  const height = Math.max(120, Math.round(width / 5)); // 5:1 宽高比
   canvas.width = Math.round(width * dpr);
   canvas.height = Math.round(height * dpr);
   canvas.style.width = `${width}px`;
   canvas.style.height = `${height}px`;
+  canvas.style.backgroundColor = 'transparent';
+
+  const resolveBgColor = () => {
+    const cardEl = card || container || document.body;
+    const style = getComputedStyle(cardEl);
+    const tokens = ['--card-bg', '--panel-bg', '--paper-bg', '--bg', '--background', '--page-bg'];
+    for (const key of tokens) {
+      const val = style.getPropertyValue(key);
+      if (val && val.trim() && val.trim() !== 'transparent') return val.trim();
+    }
+    if (style.backgroundColor && style.backgroundColor !== 'rgba(0, 0, 0, 0)') return style.backgroundColor;
+    const bodyStyle = getComputedStyle(document.body);
+    for (const key of tokens) {
+      const val = bodyStyle.getPropertyValue(key);
+      if (val && val.trim() && val.trim() !== 'transparent') return val.trim();
+    }
+    if (bodyStyle.backgroundColor && bodyStyle.backgroundColor !== 'rgba(0, 0, 0, 0)') {
+      return bodyStyle.backgroundColor;
+    }
+    return 'transparent';
+  };
+  const bgColor = resolveBgColor() || theme.cardBg || 'transparent';
 
   const maxWeight = items.reduce((max, item) => Math.max(max, item.weight || 0), 0) || 1;
+  const weightLookup = new Map();
+  const categoryLookup = new Map();
+  items.forEach(it => {
+    weightLookup.set(it.word, it.weight || 1);
+    categoryLookup.set(it.word, it.category || '');
+  });
   const list = items.map(item => [item.word, item.weight && item.weight > 0 ? item.weight : 1]);
   try {
     WordCloud(canvas, {
       list,
-      gridSize: Math.max(8, Math.floor(Math.sqrt(canvas.width * canvas.height) / 80)),
+      gridSize: Math.max(3, Math.floor(Math.sqrt(canvas.width * canvas.height) / 170)),
       weightFactor: (val) => {
         const normalized = Math.max(0, val) / maxWeight;
-        const size = 16 + normalized * 32;
+        const cap = Math.min(width, height);
+        const base = Math.max(9, cap / 5.5);
+        const size = base * (0.8 + normalized * 1.3);
         return size * dpr;
       },
       color: (word) => {
-        const found = items.find(entry => entry.word === word);
-        return lightenColor(wordcloudColor(found && found.category), 0.05);
+        const w = weightLookup.get(word) || 1;
+        const ratio = Math.max(0, Math.min(1, w / (maxWeight || 1)));
+        const category = categoryLookup.get(word) || '';
+        const base = wordcloudColor(category);
+        const target = theme.isDark ? '#ffffff' : (theme.text || '#111827');
+        const mixAmount = theme.isDark
+          ? 0.28 + (1 - ratio) * 0.22
+          : 0.12 + (1 - ratio) * 0.35;
+        const mixed = mixColors(base, target, mixAmount);
+        return ensureAlpha(mixed || base, theme.isDark ? 0.95 : 1);
       },
-      rotateRatio: 0.15,
+      rotateRatio: 0,
+      rotationSteps: 0,
       shuffle: false,
       shrinkToFit: true,
       drawOutOfBound: false,
-      backgroundColor: getComputedStyle(document.body).getPropertyValue('--card-bg').trim() || '#fff'
+      shape: 'square',
+      ellipticity: 0.45,
+      clearCanvas: true,
+      backgroundColor: bgColor
     });
     if (container) {
       container.style.display = '';
       container.style.minHeight = `${height}px`;
+      container.style.background = 'transparent';
     }
     const fallback = card && card.querySelector('.chart-fallback');
     if (fallback) {
@@ -3870,11 +4210,19 @@ function exportPdf() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  const rerenderWordclouds = debounce(() => {
+    wordCloudRegistry.forEach(fn => {
+      if (typeof fn === 'function') {
+        fn();
+      }
+    });
+  }, 260);
   const themeBtn = document.getElementById('theme-toggle');
   if (themeBtn) {
     themeBtn.addEventListener('click', () => {
       document.body.classList.toggle('dark-mode');
       chartRegistry.forEach(applyChartTheme);
+      rerenderWordclouds();
     });
   }
   const printBtn = document.getElementById('print-btn');
@@ -3885,13 +4233,6 @@ document.addEventListener('DOMContentLoaded', () => {
   if (exportBtn) {
     exportBtn.addEventListener('click', exportPdf);
   }
-  const rerenderWordclouds = debounce(() => {
-    wordCloudRegistry.forEach(fn => {
-      if (typeof fn === 'function') {
-        fn();
-      }
-    });
-  }, 260);
   window.addEventListener('resize', rerenderWordclouds);
   hydrateCharts();
 });

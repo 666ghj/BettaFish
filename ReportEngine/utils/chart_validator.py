@@ -87,7 +87,7 @@ class ChartValidator:
     }
 
     def __init__(self):
-        pass
+        """初始化验证器并预留缓存结构，便于后续复用验证/修复结果"""
 
     def validate(self, widget_block: Dict[str, Any]) -> ValidationResult:
         """
@@ -136,6 +136,7 @@ class ChartValidator:
 
         # 检测是否使用了{x, y}形式的数据点（通常用于时间轴/散点）
         def contains_object_points(ds_list: List[Any] | None) -> bool:
+            """检查数据集中是否包含以x/y键表示的对象点，用于切换验证分支"""
             if not isinstance(ds_list, list):
                 return False
             for point in ds_list:
@@ -432,6 +433,7 @@ class ChartRepairer:
             return copy.deepcopy(cached)
 
         def _cache_and_return(res: RepairResult) -> RepairResult:
+            """写入修复结果缓存并返回，避免重复调用下游修复逻辑"""
             try:
                 self._result_cache[cache_key] = copy.deepcopy(res)
             except Exception:
