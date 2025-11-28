@@ -26,13 +26,6 @@
 
 </div>
 
-## 🌟 加入官方交流群
-
-<div align="center">
-  <img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&height=200&section=header&text=欢迎加入我们的技术交流QQ群！&fontSize=40&fontAlignY=35&desc=扫描下方二维码加入群聊&descAlignY=55" alt="欢迎加入我们的技术交流QQ群！" style="width:60%; max-width:900px; display:block; margin:0 auto;">
-  <img src="static/image/QQ_Light_Horizenal.png" alt="BettaFish 技术交流群二维码" style="width:60%; max-width:360px; display:block; margin:20px auto 0;">
-</div>
-
 ## ⚡ 项目概述
 
 “**微舆**” 是一个从0实现的创新型 多智能体 舆情分析系统，帮助大家破除信息茧房，还原舆情原貌，预测未来走向，辅助决策。用户只需像聊天一样提出分析需求，智能体开始全自动分析 国内外30+主流社媒 与 数百万条大众评论。
@@ -121,19 +114,11 @@ LLM模型API赞助：<a href="https://aihubmix.com/?aff=8Ds9" target="_blank"><i
 | 4 | 策略制定 | 基于初步结果制定分块研究策略 | 各Agent内部决策模块 | - |
 | 5-N | **循环阶段** | **论坛协作 + 深度研究** | **ForumEngine + 所有Agent** | **多轮循环** |
 | 5.1 | 深度研究 | 各Agent基于论坛主持人引导进行专项搜索 | 各Agent + 反思机制 + 论坛引导 | 每轮循环 |
-| 5.2 | 论坛协作 | ForumEngine监控Agent发言并生成主持人总结 | ForumEngine + LLM主持人 | 每轮循环 |
+| 5.2 | 论坛协作 | ForumEngine监控Agent发言并生成主持人引导 | ForumEngine + LLM主持人 | 每轮循环 |
 | 5.3 | 交流融合 | 各Agent根据讨论调整研究方向 | 各Agent + forum_reader工具 | 每轮循环 |
 | N+1 | 结果整合 | Report Agent收集所有分析结果和论坛内容 | Report Agent | - |
-| N+2 | 报告生成 | 动态选择模板和样式，多轮生成最终报告 | Report Agent + 模板引擎 | - |
-
-### 🆕 Report Engine 新增能力
-
-- **IR → HTML/PDF 渲染链路**：新增 `ReportEngine/renderers/html_renderer.py` 与 `pdf_renderer.py`，内置思源宋体子集和MathJax/Chart.js/html2canvas等离线依赖，`report_engine_only.py` 支持纯命令行生成报告。
-- **PDF 导出接口**：新增 `/api/report/export/pdf/<task_id>` 与 `/api/report/export/pdf-from-ir`，导出前自动检查 Pango 依赖并给出可读提示，前端一键触发即可获得矢量PDF。
-- **Chart.js 安全校验**：`utils/chart_validator.py` + LLM 修复链路确保图表数据合法，防止错误配置导致前端崩溃或XSS注入。
-- **多源日志控制台**：前端控制台双缓冲虚拟列表 + SSE 历史补偿，后端提供 `/api/report/log` 与 `/api/report/log/clear` 便捷查看/清空日志。
-- **数据清洗回归测试**：`tests/test_report_engine_sanitization.py` 覆盖章节表格的容错修复，保证渲染端稳定。
-
+| N+2 | IR中间表示 | 动态选择模板和样式，多轮生成元数据，装订为IR中间表示 | Report Agent + 模板引擎 | - |
+| N+3 | 报告生成 | 分块进行质量检测，基于IR渲染成交互式 HTML 报告 | Report Agent + 装订引擎 | - |
 
 ### 项目代码结构树
 
@@ -142,43 +127,21 @@ BettaFish/
 ├── QueryEngine/                            # 国内外新闻广度搜索Agent
 │   ├── agent.py                            # Agent主逻辑，协调搜索与分析流程
 │   ├── llms/                               # LLM接口封装
-│   │   └── base.py                         # 统一的OpenAI兼容客户端
 │   ├── nodes/                              # 处理节点：搜索、格式化、总结等
-│   │   ├── base_node.py                    # 基础节点类
-│   │   ├── search_node.py                  # 搜索节点
-│   │   ├── formatting_node.py              # 格式化节点
-│   │   ├── report_structure_node.py        # 报告结构节点
-│   │   └── summary_node.py                 # 总结节点
-│   ├── tools/                              # 搜索工具
-│   │   └── search.py                       # 网页搜索工具集
+│   ├── tools/                              # 国内外新闻搜索工具集
 │   ├── utils/                              # 工具函数
-│   │   ├── config.py                       # 配置管理
-│   │   └── text_processing.py              # 文本处理工具
 │   ├── state/                              # 状态管理
-│   │   └── state.py                        # Agent状态定义
 │   ├── prompts/                            # 提示词模板
-│   │   └── prompts.py                      # 各类提示词
-│   └── __init__.py
+│   └── ...
 ├── MediaEngine/                            # 强大的多模态理解Agent
 │   ├── agent.py                            # Agent主逻辑，处理视频/图片等多模态内容
 │   ├── llms/                               # LLM接口封装
-│   │   └── base.py                         # 统一的OpenAI兼容客户端
 │   ├── nodes/                              # 处理节点：搜索、格式化、总结等
-│   │   ├── base_node.py                    # 基础节点类
-│   │   ├── search_node.py                  # 搜索节点
-│   │   ├── formatting_node.py              # 格式化节点
-│   │   ├── report_structure_node.py        # 报告结构节点
-│   │   └── summary_node.py                 # 总结节点
-│   ├── tools/                              # 多模态搜索工具
-│   │   └── search.py                       # 多模态内容搜索工具集
+│   ├── tools/                              # 多模态搜索工具集
 │   ├── utils/                              # 工具函数
-│   │   ├── config.py                       # 配置管理
-│   │   └── text_processing.py              # 文本处理工具
 │   ├── state/                              # 状态管理
-│   │   └── state.py                        # Agent状态定义
 │   ├── prompts/                            # 提示词模板
-│   │   └── prompts.py                      # 各类提示词
-│   └── __init__.py
+│   └── ...
 ├── InsightEngine/                          # 私有数据库挖掘Agent
 │   ├── agent.py                            # Agent主逻辑，协调数据库查询与分析
 │   ├── llms/                               # LLM接口封装
@@ -189,7 +152,7 @@ BettaFish/
 │   │   ├── formatting_node.py              # 格式化节点
 │   │   ├── report_structure_node.py        # 报告结构节点
 │   │   └── summary_node.py                 # 总结节点
-│   ├── tools/                              # 数据库查询和分析工具
+│   ├── tools/                              # 数据库查询和分析工具集
 │   │   ├── keyword_optimizer.py            # Qwen关键词优化中间件
 │   │   ├── search.py                       # 数据库操作工具集（话题搜索、评论获取等）
 │   │   └── sentiment_analyzer.py           # 情感分析集成工具
@@ -223,8 +186,8 @@ BettaFish/
 │   ├── prompts/                            # 提示词库与Schema说明
 │   │   └── prompts.py                      # 模板选择/布局/篇幅/章节提示词
 │   ├── renderers/                          # IR渲染器
-│   │   ├── html_renderer.py                # Document IR → 交互式HTML
-│   │   ├── pdf_renderer.py                 # HTML → PDF导出（WeasyPrint）
+│   │   ├── html_renderer.py                # Document IR→交互式HTML
+│   │   ├── pdf_renderer.py                 # HTML→PDF导出（WeasyPrint）
 │   │   ├── pdf_layout_optimizer.py         # PDF布局优化器
 │   │   └── chart_to_svg.py                 # 图表转SVG工具
 │   ├── state/                              # 任务/元数据状态模型
@@ -255,7 +218,7 @@ BettaFish/
 │   │   ├── main.py                         # 深度爬取主程序
 │   │   ├── keyword_manager.py              # 关键词管理器
 │   │   ├── platform_crawler.py             # 平台爬虫管理
-│   │   └── MediaCrawler/                   # 媒体爬虫核心（微博/抖音/小红书等）
+│   │   └── MediaCrawler/                   # 社媒爬虫核心
 │   │       ├── main.py
 │   │       ├── config/                     # 各平台配置
 │   │       ├── media_platform/             # 各平台爬虫实现
@@ -276,7 +239,7 @@ BettaFish/
 │   │       ├── train.py
 │   │       ├── predict.py
 │   │       └── ...
-│   ├── WeiboMultilingualSentiment/         # 多语言情感分析（推荐使用）
+│   ├── WeiboMultilingualSentiment/         # 多语言情感分析
 │   │   ├── train.py
 │   │   ├── predict.py
 │   │   └── ...
@@ -316,13 +279,13 @@ BettaFish/
 │   ├── test_report_engine_sanitization.py  # ReportEngine安全性测试
 │   └── ...
 ├── app.py                                  # Flask主应用入口
-├── config.py                               # 全局配置文件（统一管理所有LLM/DB配置）
+├── config.py                               # 全局配置文件
 ├── .env.example                            # 环境变量示例文件
 ├── docker-compose.yml                      # Docker多服务编排配置
 ├── Dockerfile                              # Docker镜像构建文件
 ├── requirements.txt                        # Python依赖包清单
 ├── regenerate_latest_pdf.py                # PDF重新生成工具脚本
-├── report_engine_only.py                   # Report Engine命令行版本（无需Web界面）
+├── report_engine_only.py                   # Report Engine命令行版本
 ├── README.md                               # 中文说明文档
 ├── README-EN.md                            # 英文说明文档
 ├── CONTRIBUTING.md                         # 中文贡献指南
@@ -452,18 +415,16 @@ DB_DIALECT=postgresql
 
 # ====================== LLM配置 ======================
 # 您可以更改每个部分LLM使用的API，只要兼容OpenAI请求格式都可以
+# 配置文件内部给了每一个Agent的推荐LLM，初次部署请先参考推荐设置
 
 # Insight Agent
 INSIGHT_ENGINE_API_KEY=
-# Insight Agent LLM接口BaseUrl，可自定义厂商API
 INSIGHT_ENGINE_BASE_URL=
-# Insight Agent LLM模型名称，如kimi-k2-0711-preview
 INSIGHT_ENGINE_MODEL_NAME=
 
 # Media Agent
 ...
 ```
-推荐LLM API供应商：[推理时代](https://aihubmix.com/?aff=8Ds9)
 
 ### 6. 启动系统
 
@@ -489,8 +450,6 @@ python app.py
 > 注1：一次运行终止后，streamlit app可能结束异常仍然占用端口，此时搜索占用端口的进程kill掉即可
 
 > 注2：数据爬取需要单独操作，见6.3指引
-
-> 注3：如果服务器远程部署出现页面显示问题，见[PR#45](https://github.com/666ghj/BettaFish/pull/45)
 
 访问 http://localhost:5000 即可使用完整系统
 
@@ -828,6 +787,13 @@ class DeepSearchAgent:
 感谢以下优秀的贡献者们：
 
 [![Contributors](https://contrib.rocks/image?repo=666ghj/BettaFish)](https://github.com/666ghj/BettaFish/graphs/contributors)
+
+## 🌟 加入官方交流群
+
+<div align="center">
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&height=200&section=header&text=欢迎加入我们的技术交流QQ群！&fontSize=40&fontAlignY=35&desc=扫描下方二维码加入群聊&descAlignY=55" alt="欢迎加入我们的技术交流QQ群！" style="width:60%; max-width:900px; display:block; margin:0 auto;">
+  <img src="static/image/QQ_Light_Horizenal.png" alt="BettaFish 技术交流群二维码" style="width:60%; max-width:360px; display:block; margin:20px auto 0;">
+</div>
 
 ## 📈 项目统计
 
