@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BettaFish 分支分析报告</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/v4-shims.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#2563eb',
+                        secondary: '#475569',
+                        accent: '#0ea5e9',
+                        success: '#10b981',
+                        warning: '#f59e0b',
+                        danger: '#ef4444',
+                        dark: '#1e293b',
+                        light: '#f8fafc'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .code-block {
+                @apply bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto font-mono text-sm;
+            }
+            .feature-card {
+                @apply bg-white rounded-xl shadow-lg p-6 mb-6 transition-all duration-300 hover:shadow-xl;
+            }
+            .section-title {
+                @apply text-2xl font-bold text-primary mb-4 flex items-center;
+            }
+            .subsection-title {
+                @apply text-xl font-semibold text-secondary mb-3 flex items-center;
+            }
+            .badge {
+                @apply px-2 py-1 rounded-full text-xs font-medium mr-2;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans">
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-primary to-accent text-white py-12 px-6 md:px-12">
+        <div class="max-w-6xl mx-auto">
+            <h1 class="text-4xl md:text-5xl font-bold mb-4">BettaFish 分支分析报告</h1>
+            <p class="text-xl opacity-90">HKLHaoBin:BettaFish:feat-structured-merge-blocked 分支功能分析</p>
+            <div class="mt-6 flex items-center text-sm opacity-80">
+                <i class="fa fa-calendar mr-2"></i>
+                <span>报告生成时间: 2025-11-28</span>
+                <span class="mx-3">|</span>
+                <i class="fa fa-code-fork mr-2"></i>
+                <span>分支类型: 功能增强</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-6xl mx-auto px-6 md:px-12 py-12">
+        <!-- Overview Section -->
+        <section class="mb-12">
+            <div class="bg-white rounded-xl shadow-lg p-8">
+                <h2 class="section-title">
+                    <i class="fa fa-info-circle mr-3 text-primary"></i>
+                    概述
+                </h2>
+                <p class="text-gray-700 leading-relaxed">
+                    本报告分析了 HKLHaoBin:BettaFish:feat-structured-merge-blocked 分支相比 main 分支的新增功能和改进。该分支主要实现了结构化上下文管理、智能关键词标签系统、智能权重压缩算法等核心功能，显著提升了系统的性能、稳定性和用户体验。
+                </p>
+            </div>
+        </section>
+
+        <!-- Features Section -->
+        <section class="mb-12">
+            <h2 class="section-title mb-8">
+                <i class="fa fa-star mr-3 text-primary"></i>
+                主要新增功能
+            </h2>
+
+            <!-- Feature 1: Structured Context Support -->
+            <div class="feature-card">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-primary">1. 结构化上下文支持</h3>
+                    <span class="badge bg-primary/10 text-primary">核心功能</span>
+                </div>
+                
+                <div class="mb-4">
+                    <h4 class="subsection-title">
+                        <i class="fa fa-cogs mr-2 text-secondary"></i>
+                        实现方法
+                    </h4>
+                    <ul class="list-disc list-inside text-gray-700 space-y-1 pl-4">
+                        <li>在多个引擎中添加 structured_context 字段</li>
+                        <li>实现 ContextCache 持久化缓存</li>
+                        <li>在 Streamlit 应用中添加结构化上下文展示标签页</li>
+                        <li>集成 StructuredContextBuilder 用于构建上下文</li>
+                    </ul>
+                </div>
+
+                <div class="mb-4">
+                    <h4 class="subsection-title">
+                        <i class="fa fa-folder-open mr-2 text-secondary"></i>
+                        相关文件和函数
+                    </h4>
+                    <div class="mb-2">
+                        <p class="font-semibold text-gray-800">文件修改:</p>
+                        <div class="flex flex-wrap gap-2 mt-2">
+                            <span class="badge bg-gray-100 text-gray-800">MediaEngine/state.py</span>
+                            <span class="badge bg-gray-100 text-gray-800">QueryEngine/state.py</span>
+                            <span class="badge bg-gray-100 text-gray-800">InsightEngine/state.py</span>
+                            <span class="badge bg-gray-100 text-gray-800">agent.py</span>
+                            <span class="badge bg-gray-100 text-gray-800">context_display.py</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="subsection-title">
+                        <i class="fa fa-code mr-2 text-secondary"></i>
+                        关键代码
+                    </h4>
+                    <div class="code-block mb-4">
+                        <pre># 在 state.py 中添加 structured_context 字段
+class State(BaseModel):
+    structured_context: dict = Field(default_factory=dict)</pre>
+                    </div>
+                    <div class="code-block">
+                        <pre># 在 agent.py 中集成 StructuredContextBuilder
+self.structured_context_builder = StructuredContextBuilder()</pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feature 2: Keyword Labeler -->
+            <div class="feature-card">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-primary">2. 关键词标签器</h3>
+                    <span class="badge bg-success/10 text-success">性能优化</span>
+                </div>
+                
+                <div class="mb-4">
+                    <h4 class="subsection-title">
+                        <i class="fa fa-cogs mr-2 text-secondary"></i>
+                        实现方法
+                    </h4>
+                    <ul class="list-disc list-inside text-gray-700 space-y-1 pl-4">
+                        <li>在 contextualizer.py 中添加关键词标签功能</li>
+                        <li>新增 keyword_labeler.py 实现关键词标签功能</li>
+                        <li>通过现有关键词优化配置为文本片段提供粗粒度语义标签</li>
+                        <li>避免调用重量级 LLM，同时为多智能体工作流提供更丰富的事件元数据</li>
+                    </ul>
+                </div>
+
+                <div class="mb-4">
+                    <h4 class="subsection-title">
+                        <i class="fa fa-folder-open mr-2 text-secondary"></i>
+                        相关文件和函数
+                    </h4>
+                    <div class="mb-2">
+                        <p class="font-semibold text-gray-800">新增文件:</p>
+                        <div class="flex flex-wrap gap-2 mt-2">
+                            <span class="badge bg-success/10 text-success">keyword_labeler.py</span>
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <p class="font-semibold text-gray-800">修改文件:</p>
+                        <div class="flex flex-wrap gap-2 mt-2">
+                            <span class="badge bg-gray-100 text-gray-800">contextualizer.py</span>
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <p class="font-semibold text-gray-800">关键函数:</p>
+                        <ul class="list-disc list-inside text-gray-700 space-y-1 pl-4">
+                            <li>_keyword_labeler_annotations(): 在 contextualizer.py 中添加的方法</li>
+                            <li>KeywordLabeler 类：在 keyword_labeler.py 中实现</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="subsection-title">
+                        <i class="fa fa-code mr-2 text-secondary"></i>
+                        关键代码
+                    </h4>
+                    <div class="code-block mb-4">
+                        <pre># contextualizer.py
+def _keyword_labeler_annotations(self, events):
+    # 关键词标签处理逻辑
+    return labeled_events</pre>
+                    </div>
+                    <div class="code-block">
+                        <pre># keyword_labeler.py
+class KeywordLabeler:
+    def __init__(self, config):
+        self.config = config
+        
+    def label_events(self, events):
+        # 事件标签处理
+        return labeled_events</pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feature 3: Intelligent Weight Compression -->
+            <div class="feature-card">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-primary">3. 智能权重压缩算法</h3>
+                    <span class="badge bg-warning/10 text-warning">算法优化</span>
+                </div>
+                
+                <div class="mb-4">
+                    <h4 class="subsection-title">
+                        <i class="fa fa-cogs mr-2 text-secondary"></i>
+                        实现方法
+                    </h4>
+                    <ul class="list-disc list-inside text-gray-700 space-y-1 pl-4">
+                        <li>在各引擎的 agent.py 中添加权重压缩逻辑</li>
+                        <li>实现自适应事件修剪功能（adaptive pruning）</li>
+                        <li>引入最小 / 最大事件数量控制和基于阶段保留率的自适应算法</li>
+                        <li>添加被抑制事件追踪功能</li>
+                        <li>实现基于百分位数和中位值自适应阈值的事件保留机制</li>
+                    </ul>
+                </div>
+
+                <div class="mb-4">
+                    <h4 class="subsection-title">
+                        <i class="fa fa-folder-open mr-2 text-secondary"></i>
+                        相关文件和函数
+                    </h4>
+                    <div class="mb-2">
+                        <p class="font-semibold text-gray-800">修改文件:</p>
+                        <div class="flex flex-wrap gap-2 mt-2">
+                            <span class="badge bg-gray-100 text-gray-800">InsightEngine/agent.py</span>
+                            <span class="badge bg-gray-100 text-gray-800">MediaEngine/agent.py</span>
+                            <span class="badge bg-gray-100 text-gray-800">QueryEngine/agent.py</span>
+                            <span class="badge bg-gray-100 text-gray-800">contextualizer.py</span>
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <p class="font-semibold text-gray-800">关键函数:</p>
+                        <ul class="list-disc list-inside text-gray-700 space-y-1 pl-4">
+                            <li>adaptive_pruning(): 自适应事件修剪功能</li>
+                            <li>suppressed_events 追踪</li>
+                            <li>基于阶段（initial, reflection, default）的保留率设置</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="subsection-title">
+                        <i class="fa fa-code mr-2 text-secondary"></i>
+                        关键代码
+                    </h4>
+                    <div class="code-block mb-4">
+                        <pre># 在 agent.py 中添加权重压缩逻辑
+def weight_compression(self, events):
+    # 智能权重压缩算法实现
+    return compressed_events</pre>
+                    </div>
+                    <div class="code-block">
+                        <pre># 在 contextualizer.py 中实现自适应修剪
+def adaptive_pruning(self, events, stage='default'):
+    # 基于阶段的自适应修剪逻辑
+    return pruned_events</pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feature 4: Crawler Configuration Optimization -->
+            <div class="feature-card">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-primary">4. 爬虫平台配置优化</h3>
+                    <span class="badge bg-primary/10 text-primary">配置更新</span>
+                </div>
+                
+                <div class="mb-4">
+                    <h4 class="subsection-title">
+                        <i class="fa fa-cogs mr-2 text-secondary"></i>
+                        实现方法
+                    </h4>
+                    <ul class="list-disc list-inside text-gray-700 space-y-1 pl-4">
+                        <li>将平台配置从 'bili' 更改为 'zhihu'</li>
+                        <li>关键词更新为 '影视飓风'</li>
+                        <li>调整数据库配置参数</li>
+                        <li>将数据保存选项从 'postgresql' 更改为 'db'</li>
+                        <li>提高爬取数量限制从 5 到 50</li>
+                    </ul>
+                </div>
+
+                <div class="mb-4">
+                    <h4 class="subsection-title">
+                        <i class="fa fa-folder-open mr-2 text-secondary"></i>
+                        相关文件和函数
+                    </h4>
+                    <div class="mb-2">
+                        <p class="font-semibold text-gray-800">修改文件:</p>
+                        <div class="flex flex-wrap gap-2 mt-2">
+                            <span class="badge bg-gray-100 text-gray-800">配置文件（数据库配置）</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="subsection-title">
+                        <i class="fa fa-code mr-2 text-secondary"></i>
+                        关键代码
+                    </h4>
+                    <div class="code-block">
+                        <pre># 配置文件修改
+PLATFORM = 'zhihu'
+KEYWORDS = '影视飓风'
+SAVE_TO = 'db'
+CRAWL_LIMIT = 50</pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feature 5: Keyword Tagger Refactoring -->
+            <div class="feature-card">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-primary">5. 关键词标记器重构</h3>
+                    <span class="badge bg-success/10 text-success">重构优化</span>
+                </div>
+                
+                <div class="mb-4">
+                    <h4 class="subsection-title">
+                        <i class="fa fa-cogs mr-2 text-secondary"></i>
+                        实现方法
+                    </h4>
+                    <ul class="list-disc list-inside text-gray-700 space-y-1 pl-4">
+                        <li>从远程 LLM 调用改为本地字典匹配</li>
+                        <li>添加模糊匹配功能，支持使用 rapidfuzz 库进行近似字符串匹配</li>
+                        <li>更新标签分类体系，定义了 30 个类别涵盖手工、美食、旅游等生活领域</li>
+                        <li>优化关键词检测逻辑，支持直接匹配和模糊评分相结合的方式</li>
+                    </ul>
+                </div>
+
+                <div class="mb-4">
+                    <h4 class="subsection-title">
+                        <i class="fa fa-folder-open mr-2 text-secondary"></i>
+                        相关文件和函数
+                    </h4>
+                    <div class="mb-2">
+                        <p class="font-semibold text-gray-800">修改文件:</p>
+                        <div class="flex flex-wrap gap-2 mt-2">
+                            <span class="badge bg-gray-100 text-gray-800">keyword_labeler.py</span>
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <p class="font-semibold text-gray-800">新增依赖:</p>
+                        <div class="flex flex-wrap gap-2 mt-2">
+                            <span class="badge bg-success/10 text-success">rapidfuzz 库</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="subsection-title">
+                        <i class="fa fa-code mr-2 text-secondary"></i>
+                        关键代码
+                    </h4>
+                    <div class="code-block">
+                        <pre># 使用 rapidfuzz 进行模糊匹配
+from rapidfuzz import fuzz
+
+def fuzzy_match(self, text, keywords):
+    scores = {}
+    for keyword in keywords:
+        score = fuzz.ratio(text, keyword)
+        if score > self.threshold:
+            scores[keyword] = score
+    return scores</pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feature 6: Log Output Optimization -->
+            <div class="feature-card">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-primary">6. 日志输出优化</h3>
+                    <span class="badge bg-gray-100 text-gray-800">性能优化</span>
+                </div>
+                
+                <div class="mb-4">
+                    <h4 class="subsection-title">
+                        <i class="fa fa-cogs mr-2 text-secondary"></i>
+                        实现方法
+                    </h4>
+                    <ul class="list-disc list-inside text-gray-700 space-y-1 pl-4">
+                        <li>修改 read_log_from_file 函数，增加 with_total 参数返回总行数</li>
+                        <li>修改 get_output 函数，添加 tail 参数来限制返回的日志行数</li>
+                        <li>在前端优化控制台显示，只展示新增的行避免重复显示</li>
+                        <li>设置默认显示最近 500 行日志，最多可显示 2000 行</li>
+                    </ul>
+                </div>
+
+                <div class="mb-4">
+                    <h4 class="subsection-title">
+                        <i class="fa fa-folder-open mr-2 text-secondary"></i>
+                        相关文件和函数
+                    </h4>
+                    <div class="mb-2">
+                        <p class="font-semibold text-gray-800">修改文件:</p>
+                        <div class="flex flex-wrap gap-2 mt-2">
+                            <span class="badge bg-gray-100 text-gray-800">日志处理相关文件</span>
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <p class="font-semibold text-gray-800">关键函数:</p>
+                        <ul class="list-disc list-inside text-gray-700 space-y-1 pl-4">
+                            <li>read_log_from_file()</li>
+                            <li>get_output()</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="subsection-title">
+                        <i class="fa fa-code mr-2 text-secondary"></i>
+                        关键代码
+                    </h4>
+                    <div class="code-block mb-4">
+                        <pre>def read_log_from_file(file_path, with_total=False):
+    # 读取日志文件并返回内容，支持返回总行数</pre>
+                    </div>
+                    <div class="code-block">
+                        <pre>def get_output(tail=500):
+    # 获取最近 tail 行的日志输出</pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feature 7: Docker Configuration Optimization -->
+            <div class="feature-card">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-primary">7. Docker 配置优化</h3>
+                    <span class="badge bg-primary/10 text-primary">环境配置</span>
+                </div>
+                
+                <div class="mb-4">
+                    <h4 class="subsection-title">
+                        <i class="fa fa-cogs mr-2 text-secondary"></i>
+                        实现方法
+                    </h4>
+                    <ul class="list-disc list-inside text-gray-700 space-y-1 pl-4">
+                        <li>配置默认时区为 Asia/Shanghai</li>
+                        <li>使用非交互模式安装依赖包，避免配置交互</li>
+                        <li>添加 tzdata 时区数据包</li>
+                        <li>系统时区文件链接设置</li>
+                        <li>修正 libgdk-pixbuf 包名</li>
+                    </ul>
+                </div>
+
+                <div class="mb-4">
+                    <h4 class="subsection-title">
+                        <i class="fa fa-folder-open mr-2 text-secondary"></i>
+                        相关文件和函数
+                    </h4>
+                    <div class="mb-2">
+                        <p class="font-semibold text-gray-800">修改文件:</p>
+                        <div class="flex flex-wrap gap-2 mt-2">
+                            <span class="badge bg-gray-100 text-gray-800">Dockerfile</span>
+                            <span class="badge bg-gray-100 text-gray-800">docker-compose.yml</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="subsection-title">
+                        <i class="fa fa-code mr-2 text-secondary"></i>
+                        关键代码
+                    </h4>
+                    <div class="code-block">
+                        <pre># Dockerfile 中的时区配置
+ENV TZ=Asia/Shanghai
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+RUN apt-get update && apt-get install -y tzdata</pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feature 8: System Restart Function -->
+            <div class="feature-card">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-primary">8. 系统重启功能</h3>
+                    <span class="badge bg-success/10 text-success">功能增强</span>
+                </div>
+                
+                <div class="mb-4">
+                    <h4 class="subsection-title">
+                        <i class="fa fa-cogs mr-2 text-secondary"></i>
+                        实现方法
+                    </h4>
+                    <ul class="list-disc list-inside text-gray-700 space-y-1 pl-4">
+                        <li>在 app.py 中添加 /api/system/restart 端点</li>
+                        <li>在前端添加重启按钮和确认弹窗</li>
+                    </ul>
+                </div>
+
+                <div class="mb-4">
+                    <h4 class="subsection-title">
+                        <i class="fa fa-folder-open mr-2 text-secondary"></i>
+                        相关文件和函数
+                    </h4>
+                    <div class="mb-2">
+                        <p class="font-semibold text-gray-800">修改文件:</p>
+                        <div class="flex flex-wrap gap-2 mt-2">
+                            <span class="badge bg-gray-100 text-gray-800">app.py</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="subsection-title">
+                        <i class="fa fa-code mr-2 text-secondary"></i>
+                        关键代码
+                    </h4>
+                    <div class="code-block">
+                        <pre># 在 app.py 中添加重启端点
+@app.route('/api/system/restart', methods=['POST'])
+def system_restart():
+    # 系统重启逻辑实现</pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feature 9: AI Agent Search Enhancement -->
+            <div class="feature-card">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-primary">9. AI Agent 搜索功能增强</h3>
+                    <span class="badge bg-warning/10 text-warning">功能增强</span>
+                </div>
+                
+                <div class="mb-4">
+                    <h4 class="subsection-title">
+                        <i class="fa fa-cogs mr-2 text-secondary"></i>
+                        实现方法
+                    </h4>
+                    <ul class="list-disc list-inside text-gray-700 space-y-1 pl-4">
+                        <li>在 InsightEngine、MediaEngine 和 QueryEngine 中添加无搜索结果处理，防止 AI 幻觉输出</li>
+                        <li>更新 Bocha API 地址为国内访问更快的域名并增强对不同数据格式的兼容性</li>
+                        <li>实现 WeasyPrint 自动安装机制，提升 PDF 输出依赖的可用性</li>
+                        <li>优化前端配置界面的下拉选择功能及 XSS 防护</li>
+                        <li>修复 ContextCache 的 JSON 序列化问题，增加 Set 类型处理</li>
+                        <li>增加 Contentualizer 相关性过滤功能，提升搜索结果质量</li>
+                        <li>优化数据库查询超时配置，提升稳定性</li>
+                    </ul>
+                </div>
+
+                <div class="mb-4">
+                    <h4 class="subsection-title">
+                        <i class="fa fa-folder-open mr-2 text-secondary"></i>
+                        相关文件和函数
+                    </h4>
+                    <div class="mb-2">
+                        <p class="font-semibold text-gray-800">修改文件:</p>
+                        <div class="flex flex-wrap gap-2 mt-2">
+                            <span class="badge bg-gray-100 text-gray-800">各引擎的 agent.py 文件</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h4 class="subsection-title">
+                        <i class="fa fa-code mr-2 text-secondary"></i>
+                        关键代码
+                    </h4>
+                    <div class="code-block">
+                        <pre># 无搜索结果处理
+if not search_results:
+    # 处理无搜索结果的情况，防止AI幻觉输出
+    return safe_response</pre>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Summary Section -->
+        <section class="mb-12">
+            <div class="bg-gradient-to-r from-primary/5 to-accent/5 rounded-xl shadow-lg p-8 border border-primary/10">
+                <h2 class="section-title">
+                    <i class="fa fa-check-circle mr-3 text-primary"></i>
+                    总结
+                </h2>
+                <div class="text-gray-700 leading-relaxed space-y-4">
+                    <p>HKLHaoBin:BettaFish:feat-structured-merge-blocked 分支主要实现了以下核心功能：</p>
+                    <ul class="list-disc list-inside space-y-2 pl-4">
+                        <li><span class="font-semibold">结构化上下文管理系统</span> - 为多个引擎添加了结构化上下文支持，实现了上下文的持久化缓存和可视化展示</li>
+                        <li><span class="font-semibold">智能关键词标签系统</span> - 从远程 LLM 调用改为本地字典匹配，添加了模糊匹配功能，提高了标签效率</li>
+                        <li><span class="font-semibold">智能权重压缩算法</span> - 实现了自适应事件修剪和权重压缩，优化了上下文管理</li>
+                        <li><span class="font-semibold">系统优化和增强</span> - 包括日志输出优化、Docker 配置优化、系统重启功能等</li>
+                    </ul>
+                    <p class="mt-4">这些改进显著提升了系统的性能、稳定性和用户体验，特别是在上下文管理和智能标签方面的创新实现。</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Feature Statistics -->
+        <section class="mb-12">
+            <div class="bg-white rounded-xl shadow-lg p-8">
+                <h2 class="section-title mb-6">
+                    <i class="fa fa-bar-chart mr-3 text-primary"></i>
+                    功能统计
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-gray-50 rounded-lg p-6 text-center">
+                        <div class="text-4xl font-bold text-primary mb-2">9</div>
+                        <div class="text-gray-600">新增功能模块</div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-6 text-center">
+                        <div class="text-4xl font-bold text-success mb-2">15+</div>
+                        <div class="text-gray-600">修改文件数</div>
+                    </div>
+                    <div class="bg-gray-50 rounded-lg p-6 text-center">
+                        <div class="text-4xl font-bold text-warning mb-2">500+</div>
+                        <div class="text-gray-600">代码行数</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-white py-8 px-6 md:px-12">
+        <div class="max-w-6xl mx-auto">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="mb-4 md:mb-0">
+                    <p class="text-lg font-semibold">BettaFish 分支分析报告</p>
+                    <p class="text-gray-400 text-sm mt-1">© 2025 技术分析团队</p>
+                </div>
+                <div class="flex space-x-4">
+                    <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                        <i class="fa fa-github text-xl"></i>
+                    </a>
+                    <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                        <i class="fa fa-code text-xl"></i>
+                    </a>
+                    <a href="#" class="text-gray-400 hover:text-white transition-colors">
+                        <i class="fa fa-document text-xl"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script>
+        // 平滑滚动
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+
+        // 代码块复制功能
+        document.querySelectorAll('.code-block').forEach(block => {
+            const copyBtn = document.createElement('button');
+            copyBtn.className = 'absolute top-2 right-2 bg-gray-700 text-white px-2 py-1 rounded text-xs hover:bg-gray-600 transition-colors';
+            copyBtn.innerHTML = '<i class="fa fa-copy"></i> 复制';
+            copyBtn.onclick = () => {
+                const text = block.textContent;
+                navigator.clipboard.writeText(text).then(() => {
+                    copyBtn.innerHTML = '<i class="fa fa-check"></i> 已复制';
+                    setTimeout(() => {
+                        copyBtn.innerHTML = '<i class="fa fa-copy"></i> 复制';
+                    }, 2000);
+                });
+            };
+            
+            block.style.position = 'relative';
+            block.appendChild(copyBtn);
+        });
+
+        // 页面加载动画
+        window.addEventListener('load', () => {
+            document.body.classList.add('loaded');
+        });
+    </script>
+</body>
+</html>

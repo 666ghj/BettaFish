@@ -468,13 +468,18 @@ class StructuredContextBuilder:
             origin_meta["_origin_tokens_cache"] = origin_tokens
             context["metadata"] = origin_meta
 
+        origin_event = None
+        origin_event_id = origin_meta.get("origin_event_id")
+        if origin_event_id:
+            origin_event = context.get("events", {}).get(origin_event_id)
+
         relations_index = {
             tuple(sorted((rel["source_event"], rel["target_event"])))
             for rel in context.get("relations", [])
         }
 
-        decorated_results = []
-        dropped = 0
+        candidates = []
+        similarity_scores = []
         for idx, result in enumerate(search_results):
             event = self._build_event(
                 result,
@@ -483,7 +488,27 @@ class StructuredContextBuilder:
                 stage=stage,
                 ordinal=idx,
             )
-            if not self._is_relevant_to_origin(event, origin_labels, origin_tokens):
+            if origin_event:
+                similarity = self._label_similarity(
+                    event.get("label_distribution"),
+                    origin_event.get("label_distribution"),
+                )
+                event["origin_similarity"] = similarity
+                similarity_scores.append(similarity)
+            candidates.append((event, result))
+
+        similarity_average = None
+        if similarity_scores:
+            similarity_average = statistics.mean(similarity_scores)
+
+        decorated_results = []
+        dropped = 0
+        for event, result in candidates:
+            if similarity_average is not None:
+                if event.get("origin_similarity", 0.0) < similarity_average:
+                    dropped += 1
+                    continue
+            elif not self._is_relevant_to_origin(event, origin_labels, origin_tokens):
                 dropped += 1
                 continue
             context["events"][event["event_id"]] = event
@@ -493,9 +518,14 @@ class StructuredContextBuilder:
             decorated_results.append(self._decorate_result(result, event))
 
         if dropped:
-            logger.info(
-                f"[{self.agent_name}] 过滤 {dropped}/{len(search_results)} 条与主题无关的内容 (stage={stage})"
-            )
+            if similarity_average is not None:
+                logger.info(
+                    f"[{self.agent_name}] 基于标签相似度均值 {similarity_average:.3f} 屏蔽 {dropped}/{len(search_results)} 条 (stage={stage})"
+                )
+            else:
+                logger.info(
+                    f"[{self.agent_name}] 过滤 {dropped}/{len(search_results)} 条与主题无关的内容 (stage={stage})"
+                )
 
         self._refresh_views(context)
         context["metadata"].update(
@@ -506,6 +536,8 @@ class StructuredContextBuilder:
                 "updated_at": datetime.utcnow().isoformat(),
             }
         )
+        if similarity_average is not None:
+            context["metadata"]["last_similarity_average"] = round(similarity_average, 4)
         return decorated_results, context
 
     def ensure_origin_context(
