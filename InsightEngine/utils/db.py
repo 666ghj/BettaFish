@@ -50,11 +50,16 @@ def get_async_engine() -> AsyncEngine:
     global _engine
     if _engine is None:
         database_url: str = _build_database_url()
+        dialect: str = (settings.DB_DIALECT or "mysql").lower()
+        connect_args = {"connect_timeout": 10}
+        if dialect in ("postgresql", "postgres"):
+            # asyncpg expects "timeout" instead of MySQL-style "connect_timeout"
+            connect_args = {"timeout": 10}
         _engine = create_async_engine(
             database_url,
             pool_pre_ping=True,
             pool_recycle=1800,
-            connect_args={"connect_timeout": 10},
+            connect_args=connect_args,
         )
     return _engine
 
