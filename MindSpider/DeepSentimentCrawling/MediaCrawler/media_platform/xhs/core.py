@@ -201,6 +201,8 @@ class XiaoHongShuCrawler(AbstractCrawler):
                 user_id=user_id,
                 crawl_interval=crawl_interval,
                 callback=self.fetch_creator_notes_detail,
+                xsec_token=creator_info.xsec_token,
+                xsec_source=creator_info.xsec_source,
             )
 
             note_ids = []
@@ -279,12 +281,19 @@ class XiaoHongShuCrawler(AbstractCrawler):
             Dict: note detail
         """
         note_detail = None
+        utils.logger.info(f"[get_note_detail_async_task] Begin get note detail, note_id: {note_id}")
         async with semaphore:
             try:
-                utils.logger.info(f"[get_note_detail_async_task] Begin get note detail, note_id: {note_id}")
-                note_detail = await self.xhs_client.get_note_by_id_from_html(note_id, xsec_source, xsec_token, enable_cookie=True)
+                try:
+                    note_detail = await self.xhs_client.get_note_by_id(note_id, xsec_source, xsec_token)
+                except RetryError:
+                    pass
+
                 if not note_detail:
-                    raise Exception(f"[get_note_detail_async_task] Failed to get note detail, Id: {note_id}")
+                    note_detail = await self.xhs_client.get_note_by_id_from_html(note_id, xsec_source, xsec_token,
+                                                                                 enable_cookie=True)
+                    if not note_detail:
+                        raise Exception(f"[get_note_detail_async_task] Failed to get note detail, Id: {note_id}")
 
                 note_detail.update({"xsec_token": xsec_token, "xsec_source": xsec_source})
                 

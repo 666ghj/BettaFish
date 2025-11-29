@@ -17,6 +17,7 @@ from urllib.parse import urlencode
 import httpx
 from playwright.async_api import BrowserContext, Page
 from tenacity import retry, stop_after_attempt, wait_fixed
+from xhshow import Xhshow
 
 import config
 from base.base_crawler import AbstractApiClient
@@ -27,7 +28,6 @@ from .exception import DataFetchError, IPBlockError
 from .field import SearchNoteType, SearchSortType
 from .help import get_search_id, sign
 from .extractor import XiaoHongShuExtractor
-from .secsign import seccore_signv2_playwright
 
 
 class XiaoHongShuClient(AbstractApiClient):
@@ -53,24 +53,51 @@ class XiaoHongShuClient(AbstractApiClient):
         self.playwright_page = playwright_page
         self.cookie_dict = cookie_dict
         self._extractor = XiaoHongShuExtractor()
+        # 初始化 xhshow 客户端用于签名生成
+        self._xhshow_client = Xhshow()
 
     async def _pre_headers(self, url: str, data=None) -> Dict:
         """
-        请求头参数签名
+        请求头参数签名，使用 xhshow 库生成签名
         Args:
-            url:
-            data:
+            url: 完整的 URI（GET 请求包含查询参数）
+            data: POST 请求的请求体数据
 
         Returns:
 
         """
-        x_s = await seccore_signv2_playwright(self.playwright_page, url, data)
-        local_storage = await self.playwright_page.evaluate("() => window.localStorage")
+        # 获取 a1 cookie 值
+        a1_value = self.cookie_dict.get("a1", "")
+
+        # 根据请求类型使用不同的签名方法
+        if data is None:
+            # GET 请求：从 url 中提取参数
+            from urllib.parse import urlparse, parse_qs
+            parsed = urlparse(url)
+            params = {k: v[0] if len(v) == 1 else v for k, v in parse_qs(parsed.query).items()}
+            # 使用完整的 URL（包含 host）
+            full_url = f"{self._host}{url}"
+            x_s = self._xhshow_client.sign_xs_get(uri=full_url, a1_value=a1_value, params=params)
+        else:
+            # POST 请求：使用 data 作为 payload
+            full_url = f"{self._host}{url}"
+            x_s = self._xhshow_client.sign_xs_post(uri=full_url, a1_value=a1_value, payload=data)
+
+        # 尝试获取 b1 值（从 localStorage），如果获取失败则使用空字符串
+        b1_value = ""
+        try:
+            if self.playwright_page:
+                local_storage = await self.playwright_page.evaluate("() => window.localStorage")
+                b1_value = local_storage.get("b1", "")
+        except Exception as e:
+            utils.logger.warning(f"[XiaoHongShuClient._pre_headers] Failed to get b1 from localStorage: {e}, using empty string")
+
+        # 使用 sign 函数生成其他签名头
         signs = sign(
-            a1=self.cookie_dict.get("a1", ""),
-            b1=local_storage.get("b1", ""),
+            a1=a1_value,
+            b1=b1_value,
             x_s=x_s,
-            x_t=str(int(time.time())),
+            x_t=str(int(time.time() * 1000)),  # x-t 使用毫秒时间戳
         )
 
         headers = {
@@ -115,7 +142,8 @@ class XiaoHongShuClient(AbstractApiClient):
         elif data["code"] == self.IP_ERROR_CODE:
             raise IPBlockError(self.IP_ERROR_STR)
         else:
-            raise DataFetchError(data.get("msg", None))
+            err_msg = data.get("msg", None) or f"{response.text}"
+            raise DataFetchError(err_msg)
 
     async def get(self, uri: str, params=None) -> Dict:
         """
@@ -480,6 +508,8 @@ class XiaoHongShuClient(AbstractApiClient):
         creator: str,
         cursor: str,
         page_size: int = 30,
+        xsec_token: str = "",
+        xsec_source: str = "pc_feed",
     ) -> Dict:
         """
         获取博主的笔记
@@ -487,24 +517,22 @@ class XiaoHongShuClient(AbstractApiClient):
             creator: 博主ID
             cursor: 上一页最后一条笔记的ID
             page_size: 分页数据长度
+            xsec_token: 验证token
+            xsec_source: 渠道来源
 
         Returns:
 
         """
-        uri = "/api/sns/web/v1/user_posted"
-        data = {
-            "user_id": creator,
-            "cursor": cursor,
-            "num": page_size,
-            "image_formats": "jpg,webp,avif",
-        }
-        return await self.get(uri, data)
+        uri = f"/api/sns/web/v1/user_posted?num={page_size}&cursor={cursor}&user_id={creator}&xsec_token={xsec_token}&xsec_source={xsec_source}"
+        return await self.get(uri)
 
     async def get_all_notes_by_creator(
         self,
         user_id: str,
         crawl_interval: float = 1.0,
         callback: Optional[Callable] = None,
+        xsec_token: str = "",
+        xsec_source: str = "pc_feed",
     ) -> List[Dict]:
         """
         获取指定用户下的所有发过的帖子，该方法会一直查找一个用户下的所有帖子信息
@@ -512,6 +540,8 @@ class XiaoHongShuClient(AbstractApiClient):
             user_id: 用户ID
             crawl_interval: 爬取一次的延迟单位（秒）
             callback: 一次分页爬取结束后的更新回调函数
+            xsec_token: 验证token
+            xsec_source: 渠道来源
 
         Returns:
 
@@ -520,7 +550,7 @@ class XiaoHongShuClient(AbstractApiClient):
         notes_has_more = True
         notes_cursor = ""
         while notes_has_more and len(result) < config.CRAWLER_MAX_NOTES_COUNT:
-            notes_res = await self.get_notes_by_creator(user_id, notes_cursor)
+            notes_res = await self.get_notes_by_creator(user_id, notes_cursor, xsec_token=xsec_token, xsec_source=xsec_source)
             if not notes_res:
                 utils.logger.error(
                     f"[XiaoHongShuClient.get_notes_by_creator] The current creator may have been banned by xhs, so they cannot access the data."
