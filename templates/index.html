@@ -107,14 +107,17 @@
         }
 
         .page-action-button.shutdown {
-            background-color: #ffecec;
-            color: #b42318;
+            background-color: #000000;
+            color: #ffffff;
             border-color: #000000;
+            box-shadow: none;
         }
 
         .page-action-button.shutdown:hover {
-            background-color: #ffd9d9;
-            color: #8c1111;
+            background-color: #1a1a1a;
+            color: #ffffff;
+            transform: none;
+            box-shadow: none;
         }
 
         .config-button {
@@ -550,6 +553,23 @@
             align-items: center;
         }
 
+        .status-bar-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .status-shutdown-button {
+            padding: 8px 16px;
+            box-shadow: none;
+        }
+
+        .status-shutdown-button:hover,
+        .status-shutdown-button:disabled {
+            box-shadow: none;
+            transform: none;
+        }
+
         .config-modal-overlay {
             position: fixed;
             inset: 0;
@@ -763,7 +783,7 @@
         .config-restart-button {
             padding: 10px 22px;
             border: 2px solid #000000;
-            background-color: #fff8e6;
+            background-color: #ffffff;
             color: #000000;
             cursor: pointer;
             font-size: 14px;
@@ -1051,7 +1071,6 @@
             border: 2px solid #000000;
             width: 420px;
             max-width: 90vw;
-            box-shadow: 6px 6px 0 #000000;
             display: flex;
             flex-direction: column;
         }
@@ -1097,7 +1116,6 @@
 
         .confirm-dialog.danger {
             border-color: #b42318;
-            box-shadow: 6px 6px 0 #b42318;
         }
 
         .confirm-dialog.danger .confirm-header {
@@ -1146,8 +1164,9 @@
 
         .confirm-list {
             display: flex;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             gap: 6px;
+            flex-direction: column;
         }
 
         .confirm-pill {
@@ -1156,6 +1175,13 @@
             background-color: #f5f5f0;
             font-size: 12px;
             font-weight: bold;
+        }
+
+        .shutdown-pill {
+            text-align: center;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
         }
 
         .confirm-subtext {
@@ -1528,8 +1554,6 @@
     <!-- 顶层容器：同时包裹搜索区、双列主工作区与状态栏 -->
     <div class="container">
         <div class="page-actions">
-            <button class="page-action-button refresh" id="pageRefreshButton" aria-label="刷新页面数据">安全刷新</button>
-            <button class="page-action-button shutdown" id="shutdownButton" aria-label="关闭系统">关机</button>
         </div>
         <!-- 搜索框区域 -->
         <div class="search-section">
@@ -1621,8 +1645,11 @@
 
         <!-- 状态栏：实时展示WebSocket连接状态与系统时钟 -->
         <div class="status-bar">
-            <span id="connectionStatus">连接中...</span>
-            <span id="systemTime"></span>
+            <div class="status-bar-left">
+                <span id="connectionStatus">连接中...</span>
+                <span id="systemTime"></span>
+            </div>
+            <button class="page-action-button shutdown status-shutdown-button" id="shutdownButton" aria-label="关闭系统">关闭系统</button>
         </div>
     </div>
 
@@ -1654,13 +1681,11 @@
     <div class="confirm-overlay" id="restartConfirmModal" aria-hidden="true">
         <div class="confirm-dialog">
             <div class="confirm-header">
-                <div class="confirm-title">确认重启</div>
+                <div class="confirm-title">部分 Agent 仍在运行，确定要重启吗？</div>
                 <button class="confirm-close" id="closeRestartConfirm" aria-label="关闭重启确认">×</button>
             </div>
             <div class="confirm-body">
-                <div class="confirm-icon">!</div>
                 <div class="confirm-text">
-                    <div class="confirm-strong">部分 Agent 仍在运行，确定要重启吗？</div>
                     <div class="confirm-list" id="restartRunningList"></div>
                     <div class="confirm-subtext">重启会停止所有 Agent 并重新拉起，可能中断当前任务。</div>
                 </div>
@@ -1672,24 +1697,23 @@
         </div>
     </div>
 
-    <!-- 关机确认弹窗 -->
+    <!-- 关闭系统确认弹窗 -->
     <div class="confirm-overlay" id="shutdownConfirmModal" aria-hidden="true">
         <div class="confirm-dialog danger">
             <div class="confirm-header">
-                <div class="confirm-title">确认关闭系统</div>
-                <button class="confirm-close" id="closeShutdownConfirm" aria-label="关闭关机确认">×</button>
+                <div class="confirm-title" id="shutdownStrongText">确定要关闭系统吗？</div>
+                <button class="confirm-close" id="closeShutdownConfirm" aria-label="关闭系统确认">×</button>
             </div>
             <div class="confirm-body">
-                <div class="confirm-icon">!</div>
                 <div class="confirm-text">
-                    <div class="confirm-strong" id="shutdownStrongText">确定要关闭吗？</div>
                     <div class="confirm-list" id="shutdownRunningList"></div>
-                    <div class="confirm-subtext">关闭后所有 Agent 将停止工作，连接会断开。</div>
+                    <div class="confirm-subtext" id="shutdownSubText">将关闭系统并停止由本控制台启动的子进程（仅终止记录的子进程，不会按端口强杀其他系统进程），涉及端口/进程：</div>
+                    <div class="confirm-list" id="shutdownPortList"></div>
                 </div>
             </div>
             <div class="confirm-actions">
                 <button class="confirm-button" id="cancelShutdownButton">取消</button>
-                <button class="confirm-button danger" id="confirmShutdownButton">立即关闭</button>
+                <button class="confirm-button danger" id="confirmShutdownButton">立即关闭系统</button>
             </div>
         </div>
     </div>
@@ -2204,6 +2228,13 @@
             query: 'Query Engine',
             forum: 'Forum Engine',
             report: 'Report Engine'
+        };
+
+        // 应用端口（用于搜索联动与关机提示）
+        const APP_PORTS = {
+            insight: 8501,
+            media: 8502,
+            query: 8503
         };
 
         // 页面头部显示的完整Agent介绍
@@ -2988,24 +3019,25 @@
             const strongText = document.getElementById('shutdownStrongText');
 
             if (strongText) {
-                strongText.textContent = runningAgents.length > 0
-                    ? '部分 Agent 正在运行，确定要关闭吗？'
-                    : '确定要关闭系统并结束所有进程吗？';
+                strongText.textContent = '确定要关闭系统吗？';
             }
 
             if (list) {
-                if (runningAgents.length === 0) {
-                    list.innerHTML = '<span class="confirm-pill">当前无运行中的 Agent</span>';
-                } else {
-                    list.innerHTML = runningAgents
-                        .map(app => {
-                            const display = (FORUM_AGENT_MAP[app.toUpperCase()] && FORUM_AGENT_MAP[app.toUpperCase()].label)
-                                || appNames[app]
-                                || app;
-                            return `<span class="confirm-pill">${display}</span>`;
-                        })
-                        .join('');
-                }
+                list.innerHTML = '';
+                list.style.display = 'none';
+            }
+
+            const portList = document.getElementById('shutdownPortList');
+            if (portList) {
+                const targets = Object.entries(APP_PORTS).map(([key, port]) => {
+                    const status = appStatus[key] || 'unknown';
+                    const label = `${appNames[key] || key}${port ? `:${port}` : ''}`;
+                    const suffix = status === 'running' ? '运行中' : '未运行';
+                    return `<span class="confirm-pill shutdown-pill">${label} · ${suffix}</span>`;
+                });
+                portList.innerHTML = targets.length > 0
+                    ? targets.join('')
+                    : '<span class="confirm-pill">暂无需要关闭的端口</span>';
             }
 
             if (modal) {
@@ -3255,12 +3287,7 @@
             }
 
             const runningAgents = await detectActiveAgentsFromForum();
-            if (runningAgents.length > 0) {
-                showShutdownConfirm(runningAgents);
-                return;
-            }
-
-            shutdownSystem({ skipAgentWarning: true });
+            showShutdownConfirm(runningAgents);
         }
 
         async function shutdownSystem(options = {}) {
@@ -3331,7 +3358,7 @@
                     shutdownInProgress = false;
                     if (button) {
                         button.disabled = false;
-                        button.textContent = originalText || '关机';
+                        button.textContent = originalText || '关闭系统';
                     }
                 } else {
                     stopAllTimers();
@@ -3383,10 +3410,9 @@
 
             // 向所有运行中的应用发送搜索请求（通过刷新iframe传递参数）
             let totalRunning = 0;
-            const ports = { insight: 8501, media: 8502, query: 8503 };
 
             Object.keys(appStatus).forEach(app => {
-                if (appStatus[app] === 'running' && ports[app]) {
+                if (appStatus[app] === 'running' && APP_PORTS[app]) {
                     totalRunning++;
 
                     // 懒加载iframe(如果还没有加载)
@@ -3397,7 +3423,7 @@
 
                     if (iframe) {
                         // 构建搜索URL
-                        const searchUrl = `http://${window.location.hostname}:${ports[app]}?query=${encodeURIComponent(query)}&auto_search=true`;
+                        const searchUrl = `http://${window.location.hostname}:${APP_PORTS[app]}?query=${encodeURIComponent(query)}&auto_search=true`;
                         console.log(`向 ${app} 发送搜索请求: ${searchUrl}`);
 
                         // 检查iframe是否已经加载了相同的查询,避免不必要的重新加载

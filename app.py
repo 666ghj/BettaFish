@@ -518,7 +518,8 @@ def _describe_running_children():
     for name, info in processes.items():
         proc = info.get('process')
         if proc is not None and proc.poll() is None:
-            running.append(f"{name}(pid={proc.pid})")
+            port_desc = f", port={info.get('port')}" if info.get('port') else ""
+            running.append(f"{name}(pid={proc.pid}{port_desc})")
     return running
 
 
@@ -818,6 +819,7 @@ def cleanup_processes():
 def cleanup_processes_concurrent(timeout: float = 6.0):
     """并发清理所有子进程，超时后强制杀掉残留进程。"""
     _log_shutdown_step(f"开始并发清理子进程（超时 {timeout}s）")
+    _log_shutdown_step("仅终止由当前控制台启动并记录的子进程，不做端口扫描或外部进程kill")
     running_before = _describe_running_children()
     if running_before:
         _log_shutdown_step("当前存活子进程: " + ", ".join(running_before))
@@ -1308,27 +1310,37 @@ def shutdown_system():
     if state['starting']:
         return jsonify({'success': False, 'message': '系统正在启动/重启，请稍候'}), 400
 
+    target_ports = [
+        f"{name}:{info['port']}"
+        for name, info in processes.items()
+        if info.get('port')
+    ]
+
     # 已有关机请求执行中时，返回当前存活的子进程，便于前端判断进度
     if not _mark_shutdown_requested():
         running = _describe_running_children()
         detail = '关机指令已下发，请稍等...'
         if running:
             detail = f"关机指令已下发，等待进程退出: {', '.join(running)}"
-        return jsonify({'success': True, 'message': detail})
+        if target_ports:
+            detail = f"{detail}（端口: {', '.join(target_ports)}）"
+        return jsonify({'success': True, 'message': detail, 'ports': target_ports})
 
     running = _describe_running_children()
     if running:
-        _log_shutdown_step("开始关机，正在等待子进程退出: " + ", ".join(running))
+        _log_shutdown_step("开始关闭系统，正在等待子进程退出: " + ", ".join(running))
     else:
-        _log_shutdown_step("开始关机，未检测到存活子进程")
+        _log_shutdown_step("开始关闭系统，未检测到存活子进程")
 
     try:
         _set_system_state(started=False, starting=False)
         _start_async_shutdown(cleanup_timeout=6.0)
-        message = '关机指令已下发，正在关闭进程'
+        message = '关闭系统指令已下发，正在停止进程'
         if running:
             message = f"{message}: {', '.join(running)}"
-        return jsonify({'success': True, 'message': message})
+        if target_ports:
+            message = f"{message}（端口: {', '.join(target_ports)}）"
+        return jsonify({'success': True, 'message': message, 'ports': target_ports})
     except Exception as exc:  # pragma: no cover - 兜底捕获
         logger.exception("系统关闭过程中出现异常")
         return jsonify({'success': False, 'message': f'系统关闭异常: {exc}'}), 500
