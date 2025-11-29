@@ -299,6 +299,8 @@ BettaFish/
 
 复制一份 `.env.example` 文件，命名为 `.env` ，并按需配置 `.env` 文件中的环境变量
 
+> **注：不建议使用 docker 部署**
+
 使用当前分支代码**本地构建镜像**：
 
 ```bash
@@ -358,7 +360,7 @@ conda create -n your_conda_name python=3.11
 conda activate your_conda_name
 ```
 
-#### 如果使用uv
+#### （建议）使用uv
 
 ```bash
 # 创建uv环境
@@ -377,7 +379,7 @@ uv venv --python 3.11 # 创建3.11环境
 # 基础依赖安装
 pip install -r requirements.txt
 
-# uv版本命令（更快速安装）
+# （建议）uv版本命令（更快速安装）
 uv pip install -r requirements.txt
 # 如果不想使用本地情感分析模型（算力需求很小，默认安装cpu版本），可以将该文件中的"机器学习"部分注释掉再执行指令
 ```
@@ -438,7 +440,7 @@ conda activate your_conda_name
 python app.py
 ```
 
-uv 版本启动命令 
+（建议）uv 版本启动命令 
 ```bash
 # 在项目根目录下，激活uv环境
 .venv\Scripts\activate
