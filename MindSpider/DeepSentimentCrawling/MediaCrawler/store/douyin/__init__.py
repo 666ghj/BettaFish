@@ -206,7 +206,7 @@ async def update_dy_aweme_comment(aweme_id: str, comment_item: Dict):
         "nickname": user_info.get("nickname"),
         "avatar": avatar_info.get("url_list", [""])[0],
         "sub_comment_count": str(comment_item.get("reply_comment_total", 0)),
-        "like_count": (comment_item.get("digg_count") if comment_item.get("digg_count") else 0),
+        "like_count": str(comment_item.get("digg_count") or 0),
         "last_modify_ts": utils.get_current_timestamp(),
         "parent_comment_id": parent_comment_id,
         "pictures": ",".join(_extract_comment_image_list(comment_item)),

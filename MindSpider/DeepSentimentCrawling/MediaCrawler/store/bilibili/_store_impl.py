@@ -33,6 +33,23 @@ from tools import utils, words
 from var import crawler_type_var
 
 
+def _sanitize_strings(data: Dict) -> Dict:
+    """
+    Remove PostgreSQL-incompatible control characters (e.g., NULL) from all string fields.
+    Args:
+        data: original dict
+    Returns:
+        A new dict with sanitized string values
+    """
+    cleaned = {}
+    for key, value in data.items():
+        if isinstance(value, str):
+            cleaned[key] = value.replace('\x00', '')
+        else:
+            cleaned[key] = value
+    return cleaned
+
+
 class BiliCsvStoreImplement(AbstractStore):
     def __init__(self):
         self.file_writer = AsyncFileWriter(
@@ -122,6 +139,8 @@ class BiliDbStoreImplement(AbstractStore):
         # 确保 video_id 为整数类型，匹配数据库 BigInteger 字段
         if video_id is not None:
             video_id = int(video_id) if not isinstance(video_id, int) else video_id
+            content_item["video_id"] = video_id
+        content_item = _sanitize_strings(content_item)
         async with get_session() as session:
             result = await session.execute(select(BilibiliVideo).where(BilibiliVideo.video_id == video_id))
             video_detail = result.scalar_one_or_none()
@@ -145,6 +164,8 @@ class BiliDbStoreImplement(AbstractStore):
         # 确保 comment_id 为整数类型，匹配数据库 BigInteger 字段
         if comment_id is not None:
             comment_id = int(comment_id) if not isinstance(comment_id, int) else comment_id
+            comment_item["comment_id"] = comment_id
+        comment_item = _sanitize_strings(comment_item)
         async with get_session() as session:
             result = await session.execute(select(BilibiliVideoComment).where(BilibiliVideoComment.comment_id == comment_id))
             comment_detail = result.scalar_one_or_none()
@@ -168,6 +189,8 @@ class BiliDbStoreImplement(AbstractStore):
         # 确保 creator_id 为整数类型，匹配数据库 BigInteger 字段
         if creator_id is not None:
             creator_id = int(creator_id) if not isinstance(creator_id, int) else creator_id
+            creator["user_id"] = creator_id
+        creator = _sanitize_strings(creator)
         async with get_session() as session:
             result = await session.execute(select(BilibiliUpInfo).where(BilibiliUpInfo.user_id == creator_id))
             creator_detail = result.scalar_one_or_none()
@@ -192,8 +215,11 @@ class BiliDbStoreImplement(AbstractStore):
         # 确保 up_id 和 fan_id 为整数类型，匹配数据库 BigInteger 字段
         if up_id is not None:
             up_id = int(up_id) if not isinstance(up_id, int) else up_id
+            contact_item["up_id"] = up_id
         if fan_id is not None:
             fan_id = int(fan_id) if not isinstance(fan_id, int) else fan_id
+            contact_item["fan_id"] = fan_id
+        contact_item = _sanitize_strings(contact_item)
         async with get_session() as session:
             result = await session.execute(
                 select(BilibiliContactInfo).where(BilibiliContactInfo.up_id == up_id, BilibiliContactInfo.fan_id == fan_id)
@@ -216,6 +242,7 @@ class BiliDbStoreImplement(AbstractStore):
             dynamic_item: dynamic item dict
         """
         dynamic_id = dynamic_item.get("dynamic_id")
+        dynamic_item = _sanitize_strings(dynamic_item)
         async with get_session() as session:
             result = await session.execute(select(BilibiliUpDynamic).where(BilibiliUpDynamic.dynamic_id == dynamic_id))
             dynamic_detail = result.scalar_one_or_none()

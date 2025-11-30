@@ -151,24 +151,33 @@ class DouYinClient(AbstractApiClient):
         :return:
         """
         query_params = {
-            'search_channel': search_channel.value,
-            'enable_history': '1',
+            'device_platform': 'webapp',
+            'aid': '6383',
+            'channel': 'channel_pc_web',
+            'search_channel': 'aweme_general',
+            'sort_type': '0',
+            'publish_time': '0',
             'keyword': keyword,
-            'search_source': 'tab_search',
+            'search_source': 'normal_search',
             'query_correct_type': '1',
             'is_filter_search': '0',
-            'from_group_id': '7378810571505847586',
+            # 'from_group_id': '',  # 删掉或留空，不要硬编码过期的 ID
             'offset': offset,
-            'count': '15',
+            'count': '10',
             'need_filter_settings': '1',
-            'list_type': 'multi',
+            # 'list_type': 'multi', 注释掉
             'search_id': search_id,
+            'pc_client_type': '1',
+            'version_code': '190600',
+            'version_name': '19.6.0',
+            'cookie_enabled': 'true',
+            'platform': 'PC',
+            'downlink': '10',
         }
         if sort_type.value != SearchSortType.GENERAL.value or publish_time.value != PublishTimeType.UNLIMITED.value:
             query_params["filter_selected"] = json.dumps({"sort_type": str(sort_type.value), "publish_time": str(publish_time.value)})
             query_params["is_filter_search"] = 1
-            query_params["search_source"] = "tab_search"
-        referer_url = f"https://www.douyin.com/search/{keyword}?aid=f594bbd9-a0e2-4651-9319-ebe3cb6298c1&type=general"
+        referer_url = f"https://www.douyin.com/search/{keyword}?aid=6383&type=general"
         headers = copy.copy(self.headers)
         headers["Referer"] = urllib.parse.quote(referer_url, safe=':/')
         return await self.get("/aweme/v1/web/general/search/single/", query_params, headers=headers)
