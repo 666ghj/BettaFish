@@ -129,8 +129,18 @@ class DouYinCrawler(AbstractCrawler):
                         publish_time=PublishTimeType(config.PUBLISH_TIME_TYPE),
                         search_id=dy_search_id,
                     )
+                    # === 新增调试代码 START ===
+                    # 打印返回的所有 Key，看看有没有 'data' 或者 'aweme_list'
+                    utils.logger.info(f"[DEBUG] 接口返回的字段 keys: {list(posts_res.keys())}")
+
+                    # 如果返回里直接有 aweme_list，说明结构变了
+                    if "aweme_list" in posts_res and "data" not in posts_res:
+                        utils.logger.info("[DEBUG] 检测到 aweme_list 在根节点，正在修正数据结构...")
+                        posts_res["data"] = [{"aweme_info": item} for item in posts_res["aweme_list"]]
+                    # === 新增调试代码 END ===
+
                     if posts_res.get("data") is None or posts_res.get("data") == []:
-                        utils.logger.info(f"[DouYinCrawler.search] search douyin keyword: {keyword}, page: {page} is empty,{posts_res.get('data')}`")
+                        utils.logger.info(f"[DouYinCrawler.search] 结果为空。Status: {posts_res.get('status_code')}, Msg: {posts_res.get('status_msg')}")
                         break
                 except DataFetchError:
                     utils.logger.error(f"[DouYinCrawler.search] search douyin keyword: {keyword} failed")
