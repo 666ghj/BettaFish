@@ -76,7 +76,15 @@ async def batch_update_ks_video_comments(video_id: str, comments: List[Dict]):
 
 
 async def update_ks_video_comment(video_id: str, comment_item: Dict):
-    comment_id = comment_item.get("commentId")
+    raw_comment_id = comment_item.get("commentId")
+    try:
+        comment_id = int(raw_comment_id) if raw_comment_id is not None else None
+    except (TypeError, ValueError):
+        utils.logger.error(f"[store.kuaishou.update_ks_video_comment] invalid comment id: {raw_comment_id}")
+        return
+    if comment_id is None:
+        utils.logger.error("[store.kuaishou.update_ks_video_comment] missing comment id, skip save")
+        return
     save_comment_item = {
         "comment_id": comment_id,
         "create_time": comment_item.get("timestamp"),

@@ -108,7 +108,15 @@ class KuaishouDbStoreImplement(AbstractStore):
         Args:
             comment_item: comment item dict
         """
-        comment_id = comment_item.get("comment_id")
+        raw_comment_id = comment_item.get("comment_id")
+        try:
+            comment_id = int(raw_comment_id) if raw_comment_id is not None else None
+        except (TypeError, ValueError):
+            utils.logger.error(f"[KuaishouDbStoreImplement.store_comment] invalid comment_id: {raw_comment_id}")
+            return
+        if comment_id is None:
+            utils.logger.error("[KuaishouDbStoreImplement.store_comment] comment_id is None, skip save")
+            return
         async with get_session() as session:
             result = await session.execute(
                 select(KuaishouVideoComment).where(KuaishouVideoComment.comment_id == comment_id))
@@ -116,10 +124,13 @@ class KuaishouDbStoreImplement(AbstractStore):
 
             if not comment_detail:
                 comment_item["add_ts"] = utils.get_current_timestamp()
+                comment_item["comment_id"] = comment_id
                 new_comment = KuaishouVideoComment(**comment_item)
                 session.add(new_comment)
             else:
                 for key, value in comment_item.items():
+                    if key == "comment_id":
+                        value = comment_id
                     setattr(comment_detail, key, value)
             await session.commit()
 

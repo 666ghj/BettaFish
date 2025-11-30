@@ -58,7 +58,15 @@ class WeiboClient:
         if enable_return_response:
             return response
 
-        data: Dict = response.json()
+        try:
+            data: Dict = response.json()
+        except json.JSONDecodeError:
+            preview = response.text[:200] if hasattr(response, "text") else ""
+            utils.logger.error(
+                f"[WeiboClient.request] parse json failed, status={response.status_code}, "
+                f"url={url}, body_preview={preview}"
+            )
+            raise DataFetchError(f"invalid json response, status={response.status_code}")
         ok_code = data.get("ok")
         if ok_code == 0:  # response error
             utils.logger.error(f"[WeiboClient.request] request {method}:{url} err, res:{data}")
