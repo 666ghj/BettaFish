@@ -68,7 +68,12 @@ async def update_weibo_note(note_item: Dict):
 
     mblog: Dict = note_item.get("mblog")
     user_info: Dict = mblog.get("user")
-    note_id = mblog.get("id")
+    raw_note_id = mblog.get("id")
+    try:
+        note_id = int(raw_note_id)
+    except (TypeError, ValueError):
+        utils.logger.error(f"[store.weibo.update_weibo_note] invalid note_id: {raw_note_id}")
+        return
     content_text = mblog.get("text")
     clean_text = re.sub(r"<.*?>", "", content_text)
     save_content_item = {
@@ -124,7 +129,16 @@ async def update_weibo_note_comment(note_id: str, comment_item: Dict):
     """
     if not comment_item or not note_id:
         return
-    comment_id = str(comment_item.get("id"))
+    try:
+        comment_id = int(comment_item.get("id"))
+    except (TypeError, ValueError):
+        utils.logger.error(f"[store.weibo.update_weibo_note_comment] invalid comment_id: {comment_item.get('id')}")
+        return
+    try:
+        note_id_int = int(note_id)
+    except (TypeError, ValueError):
+        utils.logger.error(f"[store.weibo.update_weibo_note_comment] invalid note_id: {note_id}")
+        return
     user_info: Dict = comment_item.get("user")
     content_text = comment_item.get("text")
     clean_text = re.sub(r"<.*?>", "", content_text)
@@ -132,7 +146,7 @@ async def update_weibo_note_comment(note_id: str, comment_item: Dict):
         "comment_id": comment_id,
         "create_time": utils.rfc2822_to_timestamp(comment_item.get("created_at")),
         "create_date_time": str(utils.rfc2822_to_china_datetime(comment_item.get("created_at"))),
-        "note_id": note_id,
+        "note_id": note_id_int,
         "content": clean_text,
         "sub_comment_count": str(comment_item.get("total_number", 0)),
         "comment_like_count": str(comment_item.get("like_count", 0)),
