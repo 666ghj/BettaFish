@@ -85,6 +85,12 @@ class BochaResponse:
     images: List[ImageResult] = field(default_factory=list)
     modal_cards: List[ModalCardResult] = field(default_factory=list)
 
+@dataclass
+class AnspireResponse:
+    """封装 Anspire API 的完整返回结果，以便在工具间传递"""
+    # TODO: 根据 Anspire API 的实际返回结构定义字段
+    pass
+
 
 # --- 2. 核心客户端与专用工具集 ---
 
@@ -94,7 +100,7 @@ class BochaMultimodalSearch:
     每个公共方法都设计为供 AI Agent 独立调用的工具。
     """
 
-    BOCHA_BASE_URL = settings.BOCHA_BASE_URL or "https://api.bochaai.com/v1/ai-search"
+    BOCHA_BASE_URL = settings.BOCHA_BASE_URL or "https://api.bocha.com/v1/ai-search"
 
     def __init__(self, api_key: Optional[str] = None):
         """
@@ -254,6 +260,13 @@ class BochaMultimodalSearch:
         """
         logger.info(f"--- TOOL: 搜索本周信息 (query: {query}) ---")
         return self._search_internal(query=query, freshness='oneWeek', answer=True)
+
+class AnspireAISearch:
+    """
+    Anspire AI Search 客户端
+    """
+    # TODO: 实现 Anspire AI Search 客户端
+    pass
 
 
 # --- 3. 测试与使用示例 ---

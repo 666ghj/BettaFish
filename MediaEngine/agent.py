@@ -19,7 +19,7 @@ from .nodes import (
     ReportFormattingNode
 )
 from .state import State
-from .tools import BochaMultimodalSearch, BochaResponse
+from .tools import BochaMultimodalSearch, BochaResponse, AnspireAISearch, AnspireResponse
 from .utils import settings, Settings, format_search_results_for_prompt
 
 
@@ -435,6 +435,20 @@ class DeepSearchAgent:
         """保存状态到文件"""
         self.state.save_to_file(filepath)
         logger.info(f"状态已保存到 {filepath}")
+
+class AnspireSearchAgent(DeepSearchAgent):
+    """调用Anspire搜索引擎的Deep Search Agent"""
+    
+    def __init__(self, config: Settings | None = None):
+        super().__init__(config)
+        # TODO: 初始化Anspire搜索工具
+        # self.search_agency = AnspireAISearch(api_key=self.config.ANSPIRE_API_KEY)
+
+    def execute_search_tool(self, tool_name: str, query: str, **kwargs) -> AnspireResponse:
+        # TODO: 使用Anspire搜索工具执行搜索
+        pass
+
+
 
 
 def create_agent(config_file: Optional[str] = None) -> DeepSearchAgent:
