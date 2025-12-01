@@ -11,7 +11,7 @@ services:
       - PYTHONUNBUFFERED=1
       - STREAMLIT_SERVER_ENABLE_FILE_WATCHER=false
     ports:
-      - "5000:5000"
+      - "5001:5000"
       - "8501:8501"
       - "8502:8502"
       - "8503:8503"
