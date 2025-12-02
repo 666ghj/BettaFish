@@ -55,8 +55,7 @@ class DeepSearchAgent:
         # 初始化LLM客户端
         self.llm_client = self._initialize_llm()
         self.reflection_llm = self._initialize_reflection_llm()
-        
-        
+
         # 初始化搜索工具集
         self.search_agency = MediaCrawlerDB()
 
@@ -76,7 +75,7 @@ class DeepSearchAgent:
             keyword_labeler=get_keyword_labeler(),
         )
         self.state.update_structured_context(self.context_builder.empty_context())
-        
+
         # 确保输出目录存在
         os.makedirs(self.config.OUTPUT_DIR, exist_ok=True)
 
@@ -102,7 +101,7 @@ class DeepSearchAgent:
                 base_url=self.config.KEYWORD_OPTIMIZER_BASE_URL,
             )
         return self.llm_client
-    
+
     def _initialize_nodes(self):
         """初始化处理节点"""
         self.first_search_node = FirstSearchNode(self.llm_client)
@@ -580,7 +579,7 @@ class DeepSearchAgent:
             existing_context=getattr(self.state, "structured_context", None),
         )
         self.state.update_structured_context(origin_context)
-        
+
         _message = f"报告结构已生成，共 {len(self.state.paragraphs)} 个段落:"
         for i, paragraph in enumerate(self.state.paragraphs, 1):
             _message += f"\n  {i}. {paragraph.title}"
@@ -740,7 +739,7 @@ class DeepSearchAgent:
         search_results = self._attach_structured_context(
             paragraph, search_results, search_query, stage="initial"
         )
-        
+
         # 更新状态中的搜索历史
         paragraph.research.add_search_results(search_query, search_results)
 
@@ -753,7 +752,7 @@ class DeepSearchAgent:
             )
             logger.info("  - 未获取证据，跳过总结与反思，记录无结论提示（可在讨论区仅发表看法）。")
             return
-        
+
         # 生成初始总结
         logger.info("  - 生成初始总结...")
         summary_input = {
@@ -778,7 +777,7 @@ class DeepSearchAgent:
         if not paragraph.research.search_history:
             logger.info("  - 无搜索结果，跳过反思阶段以避免幻觉输出。")
             return
-        
+
         for reflection_i in range(self.config.MAX_REFLECTIONS):
             logger.info(f"  - 反思 {reflection_i + 1}/{self.config.MAX_REFLECTIONS}...")
 
@@ -915,7 +914,7 @@ class DeepSearchAgent:
                 logger.info(_message)
             else:
                 logger.info("    未找到反思搜索结果")
-            
+
             search_results = self._attach_structured_context(
                 paragraph,
                 search_results,
@@ -980,7 +979,7 @@ class DeepSearchAgent:
                 )
         self.state.update_structured_context(context)
         return decorated
-    
+
     def _generate_final_report(self) -> str:
         """生成最终报告"""
         logger.info(f"\n[步骤 3] 生成最终报告...")
