@@ -491,6 +491,29 @@
             align-items: center;
         }
 
+        .status-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .status-button {
+            padding: 8px 14px;
+            border: 2px solid #000000;
+            background-color: #ffffff;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .status-button:hover:not(:disabled) {
+            background-color: #f5f5f5;
+        }
+
+        .status-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
         .config-modal-overlay {
             position: fixed;
             inset: 0;
@@ -1323,7 +1346,10 @@
         <!-- 状态栏：实时展示WebSocket连接状态与系统时钟 -->
         <div class="status-bar">
             <span id="connectionStatus">连接中...</span>
-            <span id="systemTime"></span>
+            <div class="status-actions">
+                <span id="systemTime"></span>
+                <button class="status-button" id="shutdownButton">关闭系统</button>
+            </div>
         </div>
     </div>
 
@@ -1372,6 +1398,7 @@
         let systemStarted = false;
         let systemStarting = false;
         let configModalLocked = false;
+        let shutdownInProgress = false;
         let socketConnected = false;
         let reportStreamConnected = false;
         let backendReachable = false;
@@ -1747,7 +1774,13 @@
         const CONFIG_ENDPOINT = '/api/config';
         const SYSTEM_STATUS_ENDPOINT = '/api/system/status';
         const SYSTEM_START_ENDPOINT = '/api/system/start';
+        const SYSTEM_SHUTDOWN_ENDPOINT = '/api/system/shutdown';
         const START_BUTTON_DEFAULT_TEXT = '保存并启动系统';
+        const APP_PORTS = {
+            insight: 8501,
+            media: 8502,
+            query: 8503
+        };
 
         const configFieldGroups = [
             {
@@ -1984,6 +2017,11 @@
             const startSystemButton = document.getElementById('startSystemButton');
             if (startSystemButton) {
                 startSystemButton.addEventListener('click', () => startSystem());
+            }
+
+            const shutdownButton = document.getElementById('shutdownButton');
+            if (shutdownButton) {
+                shutdownButton.addEventListener('click', () => shutdownSystem());
             }
 
             const configModal = document.getElementById('configModal');
@@ -2416,6 +2454,52 @@
             } else {
                 applySystemState(status);
                 configModalLocked = false;
+            }
+        }
+
+        function getRunningAgents() {
+            return Object.keys(appStatus).filter(app => appStatus[app] === 'running');
+        }
+
+        async function shutdownSystem() {
+            if (shutdownInProgress) {
+                return;
+            }
+
+            if (systemStarting) {
+                showMessage('系统正在启动/重启，请稍后再关闭', 'error');
+                return;
+            }
+
+            const running = getRunningAgents();
+            const confirmText = running.length
+                ? `检测到运行中的应用: ${running.join(', ')}，确认关闭系统吗？`
+                : '确定要关闭系统吗？';
+            if (!window.confirm(confirmText)) {
+                return;
+            }
+
+            shutdownInProgress = true;
+            const btn = document.getElementById('shutdownButton');
+            const originalText = btn ? btn.textContent : '';
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = '关闭中...';
+            }
+
+            try {
+                const response = await fetch(SYSTEM_SHUTDOWN_ENDPOINT, { method: 'POST' });
+                const data = await response.json().catch(() => ({}));
+                const message = data && data.message ? data.message : '关机指令已下发，正在关闭进程';
+                showMessage(message, 'success');
+            } catch (error) {
+                showMessage(`关闭失败: ${error.message}`, 'error');
+                shutdownInProgress = false;
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = originalText || '关闭系统';
+                }
+                return;
             }
         }
 

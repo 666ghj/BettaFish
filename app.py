@@ -224,7 +224,8 @@ def write_config_values(updates):
 system_state_lock = threading.Lock()
 system_state = {
     'started': False,
-    'starting': False
+    'starting': False,
+    'shutdown_in_progress': False
 }
 
 
@@ -252,6 +253,14 @@ def _prepare_system_start():
             return False, '系统正在启动'
         system_state['starting'] = True
         return True, None
+
+def _mark_shutdown_requested():
+    """标记关机已请求；若已有关机流程则返回 False。"""
+    with system_state_lock:
+        if system_state.get('shutdown_in_progress'):
+            return False
+        system_state['shutdown_in_progress'] = True
+        return True
 
 
 def initialize_system_components():
@@ -498,6 +507,21 @@ STREAMLIT_SCRIPTS = {
     'query': 'SingleEngineApp/query_engine_streamlit_app.py'
 }
 
+def _log_shutdown_step(message: str):
+    """统一记录关机步骤，便于排查。"""
+    logger.info(f"[Shutdown] {message}")
+
+
+def _describe_running_children():
+    """列出当前存活的子进程。"""
+    running = []
+    for name, info in processes.items():
+        proc = info.get('process')
+        if proc is not None and proc.poll() is None:
+            port_desc = f", port={info.get('port')}" if info.get('port') else ""
+            running.append(f"{name}(pid={proc.pid}{port_desc})")
+    return running
+
 # 输出队列
 output_queues = {
     'insight': Queue(),
@@ -681,18 +705,28 @@ def start_streamlit_app(app_name, script_path, port):
 def stop_streamlit_app(app_name):
     """停止Streamlit应用"""
     try:
-        if processes[app_name]['process'] is None:
+        process = processes[app_name]['process']
+        if process is None:
+            _log_shutdown_step(f"{app_name} 未运行，跳过停止")
             return False, "应用未运行"
         
-        process = processes[app_name]['process']
+        try:
+            pid = process.pid
+        except Exception:
+            pid = 'unknown'
+
+        _log_shutdown_step(f"正在停止 {app_name} (pid={pid})")
         process.terminate()
         
         # 等待进程结束
         try:
             process.wait(timeout=5)
+            _log_shutdown_step(f"{app_name} 退出完成，returncode={process.returncode}")
         except subprocess.TimeoutExpired:
+            _log_shutdown_step(f"{app_name} 终止超时，尝试强制结束 (pid={pid})")
             process.kill()
             process.wait()
+            _log_shutdown_step(f"{app_name} 已强制结束，returncode={process.returncode}")
         
         processes[app_name]['process'] = None
         processes[app_name]['status'] = 'stopped'
@@ -700,6 +734,7 @@ def stop_streamlit_app(app_name):
         return True, f"{app_name} 应用已停止"
         
     except Exception as e:
+        _log_shutdown_step(f"{app_name} 停止失败: {e}")
         return False, f"停止失败: {str(e)}"
 
 HEALTHCHECK_PATH = "/_stcore/health"
@@ -764,6 +799,7 @@ def wait_for_app_startup(app_name, max_wait_time=90):
 
 def cleanup_processes():
     """清理所有进程"""
+    _log_shutdown_step("开始串行清理子进程")
     for app_name in STREAMLIT_SCRIPTS:
         stop_streamlit_app(app_name)
 
@@ -772,7 +808,100 @@ def cleanup_processes():
         stop_forum_engine()
     except Exception:  # pragma: no cover
         logger.exception("停止ForumEngine失败")
+    _log_shutdown_step("子进程清理完成")
     _set_system_state(started=False, starting=False)
+
+def cleanup_processes_concurrent(timeout: float = 6.0):
+    """并发清理所有子进程，超时后强制杀掉残留进程。"""
+    _log_shutdown_step(f"开始并发清理子进程（超时 {timeout}s）")
+    _log_shutdown_step("仅终止当前控制台启动并记录的子进程，不做端口扫描")
+    running_before = _describe_running_children()
+    if running_before:
+        _log_shutdown_step("当前存活子进程: " + ", ".join(running_before))
+    else:
+        _log_shutdown_step("未检测到存活子进程，仍将发送关闭指令")
+
+    threads = []
+
+    # 并发关闭 Streamlit 子进程
+    for app_name in STREAMLIT_SCRIPTS:
+        t = threading.Thread(target=stop_streamlit_app, args=(app_name,), daemon=True)
+        threads.append(t)
+        t.start()
+
+    # 并发关闭 ForumEngine
+    forum_thread = threading.Thread(target=stop_forum_engine, daemon=True)
+    threads.append(forum_thread)
+    forum_thread.start()
+
+    # 等待所有线程完成，最多 timeout 秒
+    end_time = time.time() + timeout
+    for t in threads:
+        remaining = end_time - time.time()
+        if remaining <= 0:
+            break
+        t.join(timeout=remaining)
+
+    # 二次检查：强制杀掉仍存活的子进程
+    for app_name in STREAMLIT_SCRIPTS:
+        proc = processes[app_name]['process']
+        if proc is not None and proc.poll() is None:
+            try:
+                _log_shutdown_step(f"{app_name} 进程仍存活，触发二次终止 (pid={proc.pid})")
+                proc.terminate()
+                proc.wait(timeout=1)
+            except Exception:
+                try:
+                    _log_shutdown_step(f"{app_name} 二次终止失败，尝试kill (pid={proc.pid})")
+                    proc.kill()
+                    proc.wait(timeout=1)
+                except Exception:
+                    logger.warning(f"{app_name} 进程强制退出失败，继续关机")
+            finally:
+                processes[app_name]['process'] = None
+                processes[app_name]['status'] = 'stopped'
+
+    processes['forum']['status'] = 'stopped'
+    _log_shutdown_step("并发清理结束，标记系统未启动")
+    _set_system_state(started=False, starting=False)
+
+def _schedule_server_shutdown(delay_seconds: float = 0.1):
+    """在清理完成后尽快退出，避免阻塞当前请求。"""
+    def _shutdown():
+        time.sleep(delay_seconds)
+        try:
+            socketio.stop()
+        except Exception as exc:  # pragma: no cover
+            logger.warning(f"SocketIO 停止时异常，继续退出: {exc}")
+        _log_shutdown_step("SocketIO 停止指令已发送，即将退出主进程")
+        os._exit(0)
+
+    threading.Thread(target=_shutdown, daemon=True).start()
+
+def _start_async_shutdown(cleanup_timeout: float = 3.0):
+    """异步触发清理并强制退出，避免HTTP请求阻塞。"""
+    _log_shutdown_step(f"收到关机指令，启动异步清理（超时 {cleanup_timeout}s）")
+
+    def _force_exit():
+        _log_shutdown_step("关机超时，触发强制退出")
+        os._exit(0)
+
+    # 硬超时保护，即便清理线程异常也能退出
+    hard_timeout = cleanup_timeout + 2.0
+    force_timer = threading.Timer(hard_timeout, _force_exit)
+    force_timer.daemon = True
+    force_timer.start()
+
+    def _cleanup_and_exit():
+        try:
+            cleanup_processes_concurrent(timeout=cleanup_timeout)
+        except Exception as exc:  # pragma: no cover
+            logger.exception(f"关机清理异常: {exc}")
+        finally:
+            _log_shutdown_step("清理线程结束，调度主进程退出")
+            _schedule_server_shutdown(0.05)
+
+    threading.Thread(target=_cleanup_and_exit, daemon=True).start()
 
 # 注册清理函数
 atexit.register(cleanup_processes)
@@ -1121,6 +1250,48 @@ def start_system():
         return jsonify({'success': False, 'message': f'系统启动异常: {exc}'}), 500
     finally:
         _set_system_state(starting=False)
+
+@app.route('/api/system/shutdown', methods=['POST'])
+def shutdown_system():
+    """优雅停止所有组件并关闭当前服务进程。"""
+    state = _get_system_state()
+    if state['starting']:
+        return jsonify({'success': False, 'message': '系统正在启动/重启，请稍候'}), 400
+
+    target_ports = [
+        f"{name}:{info['port']}"
+        for name, info in processes.items()
+        if info.get('port')
+    ]
+
+    # 已有关机请求执行中时，返回当前存活的子进程，便于前端判断进度
+    if not _mark_shutdown_requested():
+        running = _describe_running_children()
+        detail = '关机指令已下发，请稍等...'
+        if running:
+            detail = f"关机指令已下发，等待进程退出: {', '.join(running)}"
+        if target_ports:
+            detail = f"{detail}（端口: {', '.join(target_ports)}）"
+        return jsonify({'success': True, 'message': detail, 'ports': target_ports})
+
+    running = _describe_running_children()
+    if running:
+        _log_shutdown_step("开始关闭系统，正在等待子进程退出: " + ", ".join(running))
+    else:
+        _log_shutdown_step("开始关闭系统，未检测到存活子进程")
+
+    try:
+        _set_system_state(started=False, starting=False)
+        _start_async_shutdown(cleanup_timeout=6.0)
+        message = '关闭系统指令已下发，正在停止进程'
+        if running:
+            message = f"{message}: {', '.join(running)}"
+        if target_ports:
+            message = f"{message}（端口: {', '.join(target_ports)}）"
+        return jsonify({'success': True, 'message': message, 'ports': target_ports})
+    except Exception as exc:  # pragma: no cover - 兜底捕获
+        logger.exception("系统关闭过程中出现异常")
+        return jsonify({'success': False, 'message': f'系统关闭异常: {exc}'}), 500
 
 @socketio.on('connect')
 def handle_connect():
