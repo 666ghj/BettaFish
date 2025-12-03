@@ -34,6 +34,60 @@
             flex-direction: column;
             border: 2px solid #000000;
             overflow: hidden; /* 防止整体滚动 */
+            position: relative;
+        }
+
+        .page-actions {
+            position: absolute;
+            top: 16px;
+            right: 18px;
+            display: flex;
+            gap: 10px;
+            z-index: 20;
+        }
+
+        .page-action-button {
+            border: 2px solid #000000;
+            background-color: #ffffff;
+            color: #000000;
+            padding: 10px 14px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 4px 4px 0 #000000;
+            transition: transform 0.12s ease, box-shadow 0.12s ease, background-color 0.2s ease, color 0.2s ease;
+            letter-spacing: 0.5px;
+        }
+
+        .page-action-button:hover {
+            transform: translate(-2px, -2px);
+            box-shadow: 6px 6px 0 #000000;
+            background-color: #f5f5f5;
+        }
+
+        .page-action-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: 2px 2px 0 #777777;
+        }
+
+        .page-action-button.refresh {
+            background-color: #ffffff;
+            color: #000000;
+        }
+
+        .page-action-button.shutdown {
+            background-color: #000000;
+            color: #ffffff;
+            border-color: #000000;
+            box-shadow: none;
+        }
+
+        .page-action-button.shutdown:hover {
+            background-color: #1a1a1a;
+            color: #ffffff;
+            transform: none;
+            box-shadow: none;
         }
 
         /* 搜索框区域 */
@@ -491,27 +545,21 @@
             align-items: center;
         }
 
-        .status-actions {
+        .status-bar-left {
             display: flex;
-            gap: 10px;
             align-items: center;
+            gap: 12px;
         }
 
-        .status-button {
-            padding: 8px 14px;
-            border: 2px solid #000000;
-            background-color: #ffffff;
-            cursor: pointer;
-            font-weight: bold;
+        .status-shutdown-button {
+            padding: 8px 16px;
+            box-shadow: none;
         }
 
-        .status-button:hover:not(:disabled) {
-            background-color: #f5f5f5;
-        }
-
-        .status-button:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
+        .status-shutdown-button:hover,
+        .status-shutdown-button:disabled {
+            box-shadow: none;
+            transform: none;
         }
 
         .config-modal-overlay {
@@ -930,6 +978,143 @@
             background-color: #fff0f0;
         }
 
+        /* 系统关机确认弹窗 */
+        .confirm-overlay {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.35);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1200;
+            padding: 20px;
+        }
+
+        .confirm-overlay.visible {
+            display: flex;
+        }
+
+        .confirm-dialog {
+            background-color: #ffffff;
+            border: 2px solid #000000;
+            width: 420px;
+            max-width: 90vw;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .confirm-dialog.danger {
+            border-color: #b42318;
+        }
+
+        .confirm-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 16px;
+            border-bottom: 2px solid #000000;
+        }
+
+        .confirm-dialog.danger .confirm-header {
+            border-color: #b42318;
+        }
+
+        .confirm-title {
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .confirm-close {
+            width: 30px;
+            height: 30px;
+            border: 2px solid #000000;
+            background-color: #ffffff;
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .confirm-close:hover {
+            background-color: #000000;
+            color: #ffffff;
+        }
+
+        .confirm-body {
+            padding: 16px;
+            border-bottom: 2px solid #000000;
+        }
+
+        .confirm-dialog.danger .confirm-body {
+            border-color: #b42318;
+        }
+
+        .confirm-text {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .confirm-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .confirm-pill {
+            padding: 4px 10px;
+            border: 2px solid #000000;
+            background-color: #f5f5f0;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .confirm-dialog .confirm-button.danger {
+            background-color: #ffecec;
+            color: #b42318;
+        }
+
+        .confirm-dialog .confirm-button.danger:hover {
+            background-color: #ffc9c9;
+            color: #8c1111;
+        }
+
+        .shutdown-pill {
+            text-align: center;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .confirm-subtext {
+            font-size: 12px;
+            color: #555555;
+            line-height: 1.5;
+        }
+
+        .confirm-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            padding: 12px 16px;
+        }
+
+        .confirm-button {
+            padding: 9px 18px;
+            border: 2px solid #000000;
+            background-color: #ffffff;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .confirm-button:hover {
+            background-color: #f0f0f0;
+        }
+
         /* Forum Engine 专用样式 */
         .forum-container {
             display: none;
@@ -1345,10 +1530,30 @@
 
         <!-- 状态栏：实时展示WebSocket连接状态与系统时钟 -->
         <div class="status-bar">
-            <span id="connectionStatus">连接中...</span>
-            <div class="status-actions">
+            <div class="status-bar-left">
+                <span id="connectionStatus">连接中...</span>
                 <span id="systemTime"></span>
-                <button class="status-button" id="shutdownButton">关闭系统</button>
+            </div>
+            <button class="page-action-button shutdown status-shutdown-button" id="shutdownButton" aria-label="关闭系统">关闭系统</button>
+        </div>
+    </div>
+
+    <div class="confirm-overlay" id="shutdownConfirmModal" aria-hidden="true">
+        <div class="confirm-dialog danger">
+            <div class="confirm-header">
+                <div class="confirm-title" id="shutdownStrongText">确定要关闭系统吗？</div>
+                <button class="confirm-close" id="closeShutdownConfirm" aria-label="关闭系统确认">×</button>
+            </div>
+            <div class="confirm-body">
+                <div class="confirm-text">
+                    <div class="confirm-subtext" id="shutdownSubText">将关闭系统并停止由本控制台启动的子进程，涉及端口/进程：</div>
+                    <div class="confirm-list" id="shutdownRunningList"></div>
+                    <div class="confirm-list" id="shutdownPortList"></div>
+                </div>
+            </div>
+            <div class="confirm-actions">
+                <button class="confirm-button" id="cancelShutdownButton">取消</button>
+                <button class="confirm-button danger" id="confirmShutdownButton">立即关闭系统</button>
             </div>
         </div>
     </div>
@@ -1398,7 +1603,6 @@
         let systemStarted = false;
         let systemStarting = false;
         let configModalLocked = false;
-        let shutdownInProgress = false;
         let socketConnected = false;
         let reportStreamConnected = false;
         let backendReachable = false;
@@ -1771,6 +1975,9 @@
             }
         }
 
+        let pageRefreshInProgress = false;
+        let shutdownInProgress = false;
+
         const CONFIG_ENDPOINT = '/api/config';
         const SYSTEM_STATUS_ENDPOINT = '/api/system/status';
         const SYSTEM_START_ENDPOINT = '/api/system/start';
@@ -2019,9 +2226,32 @@
                 startSystemButton.addEventListener('click', () => startSystem());
             }
 
+            const refreshPageButton = document.getElementById('pageRefreshButton');
+            if (refreshPageButton) {
+                refreshPageButton.addEventListener('click', () => handleSafeRefresh());
+            }
+
             const shutdownButton = document.getElementById('shutdownButton');
             if (shutdownButton) {
-                shutdownButton.addEventListener('click', () => shutdownSystem());
+                shutdownButton.addEventListener('click', () => handleShutdownRequest());
+            }
+
+            const cancelShutdownButton = document.getElementById('cancelShutdownButton');
+            if (cancelShutdownButton) {
+                cancelShutdownButton.addEventListener('click', () => hideShutdownConfirm());
+            }
+
+            const closeShutdownButton = document.getElementById('closeShutdownConfirm');
+            if (closeShutdownButton) {
+                closeShutdownButton.addEventListener('click', () => hideShutdownConfirm());
+            }
+
+            const confirmShutdownButton = document.getElementById('confirmShutdownButton');
+            if (confirmShutdownButton) {
+                confirmShutdownButton.addEventListener('click', () => {
+                    hideShutdownConfirm();
+                    shutdownSystem({ skipAgentWarning: true });
+                });
             }
 
             const configModal = document.getElementById('configModal');
@@ -2042,8 +2272,14 @@
             }
 
             document.addEventListener('keydown', function(event) {
-                if (event.key === 'Escape' && isConfigModalVisible()) {
-                    closeConfigModal();
+                if (event.key === 'Escape') {
+                    if (isConfigModalVisible()) {
+                        closeConfigModal();
+                    }
+                    const shutdownModal = document.getElementById('shutdownConfirmModal');
+                    if (shutdownModal && shutdownModal.classList.contains('visible')) {
+                        hideShutdownConfirm();
+                    }
                 }
             });
         }
@@ -2461,7 +2697,80 @@
             return Object.keys(appStatus).filter(app => appStatus[app] === 'running');
         }
 
-        async function shutdownSystem() {
+        function hideShutdownConfirm() {
+            const modal = document.getElementById('shutdownConfirmModal');
+            if (modal) {
+                modal.classList.remove('visible');
+                modal.setAttribute('aria-hidden', 'true');
+            }
+        }
+
+        function showShutdownConfirm(runningAgents = []) {
+            const modal = document.getElementById('shutdownConfirmModal');
+            const list = document.getElementById('shutdownRunningList');
+            const portList = document.getElementById('shutdownPortList');
+            const strongText = document.getElementById('shutdownStrongText');
+
+            if (strongText) {
+                strongText.textContent = runningAgents.length > 0
+                    ? '部分 Agent 正在运行，确定要关闭吗？'
+                    : '确定要关闭系统吗？';
+            }
+
+            if (list) {
+                list.innerHTML = '';
+                list.style.display = 'none';
+            }
+
+            if (portList) {
+                const targets = Object.entries(APP_PORTS).map(([key, port]) => {
+                    const status = appStatus[key] || 'unknown';
+                    const label = `${appNames[key] || key}${port ? `:${port}` : ''}`;
+                    const suffix = status === 'running' ? '运行中' : '未运行';
+                    return `<span class="confirm-pill shutdown-pill">${label} · ${suffix}</span>`;
+                });
+                portList.innerHTML = targets.length > 0
+                    ? targets.join('')
+                    : '<span class="confirm-pill">暂无需要关闭的端口</span>';
+            }
+
+            if (modal) {
+                modal.classList.add('visible');
+                modal.setAttribute('aria-hidden', 'false');
+            }
+        }
+
+        async function handleSafeRefresh() {
+            if (pageRefreshInProgress) {
+                return;
+            }
+
+            pageRefreshInProgress = true;
+            const refreshButton = document.getElementById('pageRefreshButton');
+            const originalText = refreshButton ? refreshButton.textContent : '';
+            if (refreshButton) {
+                refreshButton.disabled = true;
+                refreshButton.textContent = '刷新中...';
+            }
+
+            try {
+                await fetchSystemStatus();
+                await checkStatus();
+                refreshConsoleOutput();
+                showMessage('已刷新最新状态与日志', 'success');
+            } catch (error) {
+                console.error('刷新页面数据失败', error);
+                showMessage(`刷新失败: ${error.message}`, 'error');
+            } finally {
+                pageRefreshInProgress = false;
+                if (refreshButton) {
+                    refreshButton.disabled = false;
+                    refreshButton.textContent = originalText || '安全刷新';
+                }
+            }
+        }
+
+        async function handleShutdownRequest() {
             if (shutdownInProgress) {
                 return;
             }
@@ -2471,35 +2780,73 @@
                 return;
             }
 
-            const running = getRunningAgents();
-            const confirmText = running.length
-                ? `检测到运行中的应用: ${running.join(', ')}，确认关闭系统吗？`
-                : '确定要关闭系统吗？';
-            if (!window.confirm(confirmText)) {
+            const runningAgents = getRunningAgents();
+            if (runningAgents.length > 0) {
+                showShutdownConfirm(runningAgents);
                 return;
+            }
+
+            shutdownSystem({ skipAgentWarning: true });
+        }
+
+        async function shutdownSystem(options = {}) {
+            const { skipAgentWarning = false } = options;
+
+            if (shutdownInProgress) {
+                return;
+            }
+
+            if (!skipAgentWarning) {
+                const runningAgents = getRunningAgents();
+                if (runningAgents.length > 0) {
+                    showShutdownConfirm(runningAgents);
+                    return;
+                }
             }
 
             shutdownInProgress = true;
-            const btn = document.getElementById('shutdownButton');
-            const originalText = btn ? btn.textContent : '';
-            if (btn) {
-                btn.disabled = true;
-                btn.textContent = '关闭中...';
+            const button = document.getElementById('shutdownButton');
+            const originalText = button ? button.textContent : '';
+            if (button) {
+                button.disabled = true;
+                button.textContent = '关闭中...';
             }
 
             try {
-                const response = await fetch(SYSTEM_SHUTDOWN_ENDPOINT, { method: 'POST' });
-                const data = await response.json().catch(() => ({}));
-                const message = data && data.message ? data.message : '关机指令已下发，正在关闭进程';
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 4000);
+                const response = await fetch(SYSTEM_SHUTDOWN_ENDPOINT, { method: 'POST', signal: controller.signal });
+                clearTimeout(timeoutId);
+
+                let message = '系统正在关闭，请稍等...';
+                if (response.ok) {
+                    try {
+                        const data = await response.json();
+                        if (data && data.message) {
+                            message = data.message;
+                        }
+                    } catch (error) {
+                        console.warn('关闭响应解析失败，使用默认提示');
+                    }
+                } else {
+                    throw new Error(`服务返回 ${response.status}`);
+                }
+
+                setConfigStatus(message, 'success');
                 showMessage(message, 'success');
             } catch (error) {
-                showMessage(`关闭失败: ${error.message}`, 'error');
-                shutdownInProgress = false;
-                if (btn) {
-                    btn.disabled = false;
-                    btn.textContent = originalText || '关闭系统';
+                const text = error.name === 'AbortError'
+                    ? '关闭指令已发送，服务即将退出'
+                    : `关闭失败: ${error.message}`;
+                showMessage(text, error.name === 'AbortError' ? 'success' : 'error');
+
+                if (error.name !== 'AbortError') {
+                    shutdownInProgress = false;
+                    if (button) {
+                        button.disabled = false;
+                        button.textContent = originalText || '关闭系统';
+                    }
                 }
-                return;
             }
         }
 
