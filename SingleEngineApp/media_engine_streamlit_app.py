@@ -101,7 +101,7 @@ def main():
             st.error("请在您的环境变量中设置MEDIA_ENGINE_API_KEY")
             logger.error("请在您的环境变量中设置MEDIA_ENGINE_API_KEY")
             return
-        if not settings.BOCHA_WEB_SEARCH_API_KEY or not settings.ANSPIRE_API_KEY:
+        if (not settings.BOCHA_WEB_SEARCH_API_KEY) and (not settings.ANSPIRE_API_KEY):
             st.error("请在您的环境变量中设置BOCHA_WEB_SEARCH_API_KEY或ANSPIRE_API_KEY")
             logger.error("请在您的环境变量中设置BOCHA_WEB_SEARCH_API_KEY或ANSPIRE_API_KEY")
             return
@@ -148,7 +148,7 @@ def execute_research(query: str, config: Settings):
 
         # 初始化Agent
         status_text.text("正在初始化Agent...")
-        if config.BOCHA_WEB_SEARCH_API_KEY:
+        if config.SEARCH_TOOL_TYPE == "BochaAPI":
             agent = DeepSearchAgent(config)
         else:
             agent = AnspireSearchAgent(config)

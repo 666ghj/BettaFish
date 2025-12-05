@@ -605,6 +605,15 @@
             display: flex;
             flex-direction: column;
             margin-bottom: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .config-field.hidden {
+            display: none;
+            opacity: 0;
+            height: 0;
+            margin-bottom: 0;
+            overflow: hidden;
         }
 
         .config-field-label {
@@ -1821,8 +1830,15 @@
                 title: '外部检索工具',
                 subtitle: '联动搜索引擎、网站抓取等在线服务，两个都需配置',
                 fields: [
+                    {
+                        key: 'SEARCH_TOOL_TYPE',
+                        label: '选择检索工具',
+                        type: 'select',
+                        options: ['BochaAPI', 'AnspireAPI']
+                    },
                     { key: 'TAVILY_API_KEY', label: 'Tavily API Key', type: 'password' },
-                    { key: 'BOCHA_WEB_SEARCH_API_KEY', label: 'Bocha API Key', type: 'password' }
+                    { key: 'BOCHA_WEB_SEARCH_API_KEY', label: 'Bocha API Key', type: 'password', condition: { key: 'SEARCH_TOOL_TYPE', value: 'BochaAPI' } },
+                    { key: 'ANSPIRE_API_KEY', label: 'Anspire API Key', type: 'password', condition: { key: 'SEARCH_TOOL_TYPE', value: 'AnspireAPI' } }
                 ]
             }
         ];
@@ -2117,6 +2133,17 @@
                     const value = values[field.key] !== undefined ? values[field.key] : '';
                     const safeValue = escapeHtml(String(value || ''));
 
+                    // 检查条件是否满足
+                    let isVisible = true;
+                    let hiddenClass = '';
+                    if (field.condition) {
+                        const conditionKey = field.condition.key;
+                        const conditionValue = field.condition.value;
+                        const currentValue = values[conditionKey];
+                        isVisible = currentValue === conditionValue;
+                        hiddenClass = isVisible ? '' : 'hidden';
+                    }
+
                     let control;
 
                     if (field.type === 'select' && field.options) {
@@ -2180,7 +2207,7 @@
                     }
 
                     return `
-                        <label class="config-field">
+                        <label class="config-field ${hiddenClass}" data-condition-key="${field.condition ? field.condition.key : ''}" data-condition-value="${field.condition ? field.condition.value : ''}">
                             <span class="config-field-label">${field.label}</span>
                             ${control}
                         </label>
@@ -2201,6 +2228,9 @@
             container.innerHTML = sections;
             // 不再需要每次调用 attachConfigPasswordToggles
             // 事件委托已在页面初始化时设置
+            
+            // 为所有 select 下拉框绑定事件，监听值变化并动态显示/隐藏条件字段
+            attachConfigConditionalLogic();
         }
 
         function attachConfigPasswordToggles() {
@@ -2250,6 +2280,51 @@
 
             // 标记已绑定，防止重复
             container.dataset.passwordToggleAttached = 'true';
+        }
+
+        // 【新增】条件字段动态显示逻辑
+        function attachConfigConditionalLogic() {
+            const container = document.getElementById('configFormContainer');
+            if (!container) {
+                return;
+            }
+
+            // 防止重复绑定
+            if (container.dataset.conditionalLogicAttached === 'true') {
+                return;
+            }
+
+            // 监听所有 select 下拉框的变化
+            container.addEventListener('change', (event) => {
+                const select = event.target.closest('select.config-field-input');
+                if (!select) {
+                    return;
+                }
+
+                const triggerKey = select.dataset.configKey;
+                const triggerValue = select.value;
+
+                // 更新所有依赖于这个字段的条件字段的显示状态
+                const conditionalFields = container.querySelectorAll('.config-field[data-condition-key]');
+                conditionalFields.forEach(field => {
+                    const conditionKey = field.dataset.conditionKey;
+                    const conditionValue = field.dataset.conditionValue;
+
+                    // 检查这个条件字段是否依赖于当前改变的字段
+                    if (conditionKey === triggerKey) {
+                        if (triggerValue === conditionValue) {
+                            // 显示字段
+                            field.classList.remove('hidden');
+                        } else {
+                            // 隐藏字段
+                            field.classList.add('hidden');
+                        }
+                    }
+                });
+            });
+
+            // 标记已绑定，防止重复
+            container.dataset.conditionalLogicAttached = 'true';
         }
 
         function collectConfigUpdates() {

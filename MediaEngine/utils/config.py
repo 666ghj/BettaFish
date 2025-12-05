@@ -5,7 +5,7 @@ Configuration management module for the Media Engine (pydantic_settings style).
 from pathlib import Path
 from pydantic_settings import BaseSettings
 from pydantic import Field
-from typing import Optional
+from typing import Optional, Literal
 
 
 # 计算 .env 优先级：优先当前工作目录，其次项目根目录
@@ -70,8 +70,10 @@ class Settings(BaseSettings):
 
     # ================== 网络工具配置 ====================
     TAVILY_API_KEY: str = Field(None, description="Tavily API（申请地址：https://www.tavily.com/）API密钥，用于Tavily网络搜索")
+    
+    SEARCH_TOOL_TYPE: Literal["AnspireAPI", "BochaAPI"] = Field("AnspireAPI", description="网络搜索工具类型，支持BochaAPI或AnspireAPI两种，默认为AnspireAPI")
     BOCHA_BASE_URL: Optional[str] = Field("https://api.bochaai.com/v1/ai-search", description="Bocha AI 搜索BaseUrl或博查网页搜索BaseUrl")
-    BOCHA_WEB_SEARCH_API_KEY: str = Field(None, description="Bocha API（申请地址：https://open.bochaai.com/）API密钥，用于Bocha搜索")
+    BOCHA_WEB_SEARCH_API_KEY: Optional[str] = Field(None, description="Bocha API（申请地址：https://open.bochaai.com/）API密钥，用于Bocha搜索")
     # Anspire AI Search API（申请地址：https://open.anspire.cn/）
     ANSPIRE_BASE_URL: Optional[str] = Field("https://plugin.anspire.cn/api/ntsearch/search", description="Anspire AI 搜索BaseUrl")
     ANSPIRE_API_KEY: Optional[str] = Field(None, description="Anspire AI Search API（申请地址：https://open.anspire.cn/）API密钥，用于Anspire搜索")

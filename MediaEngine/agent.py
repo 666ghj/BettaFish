@@ -502,6 +502,6 @@ def create_agent(config_file: Optional[str] = None) -> DeepSearchAgent:
         DeepSearchAgent实例
     """
     settings = Settings()
-    if settings.ANSPIRE_API_KEY:
+    if settings.SEARCH_TOOL_TYPE == "AnspireAPI":
         return AnspireSearchAgent(settings)
     return DeepSearchAgent(settings)
