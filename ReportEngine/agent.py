@@ -245,6 +245,31 @@ class ReportAgent:
         log_dir = os.path.dirname(self.config.LOG_FILE)
         os.makedirs(log_dir, exist_ok=True)
 
+        def _exclude_other_engines(record):
+            """
+            过滤掉其他引擎(Insight/Media/Query/Forum)产生的日志，其余日志全部保留。
+
+            使用路径匹配为主，无法获取路径时退化到模块名。
+            """
+            excluded_keywords = ("InsightEngine", "MediaEngine", "QueryEngine", "ForumEngine")
+            try:
+                file_path = record["file"].path
+                if any(keyword in file_path for keyword in excluded_keywords):
+                    return False
+            except Exception:
+                pass
+
+            try:
+                module_name = record.get("module", "")
+                if isinstance(module_name, str):
+                    lowered = module_name.lower()
+                    if any(keyword.lower() in lowered for keyword in excluded_keywords):
+                        return False
+            except Exception:
+                pass
+
+            return True
+
         # 【修复】检查是否已经添加过这个文件的handler，避免重复
         # loguru会自动去重，但显式检查更安全
         log_file_path = str(Path(self.config.LOG_FILE).resolve())
@@ -274,7 +299,8 @@ class ReportAgent:
                 buffering=1,        # 行缓冲，每行立即写入
                 serialize=False,    # 普通文本格式，不序列化为JSON
                 encoding="utf-8",   # 明确UTF-8编码
-                mode="a"            # 追加模式
+                mode="a",           # 追加模式
+                filter=_exclude_other_engines # 过滤掉四个 Engine 的日志，保留其余信息
             )
             logger.debug(f"已添加日志handler (ID: {handler_id}): {self.config.LOG_FILE}")
 
