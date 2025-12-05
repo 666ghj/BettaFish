@@ -27,7 +27,7 @@ except locale.Error:
 # 添加src目录到Python路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from MediaEngine import DeepSearchAgent, Settings
+from MediaEngine import DeepSearchAgent, AnspireSearchAgent, Settings
 from config import settings
 from utils.github_issues import error_with_issue_link
 
@@ -101,25 +101,39 @@ def main():
             st.error("请在您的环境变量中设置MEDIA_ENGINE_API_KEY")
             logger.error("请在您的环境变量中设置MEDIA_ENGINE_API_KEY")
             return
-        if not settings.BOCHA_WEB_SEARCH_API_KEY:
-            st.error("请在您的环境变量中设置BOCHA_WEB_SEARCH_API_KEY")
-            logger.error("请在您的环境变量中设置BOCHA_WEB_SEARCH_API_KEY")
+        if not settings.BOCHA_WEB_SEARCH_API_KEY or not settings.ANSPIRE_API_KEY:
+            st.error("请在您的环境变量中设置BOCHA_WEB_SEARCH_API_KEY或ANSPIRE_API_KEY")
+            logger.error("请在您的环境变量中设置BOCHA_WEB_SEARCH_API_KEY或ANSPIRE_API_KEY")
             return
 
         # 自动使用配置文件中的API密钥
         engine_key = settings.MEDIA_ENGINE_API_KEY
         bocha_key = settings.BOCHA_WEB_SEARCH_API_KEY
+        ansire_key = settings.ANSPIRE_API_KEY
 
         # 构建 Settings（pydantic_settings风格，优先大写环境变量）
-        config = Settings(
-            MEDIA_ENGINE_API_KEY=engine_key,
-            MEDIA_ENGINE_BASE_URL=settings.MEDIA_ENGINE_BASE_URL,
-            MEDIA_ENGINE_MODEL_NAME=model_name,
-            BOCHA_WEB_SEARCH_API_KEY=bocha_key,
-            MAX_REFLECTIONS=max_reflections,
-            SEARCH_CONTENT_MAX_LENGTH=max_content_length,
-            OUTPUT_DIR="media_engine_streamlit_reports",
-        )
+        if bocha_key:
+            logger.info("使用Bocha搜索API密钥")
+            config = Settings(
+                MEDIA_ENGINE_API_KEY=engine_key,
+                MEDIA_ENGINE_BASE_URL=settings.MEDIA_ENGINE_BASE_URL,
+                MEDIA_ENGINE_MODEL_NAME=model_name,
+                BOCHA_WEB_SEARCH_API_KEY=bocha_key,
+                MAX_REFLECTIONS=max_reflections,
+                SEARCH_CONTENT_MAX_LENGTH=max_content_length,
+                OUTPUT_DIR="media_engine_streamlit_reports",
+            )
+        elif ansire_key:
+            logger.info("使用Anspire搜索API密钥")
+            config = Settings(
+                MEDIA_ENGINE_API_KEY=engine_key,
+                MEDIA_ENGINE_BASE_URL=settings.MEDIA_ENGINE_BASE_URL,
+                MEDIA_ENGINE_MODEL_NAME=model_name,
+                ANSPIRE_API_KEY=ansire_key,
+                MAX_REFLECTIONS=max_reflections,
+                SEARCH_CONTENT_MAX_LENGTH=max_content_length,
+                OUTPUT_DIR="media_engine_streamlit_reports",
+            )
 
         # 执行研究
         execute_research(query, config)
@@ -134,7 +148,10 @@ def execute_research(query: str, config: Settings):
 
         # 初始化Agent
         status_text.text("正在初始化Agent...")
-        agent = DeepSearchAgent(config)
+        if config.BOCHA_WEB_SEARCH_API_KEY:
+            agent = DeepSearchAgent(config)
+        else:
+            agent = AnspireSearchAgent(config)
         st.session_state.agent = agent
 
         progress_bar.progress(10)
