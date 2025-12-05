@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 from loguru import logger
 
+from ReportEngine.ir.schema import ENGINE_AGENT_TITLES
 from ReportEngine.utils.chart_validator import (
     ChartValidator,
     ChartRepairer,
@@ -47,6 +48,7 @@ class HTMLRenderer:
         "math",
         "figure",
         "kpiGrid",
+        "engineQuote",
     }
     INLINE_ARTIFACT_KEYS = {
         "props",
@@ -1020,6 +1022,7 @@ class HTMLRenderer:
             "list": self._render_list,
             "table": self._render_table,
             "blockquote": self._render_blockquote,
+            "engineQuote": self._render_engine_quote,
             "hr": lambda b: "<hr />",
             "code": self._render_code,
             "math": self._render_math,
@@ -1281,6 +1284,24 @@ class HTMLRenderer:
         """渲染引用块，可嵌套其他block"""
         inner = self._render_blocks(block.get("blocks", []))
         return f"<blockquote>{inner}</blockquote>"
+
+    def _render_engine_quote(self, block: Dict[str, Any]) -> str:
+        """渲染单Engine发言块，带独立配色与标题"""
+        engine_raw = (block.get("engine") or "").lower()
+        engine = engine_raw if engine_raw in ENGINE_AGENT_TITLES else "insight"
+        expected_title = ENGINE_AGENT_TITLES.get(engine, ENGINE_AGENT_TITLES["insight"])
+        title_raw = block.get("title") if isinstance(block.get("title"), str) else ""
+        title = title_raw if title_raw == expected_title else expected_title
+        inner = self._render_blocks(block.get("blocks", []))
+        return (
+            f'<div class="engine-quote engine-{self._escape_attr(engine)}">'
+            f'  <div class="engine-quote__header">'
+            f'    <span class="engine-quote__dot"></span>'
+            f'    <span class="engine-quote__title">{self._escape_html(title)}</span>'
+            f'  </div>'
+            f'  <div class="engine-quote__body">{inner}</div>'
+            f'</div>'
+        )
 
     def _render_code(self, block: Dict[str, Any]) -> str:
         """渲染代码块，附带语言信息"""
@@ -2392,6 +2413,16 @@ class HTMLRenderer:
   --card-bg: {card};
   --border-color: {border};
   --shadow-color: {shadow};
+  --engine-insight-bg: #f4f7ff;
+  --engine-insight-border: #dce7ff;
+  --engine-insight-text: #1f4b99;
+  --engine-media-bg: #fff6ec;
+  --engine-media-border: #ffd9b3;
+  --engine-media-text: #b65a1a;
+  --engine-query-bg: #f1fbf5;
+  --engine-query-border: #c7ebd6;
+  --engine-query-text: #1d6b3f;
+  --engine-quote-shadow: 0 12px 30px rgba(0,0,0,0.04);
 }}
 .dark-mode {{
   --bg-color: #121212;
@@ -2405,6 +2436,16 @@ class HTMLRenderer:
   --card-bg: #1f1f1f;
   --border-color: #2c2c2c;
   --shadow-color: rgba(0, 0, 0, 0.4);
+  --engine-insight-bg: rgba(145, 202, 255, 0.08);
+  --engine-insight-border: rgba(145, 202, 255, 0.45);
+  --engine-insight-text: #9dc2ff;
+  --engine-media-bg: rgba(255, 196, 138, 0.08);
+  --engine-media-border: rgba(255, 196, 138, 0.45);
+  --engine-media-text: #ffcb9b;
+  --engine-query-bg: rgba(141, 215, 165, 0.08);
+  --engine-query-border: rgba(141, 215, 165, 0.45);
+  --engine-query-text: #a7e2ba;
+  --engine-quote-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
 }}
 * {{ box-sizing: border-box; }}
 body {{
@@ -2416,7 +2457,7 @@ body {{
   min-height: 100vh;
   transition: background-color 0.45s ease, color 0.45s ease;
 }}
-.report-header, main, .hero-section, .chapter, .chart-card, .callout, .kpi-card, .toc, .table-wrap {{
+.report-header, main, .hero-section, .chapter, .chart-card, .callout, .engine-quote, .kpi-card, .toc, .table-wrap {{
   transition: background-color 0.45s ease, color 0.45s ease, border-color 0.45s ease, box-shadow 0.45s ease;
 }}
 .report-header {{
@@ -2785,6 +2826,49 @@ blockquote {{
   background: rgba(0,0,0,0.04);
   border-radius: 0 8px 8px 0;
 }}
+.engine-quote {{
+  --engine-quote-bg: var(--engine-insight-bg);
+  --engine-quote-border: var(--engine-insight-border);
+  --engine-quote-text: var(--engine-insight-text);
+  margin: 22px 0;
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: 1px solid var(--engine-quote-border);
+  background: var(--engine-quote-bg);
+  box-shadow: var(--engine-quote-shadow);
+  line-height: 1.65;
+}}
+.engine-quote__header {{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 650;
+  color: var(--engine-quote-text);
+  margin-bottom: 8px;
+  letter-spacing: 0.02em;
+}}
+.engine-quote__dot {{
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--engine-quote-text);
+  box-shadow: 0 0 0 8px rgba(0,0,0,0.02);
+}}
+.engine-quote__title {{
+  font-size: 0.98rem;
+}}
+.engine-quote__body > *:first-child {{ margin-top: 0; }}
+.engine-quote__body > *:last-child {{ margin-bottom: 0; }}
+.engine-quote.engine-media {{
+  --engine-quote-bg: var(--engine-media-bg);
+  --engine-quote-border: var(--engine-media-border);
+  --engine-quote-text: var(--engine-media-text);
+}}
+.engine-quote.engine-query {{
+  --engine-quote-bg: var(--engine-query-bg);
+  --engine-quote-border: var(--engine-query-border);
+  --engine-quote-text: var(--engine-query-text);
+}}
 .table-wrap {{
   overflow-x: auto;
   margin: 20px 0;
@@ -3020,34 +3104,35 @@ pre.code-block {{
   }}
   .chapter > *,
   .hero-section,
-.callout,
-.chart-card,
-.kpi-grid,
-.table-wrap,
-figure,
-blockquote {{
-  break-inside: avoid;
-  page-break-inside: avoid;
-  max-width: 100%;
-}}
-.chapter h2,
-.chapter h3,
-.chapter h4 {{
-  break-after: avoid;
-  page-break-after: avoid;
-  break-inside: avoid;
-}}
-.chart-card,
-.table-wrap {{
-  overflow: visible !important;
-  max-width: 100% !important;
-  box-sizing: border-box;
-}}
-.chart-card canvas {{
-  width: 100% !important;
-  height: auto !important;
-  max-width: 100% !important;
-}}
+  .callout,
+  .engine-quote,
+  .chart-card,
+  .kpi-grid,
+  .table-wrap,
+  figure,
+  blockquote {{
+    break-inside: avoid;
+    page-break-inside: avoid;
+    max-width: 100%;
+  }}
+  .chapter h2,
+  .chapter h3,
+  .chapter h4 {{
+    break-after: avoid;
+    page-break-after: avoid;
+    break-inside: avoid;
+  }}
+  .chart-card,
+  .table-wrap {{
+    overflow: visible !important;
+    max-width: 100% !important;
+    box-sizing: border-box;
+  }}
+  .chart-card canvas {{
+    width: 100% !important;
+    height: auto !important;
+    max-width: 100% !important;
+  }}
 .table-wrap {{
   overflow-x: auto;
   max-width: 100%;

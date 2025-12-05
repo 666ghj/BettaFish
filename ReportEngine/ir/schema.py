@@ -34,6 +34,7 @@ ALLOWED_BLOCK_TYPES: List[str] = [
     "list",
     "table",
     "blockquote",
+    "engineQuote",
     "hr",
     "code",
     "math",
@@ -43,6 +44,12 @@ ALLOWED_BLOCK_TYPES: List[str] = [
     "widget",
     "toc",
 ]
+
+ENGINE_AGENT_TITLES: Dict[str, str] = {
+    "insight": "Insight Agent",
+    "media": "Media Agent",
+    "query": "Query Agent",
+}
 
 # ====== Schema定义 ======
 inline_mark_schema: Dict[str, Any] = {
@@ -174,6 +181,36 @@ blockquote_block: Dict[str, Any] = {
         "variant": {"type": "string"},
     },
     "required": ["type", "blocks"],
+    "additionalProperties": True,
+}
+
+engine_quote_block: Dict[str, Any] = {
+    "title": "EngineQuoteBlock",
+    "type": "object",
+    "properties": {
+        "type": {"const": "engineQuote"},
+        "engine": {"type": "string", "enum": ["insight", "media", "query"]},
+        "title": {"type": "string"},
+        "blocks": {
+            "type": "array",
+            "items": {"$ref": "#/definitions/block"},
+        },
+    },
+    "required": ["type", "engine", "blocks", "title"],
+    "allOf": [
+        {
+            "if": {"properties": {"engine": {"const": "insight"}}},
+            "then": {"properties": {"title": {"const": ENGINE_AGENT_TITLES["insight"]}}},
+        },
+        {
+            "if": {"properties": {"engine": {"const": "media"}}},
+            "then": {"properties": {"title": {"const": ENGINE_AGENT_TITLES["media"]}}},
+        },
+        {
+            "if": {"properties": {"engine": {"const": "query"}}},
+            "then": {"properties": {"title": {"const": ENGINE_AGENT_TITLES["query"]}}},
+        },
+    ],
     "additionalProperties": True,
 }
 
@@ -315,6 +352,7 @@ block_variants: List[Dict[str, Any]] = [
     list_block,
     table_block,
     blockquote_block,
+    engine_quote_block,
     hr_block,
     code_block,
     math_block,
@@ -366,4 +404,5 @@ __all__ = [
     "ALLOWED_BLOCK_TYPES",
     "CHAPTER_JSON_SCHEMA",
     "CHAPTER_JSON_SCHEMA_TEXT",
+    "ENGINE_AGENT_TITLES",
 ]

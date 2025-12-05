@@ -42,6 +42,33 @@ tasks_registry: Dict[str, 'ReportTask'] = {}
 LOG_STREAM_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
 log_stream_handler_id: Optional[int] = None
 
+EXCLUDED_ENGINE_PATH_KEYWORDS = ("ForumEngine", "InsightEngine", "MediaEngine", "QueryEngine")
+
+def _is_excluded_engine_log(record: Dict[str, Any]) -> bool:
+    """
+    判断日志是否来自其他引擎（Insight/Media/Query/Forum），用于过滤混入的日志。
+
+    返回:
+        bool: True 表示应当过滤（即不写入/不转发）。
+    """
+    try:
+        file_path = record["file"].path
+        if any(keyword in file_path for keyword in EXCLUDED_ENGINE_PATH_KEYWORDS):
+            return True
+    except Exception:
+        pass
+
+    # 兜底：尝试按模块名过滤，防止file信息缺失时误混入
+    try:
+        module_name = record.get("module", "")
+        if isinstance(module_name, str):
+            lowered = module_name.lower()
+            return any(keyword.lower() in lowered for keyword in EXCLUDED_ENGINE_PATH_KEYWORDS)
+    except Exception:
+        pass
+
+    return False
+
 
 def _stream_log_to_task(message):
     """
@@ -53,6 +80,8 @@ def _stream_log_to_task(message):
         record = message.record
         level_name = record["level"].name
         if level_name not in LOG_STREAM_LEVELS:
+            return
+        if _is_excluded_engine_log(record):
             return
 
         with task_lock:

@@ -16,7 +16,12 @@ from typing import Any, Dict, List, Tuple, Callable, Optional, Set
 from loguru import logger
 
 from ..core import TemplateSection, ChapterStorage
-from ..ir import ALLOWED_BLOCK_TYPES, ALLOWED_INLINE_MARKS, IRValidator
+from ..ir import (
+    ALLOWED_BLOCK_TYPES,
+    ALLOWED_INLINE_MARKS,
+    ENGINE_AGENT_TITLES,
+    IRValidator,
+)
 from ..prompts import (
     SYSTEM_PROMPT_CHAPTER_JSON,
     SYSTEM_PROMPT_CHAPTER_JSON_REPAIR,
@@ -889,7 +894,7 @@ class ChapterGenerationNode(BaseNode):
                         block["items"] = normalized
                     for entry in block.get("items", []):
                         walk(entry)
-                elif block_type in {"callout", "blockquote"}:
+                elif block_type in {"callout", "blockquote", "engineQuote"}:
                     walk(block.get("blocks"))
                 elif block_type == "table":
                     for row in block.get("rows", []):
@@ -994,7 +999,7 @@ class ChapterGenerationNode(BaseNode):
                     total += walk(item)
                 return total
 
-            if block_type in {"blockquote", "callout"}:
+            if block_type in {"blockquote", "callout", "engineQuote"}:
                 return walk(node.get("blocks"))
 
             if block_type == "table":
@@ -1015,7 +1020,7 @@ class ChapterGenerationNode(BaseNode):
 
     def _count_narrative_characters(self, blocks: Any) -> int:
         """
-        统计paragraph/callout/list/blockquote等叙述性结构的字符数，避免被表格/图表“刷长”。
+        统计paragraph/callout/list/blockquote/engineQuote等叙述性结构的字符数，避免被表格/图表“刷长”。
         """
 
         def walk(node: Any) -> int:
@@ -1037,7 +1042,7 @@ class ChapterGenerationNode(BaseNode):
                 for item in node.get("items", []):
                     total += walk(item)
                 return total
-            if block_type in {"callout", "blockquote"}:
+            if block_type in {"callout", "blockquote", "engineQuote"}:
                 return walk(node.get("blocks"))
 
             # list项可能是匿名dict，兼容性遍历
@@ -1072,11 +1077,65 @@ class ChapterGenerationNode(BaseNode):
             self._normalize_paragraph_block(block)
         elif block_type == "table":
             self._sanitize_table_block(block)
+        elif block_type == "engineQuote":
+            self._sanitize_engine_quote_block(block)
 
     def _sanitize_table_block(self, block: Dict[str, Any]):
         """保证表格的rows/cells结构合法且每个单元格包含至少一个block"""
         rows = self._normalize_table_rows(block.get("rows"))
         block["rows"] = rows
+
+    def _sanitize_engine_quote_block(self, block: Dict[str, Any]):
+        """engineQuote仅用于单Agent发言，内部仅允许paragraph且title需锁定Agent名称"""
+        engine_raw = block.get("engine")
+        engine = engine_raw.lower() if isinstance(engine_raw, str) else None
+        if engine not in ENGINE_AGENT_TITLES:
+            engine = "insight"
+        block["engine"] = engine
+        block["title"] = ENGINE_AGENT_TITLES[engine]
+        allowed_marks = {"bold", "italic"}
+        raw_blocks = block.get("blocks")
+        candidates = raw_blocks if isinstance(raw_blocks, list) else ([raw_blocks] if raw_blocks else [])
+        sanitized_blocks: List[Dict[str, Any]] = []
+
+        for item in candidates:
+            if isinstance(item, dict) and item.get("type") == "paragraph":
+                para = dict(item)
+            else:
+                text = self._extract_block_text(item) if isinstance(item, dict) else (item or "")
+                para = self._as_paragraph_block(str(text))
+
+            inlines = para.get("inlines")
+            if not isinstance(inlines, list) or not inlines:
+                inlines = [self._as_inline_run(self._extract_block_text(para))]
+
+            cleaned_inlines: List[Dict[str, Any]] = []
+            for run in inlines:
+                if isinstance(run, dict):
+                    text_val = run.get("text")
+                    text_str = text_val if isinstance(text_val, str) else ("" if text_val is None else str(text_val))
+                    marks_raw = run.get("marks") if isinstance(run.get("marks"), list) else []
+                    marks_filtered: List[Dict[str, Any]] = []
+                    for mark in marks_raw:
+                        if not isinstance(mark, dict):
+                            continue
+                        mark_type = mark.get("type")
+                        if mark_type in allowed_marks:
+                            marks_filtered.append({"type": mark_type})
+                    cleaned_inlines.append({"text": text_str, "marks": marks_filtered})
+                else:
+                    cleaned_inlines.append(self._as_inline_run(str(run)))
+
+            if not cleaned_inlines:
+                cleaned_inlines.append(self._as_inline_run(""))
+            para["inlines"] = cleaned_inlines
+            para["type"] = "paragraph"
+            para.pop("blocks", None)
+            sanitized_blocks.append(para)
+
+        if not sanitized_blocks:
+            sanitized_blocks.append(self._as_paragraph_block(""))
+        block["blocks"] = sanitized_blocks
 
     def _normalize_table_rows(self, rows: Any) -> List[Dict[str, Any]]:
         """确保rows始终是由row对象组成的列表"""
@@ -1250,9 +1309,9 @@ class ChapterGenerationNode(BaseNode):
         return merged
 
     def _merge_nested_fragments(self, block: Dict[str, Any]) -> Dict[str, Any]:
-        """对嵌套结构（callout/list/table）递归处理片段合并"""
+        """对嵌套结构（callout/blockquote/engineQuote/list/table）递归处理片段合并"""
         block_type = block.get("type")
-        if block_type in {"callout", "blockquote"}:
+        if block_type in {"callout", "blockquote", "engineQuote"}:
             nested = block.get("blocks")
             if isinstance(nested, list):
                 block["blocks"] = self._merge_fragment_sequences(nested)
