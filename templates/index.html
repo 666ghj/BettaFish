@@ -2818,17 +2818,8 @@
                 const response = await fetch(SYSTEM_SHUTDOWN_ENDPOINT, { method: 'POST', signal: controller.signal });
                 clearTimeout(timeoutId);
 
-                let message = '系统正在关闭，请稍等...';
-                if (response.ok) {
-                    try {
-                        const data = await response.json();
-                        if (data && data.message) {
-                            message = data.message;
-                        }
-                    } catch (error) {
-                        console.warn('关闭响应解析失败，使用默认提示');
-                    }
-                } else {
+                const message = '系统正在停止，请稍候...';
+                if (!response.ok) {
                     throw new Error(`服务返回 ${response.status}`);
                 }
 
@@ -2836,8 +2827,8 @@
                 showMessage(message, 'success');
             } catch (error) {
                 const text = error.name === 'AbortError'
-                    ? '关闭指令已发送，服务即将退出'
-                    : `关闭失败: ${error.message}`;
+                    ? '停止指令已发送，请稍候退出'
+                    : `停止失败: ${error.message}`;
                 showMessage(text, error.name === 'AbortError' ? 'success' : 'error');
 
                 if (error.name !== 'AbortError') {
