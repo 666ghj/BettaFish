@@ -50,7 +50,7 @@ class DeepSearchAgent:
         # 确保输出目录存在
         os.makedirs(self.config.OUTPUT_DIR, exist_ok=True)
         
-        logger.info(f"Meida Agent已初始化")
+        logger.info(f"Media Agent已初始化")
         logger.info(f"使用LLM: {self.llm_client.get_model_info()}")
         logger.info(f"搜索工具集: BochaMultimodalSearch (支持5种多模态搜索工具)")
     
@@ -440,15 +440,55 @@ class AnspireSearchAgent(DeepSearchAgent):
     """调用Anspire搜索引擎的Deep Search Agent"""
     
     def __init__(self, config: Settings | None = None):
-        super().__init__(config)
-        # TODO: 初始化Anspire搜索工具
-        # self.search_agency = AnspireAISearch(api_key=self.config.ANSPIRE_API_KEY)
+        self.config = config or settings
+        
+        # 初始化LLM客户端
+        self.llm_client = self._initialize_llm()
+        
+        # 初始化搜索工具集
+        self.search_agency = AnspireAISearch(api_key=self.config.ANSPIRE_API_KEY)
+
+        # 初始化节点
+        self._initialize_nodes()
+        
+        # 状态
+        self.state = State()
+        
+        # 确保输出目录存在
+        os.makedirs(self.config.OUTPUT_DIR, exist_ok=True)
+        
+        logger.info(f"Media Agent已初始化")
+        logger.info(f"使用LLM: {self.llm_client.get_model_info()}")
+        logger.info(f"搜索工具集: AnspireSearch")
 
     def execute_search_tool(self, tool_name: str, query: str, **kwargs) -> AnspireResponse:
         # TODO: 使用Anspire搜索工具执行搜索
-        pass
-
-
+        """
+        执行指定的搜索工具
+        
+        Args:
+            tool_name: 工具名称，可选值：
+                - "comprehensive_search": 全面综合搜索（默认）
+                - "search_last_24_hours": 24小时内最新信息
+                - "search_last_week": 本周信息
+            query: 搜索查询
+            **kwargs: 额外参数（如max_results）
+            
+        Returns:
+            AnspireResponse对象
+        """
+        logger.info(f"  → 执行搜索工具: {tool_name}")
+        
+        if tool_name == "comprehensive_search":
+            max_results = kwargs.get("max_results", 10)
+            return self.search_agency.comprehensive_search(query, max_results)
+        elif tool_name == "search_last_24_hours":
+            return self.search_agency.search_last_24_hours(query)
+        elif tool_name == "search_last_week":
+            return self.search_agency.search_last_week(query)
+        else:
+            logger.info(f"  ⚠️  未知的搜索工具: {tool_name}，使用默认综合搜索")
+            return self.search_agency.comprehensive_search(query)
 
 
 def create_agent(config_file: Optional[str] = None) -> DeepSearchAgent:
@@ -462,4 +502,6 @@ def create_agent(config_file: Optional[str] = None) -> DeepSearchAgent:
         DeepSearchAgent实例
     """
     settings = Settings()
+    if settings.ANSPIRE_API_KEY:
+        return AnspireSearchAgent(settings)
     return DeepSearchAgent(settings)

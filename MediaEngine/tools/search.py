@@ -23,6 +23,7 @@
 import os
 import json
 import sys
+import datetime
 from typing import List, Dict, Any, Optional, Literal
 
 from loguru import logger
@@ -88,8 +89,10 @@ class BochaResponse:
 @dataclass
 class AnspireResponse:
     """封装 Anspire API 的完整返回结果，以便在工具间传递"""
-    # TODO: 根据 Anspire API 的实际返回结构定义字段
-    pass
+    query: str
+    conversation_id: Optional[str] = None
+    score: Optional[float] = None
+    webpages: List[WebpageResult] = field(default_factory=list)
 
 
 # --- 2. 核心客户端与专用工具集 ---
@@ -187,6 +190,7 @@ class BochaMultimodalSearch:
         payload.update(kwargs)
 
         try:
+
             response = requests.post(self.BOCHA_BASE_URL, headers=self._headers, json=payload, timeout=30)
             response.raise_for_status()  # 如果HTTP状态码是4xx或5xx，则抛出异常
 
@@ -265,8 +269,112 @@ class AnspireAISearch:
     """
     Anspire AI Search 客户端
     """
-    # TODO: 实现 Anspire AI Search 客户端
-    pass
+    ANSPIRE_BASE_URL = settings.ANSPIRE_BASE_URL or "https://plugin.anspire.cn/api/ntsearch/search"
+
+    def __init__(self, api_key: Optional[str] = None):
+        """
+        初始化客户端。
+        Args:
+            api_key: Anspire API密钥，若不提供则从环境变量 ANSPIRE_API_KEY 读取。
+        """
+        if api_key is None:
+            api_key = settings.ANSPIRE_API_KEY
+            if not api_key:
+                raise ValueError("Anspire API Key未找到！请设置 ANSPIRE_API_KEY 环境变量或在初始化时提供")
+
+        self._headers = {
+            'Authorization': f'Bearer {api_key}',
+            'Content-Type': 'application/json',
+            'Connection': 'keep-alive',
+            'Accept': '*/*'
+        }
+
+    def _parse_search_response(self, response_dict: Dict[str, Any], query: str) -> AnspireResponse:
+        final_response = AnspireResponse(query=query)
+        final_response.conversation_id = response_dict.get('Uuid')
+
+        messages = response_dict.get("results", [])
+        for msg in messages:
+            try:
+                content_data = json.loads(msg)
+            except json.JSONDecodeError:
+                content_data = msg
+
+            final_response.score = content_data.get("score")
+            final_response.webpages.append(WebpageResult(
+                name = content_data.get("title", ""),
+                url = content_data.get("url", ""),
+                snippet = content_data.get("content", ""),
+                date_last_crawled = content_data.get("date", None)
+            ))
+
+        return final_response
+    
+    @with_graceful_retry(SEARCH_API_RETRY_CONFIG, default_return=AnspireResponse(query="搜索失败"))
+    def _search_internal(self, **kwargs) -> AnspireResponse:
+        """内部通用的搜索执行器，所有工具最终都调用此方法"""
+        query = kwargs.get("query", "Unknown Query")
+        payload = {
+            "query": query,
+            "top_k": kwargs.get("top_k", 10),
+            "Insite": kwargs.get("Insite", ""),
+            "FromTime": kwargs.get("FromTime", ""),
+            "ToTime": kwargs.get("ToTime", "")
+        }
+        
+        try:
+            response = requests.get(self.ANSPIRE_BASE_URL, headers=self._headers, params=payload, timeout=30)
+            response.raise_for_status()  # 如果HTTP状态码是4xx或5xx，则抛出异常
+
+            response_dict = response.json()
+            if response_dict.get("code") != 200:
+                logger.error(f"API返回错误: {response_dict.get('msg', '未知错误')}")
+                return AnspireResponse(query=query)
+            
+            return self._parse_search_response(response_dict, query)
+        except requests.exceptions.RequestException as e:
+            logger.exception(f"搜索时发生网络错误: {str(e)}")
+            raise e  # 让重试机制捕获并处理
+        except Exception as e:
+            logger.exception(f"处理响应时发生未知错误: {str(e)}")
+            raise e  # 让重试机制捕获并处理
+    
+    def comprehensive_search(self, query: str, max_results: int = 10) -> AnspireResponse:
+        """
+        【工具】综合搜索: 获取关于某个主题的全面信息，包括网页。
+        适用于需要多种信息来源的场景。
+        """
+        logger.info(f"--- TOOL: 综合搜索 (query: {query}) ---")
+        return self._search_internal(
+            query=query,
+            top_k=max_results
+        )
+
+    def search_last_24_hours(self, query: str, max_results: int = 10) -> AnspireResponse:
+        """
+        【工具】搜索24小时内信息: 获取关于某个主题的最新动态。
+        此工具专门查找过去24小时内发布的内容。适用于追踪突发事件或最新进展。
+        """
+        logger.info(f"--- TOOL: 搜索24小时内信息 (query: {query}) ---")
+        to_time = datetime.datetime.now()
+        from_time = to_time - datetime.timedelta(days=1)
+        return self._search_internal(query=query,
+                                     top_k=max_results,
+                                     FromTime=from_time.strftime("%Y-%m-%d %H:%M:%S"), 
+                                     ToTime=to_time.strftime("%Y-%m-%d %H:%M:%S"))
+
+    def search_last_week(self, query: str, max_results: int = 10) -> AnspireResponse:
+        """
+        【工具】搜索本周信息: 获取关于某个主题过去一周内的主要报道。
+        适用于进行周度舆情总结或回顾。
+        """
+        logger.info(f"--- TOOL: 搜索本周信息 (query: {query}) ---")
+        to_time = datetime.datetime.now()
+        from_time = to_time - datetime.timedelta(weeks=1)
+        return self._search_internal(query=query,
+                                     top_k=max_results,
+                                     FromTime=from_time.strftime("%Y-%m-%d %H:%M:%S"),
+                                     ToTime=to_time.strftime("%Y-%m-%d %H:%M:%S"))
 
 
 # --- 3. 测试与使用示例 ---

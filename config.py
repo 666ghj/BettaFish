@@ -83,6 +83,11 @@ class Settings(BaseSettings):
     # Bocha API（申请地址：https://open.bochaai.com/）
     BOCHA_BASE_URL: Optional[str] = Field("https://api.bocha.cn/v1/ai-search", description="Bocha AI 搜索BaseUrl或博查网页搜索BaseUrl")
     BOCHA_WEB_SEARCH_API_KEY: Optional[str] = Field(None, description="Bocha API（申请地址：https://open.bochaai.com/）API密钥，用于Bocha搜索")
+
+    # Anspire AI Search API（申请地址：https://open.anspire.cn/）
+    ANSPIRE_BASE_URL: Optional[str] = Field("https://plugin.anspire.cn/api/ntsearch/search", description="Anspire AI 搜索BaseUrl")
+    ANSPIRE_API_KEY: Optional[str] = Field(None, description="Anspire AI Search API（申请地址：https://open.anspire.cn/）API密钥，用于Anspire搜索")
+
     
     # ================== Insight Engine 搜索配置 ====================
     DEFAULT_SEARCH_HOT_CONTENT_LIMIT: int = Field(100, description="热榜内容默认最大数")
