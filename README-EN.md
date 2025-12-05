@@ -488,7 +488,7 @@ python main.py --deep-sentiment --platforms xhs dy wb
 
 #### 6.4 Command-line Report Generation Tool
 
-If you don't need the Web interface, you can use the command-line tool to generate reports directly. This tool automatically retrieves the latest report files from the three analysis engines, skips file addition verification, and directly generates comprehensive reports.
+This tool bypasses the execution phase of all three analysis engines, directly loads their most recent log files, and generates a consolidated report without requiring the Web interface (while also skipping incremental file-validation steps). It is typically used when rapid retries are needed due to unsatisfactory report outputs, or when debugging the Report Engine.
 
 ```bash
 # Basic usage (automatically extract topic from filename)
