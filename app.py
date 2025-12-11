@@ -1152,7 +1152,7 @@ def search():
     
     # 向运行中的应用发送搜索请求
     results = {}
-    api_ports = {'insight': 8601, 'media': 8602, 'query': 8603}
+    api_ports = {'insight': 8501, 'media': 8502, 'query': 8503}
     
     for app_name in running_apps:
         try:
