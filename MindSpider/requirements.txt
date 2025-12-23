@@ -36,7 +36,7 @@ pytz
 # ===============================
 # MediaCrawler爬虫依赖
 # ===============================
-Pillow>=10.0.0
+Pillow>=10.0.0,<11  # 限制版本以兼容 streamlit 1.28.1 (要求 pillow<11)
 playwright==1.45.0
 tenacity==8.2.2
 opencv-python
