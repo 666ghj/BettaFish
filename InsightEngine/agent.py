@@ -95,10 +95,13 @@ class DeepSearchAgent:
     def _get_clustering_model(self):
         """懒加载聚类模型"""
         if self._clustering_model is None:
-            logger.info("  加载聚类模型 (paraphrase-multilingual-MiniLM-L12-v2)...")
-            self._clustering_model = SentenceTransformer(
-                "paraphrase-multilingual-MiniLM-L12-v2"
-            )
+            # 从配置中获取嵌入模型名称
+            model_name = self.config.EMBEDDING_MODEL_NAME or "paraphrase-multilingual-MiniLM-L12-v2"
+            logger.info(f"  加载聚类模型 ({model_name})...")
+
+            # 如果配置了远程API，则使用API模式（未来扩展）
+            # 目前仅支持本地模型加载
+            self._clustering_model = SentenceTransformer(model_name)
         return self._clustering_model
 
     def _validate_date_format(self, date_str: str) -> bool:
@@ -587,8 +590,12 @@ class DeepSearchAgent:
         """执行初始搜索和总结"""
         paragraph = self.state.paragraphs[paragraph_index]
 
-        # 准备搜索输入
-        search_input = {"title": paragraph.title, "content": paragraph.content}
+        # 准备搜索输入（包含原始查询，确保搜索不跑偏）
+        search_input = {
+            "query": self.state.query,
+            "title": paragraph.title,
+            "content": paragraph.content
+        }
 
         # 生成搜索查询和工具选择
         logger.info("  - 生成搜索查询...")
@@ -740,8 +747,9 @@ class DeepSearchAgent:
         for reflection_i in range(self.config.MAX_REFLECTIONS):
             logger.info(f"  - 反思 {reflection_i + 1}/{self.config.MAX_REFLECTIONS}...")
 
-            # 准备反思输入
+            # 准备反思输入（包含原始查询，确保搜索不跑偏）
             reflection_input = {
+                "query": self.state.query,
                 "title": paragraph.title,
                 "content": paragraph.content,
                 "paragraph_latest_state": paragraph.research.latest_summary,

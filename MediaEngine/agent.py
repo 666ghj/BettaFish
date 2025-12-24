@@ -210,8 +210,9 @@ class DeepSearchAgent:
         """执行初始搜索和总结"""
         paragraph = self.state.paragraphs[paragraph_index]
         
-        # 准备搜索输入
+        # 准备搜索输入（包含原始查询，确保搜索不跑偏）
         search_input = {
+            "query": self.state.query,
             "title": paragraph.title,
             "content": paragraph.content
         }
@@ -295,8 +296,9 @@ class DeepSearchAgent:
         for reflection_i in range(self.config.MAX_REFLECTIONS):
             logger.info(f"  - 反思 {reflection_i + 1}/{self.config.MAX_REFLECTIONS}...")
             
-            # 准备反思输入
+            # 准备反思输入（包含原始查询，确保搜索不跑偏）
             reflection_input = {
+                "query": self.state.query,
                 "title": paragraph.title,
                 "content": paragraph.content,
                 "paragraph_latest_state": paragraph.research.latest_summary

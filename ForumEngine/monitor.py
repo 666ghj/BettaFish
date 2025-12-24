@@ -9,6 +9,7 @@ from pathlib import Path
 from datetime import datetime
 import re
 import json
+import uuid
 from typing import Dict, Optional, List
 from threading import Lock
 from loguru import logger
@@ -49,6 +50,9 @@ class LogMonitor:
         self.agent_speeches_buffer = []  # agent发言缓冲区
         self.host_speech_threshold = 5  # 每5条agent发言触发一次主持人发言
         self.is_host_generating = False  # 主持人是否正在生成发言
+
+        # 搜索会话ID（用于隔离不同搜索的HOST发言）
+        self.current_search_id = None  # 当前搜索会话ID
        
         # 目标节点识别模式
         # 1. 类名（旧格式可能包含）
@@ -80,15 +84,19 @@ class LogMonitor:
         try:
             if self.forum_log_file.exists():
                 self.forum_log_file.unlink()
-           
+
+            # 生成新的搜索会话ID
+            self.current_search_id = str(uuid.uuid4())[:8]  # 使用8位短ID
+
             # 创建新的forum.log文件并写入开始标记
             start_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             # 使用write_to_forum_log函数来写入开始标记，确保格式一致
             with open(self.forum_log_file, 'w', encoding='utf-8') as f:
                 pass  # 先创建空文件
             self.write_to_forum_log(f"=== ForumEngine 监控开始 - {start_time} ===", "SYSTEM")
-               
-            logger.info(f"ForumEngine: forum.log 已清空并初始化")
+            self.write_to_forum_log(f"=== 搜索会话ID: {self.current_search_id} ===", "SYSTEM")
+
+            logger.info(f"ForumEngine: forum.log 已清空并初始化，搜索会话ID: {self.current_search_id}")
             
             # 重置JSON捕获状态
             self.capturing_json = {}
@@ -112,8 +120,10 @@ class LogMonitor:
                     # 将内容中的实际换行符转换为\n字符串，确保整个记录在一行
                     content_one_line = content.replace('\n', '\\n').replace('\r', '\\r')
                     # 如果提供了来源标签，则在时间戳后添加
+                    # 格式: [时间戳] [来源] [搜索ID] 内容
                     if source:
-                        f.write(f"[{timestamp}] [{source}] {content_one_line}\n")
+                        search_id_tag = f"[{self.current_search_id}]" if self.current_search_id else ""
+                        f.write(f"[{timestamp}] [{source}] {search_id_tag} {content_one_line}\n")
                     else:
                         f.write(f"[{timestamp}] {content_one_line}\n")
                     f.flush()
@@ -673,6 +683,8 @@ class LogMonitor:
                         # 写入结束标记
                         end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                         self.write_to_forum_log(f"=== ForumEngine 论坛结束 - {end_time} ===", "SYSTEM")
+                        # 重置搜索会话ID
+                        self.current_search_id = None
                         # logger.info("ForumEngine: 已重置基线，等待下次FirstSummaryNode触发")
                     elif not any_growth and not captured_any:
                         # 没有增长也没有捕获内容，增加非活跃计数
@@ -687,6 +699,8 @@ class LogMonitor:
                             # 写入结束标记
                             end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                             self.write_to_forum_log(f"=== ForumEngine 论坛结束 - {end_time} ===", "SYSTEM")
+                            # 重置搜索会话ID
+                            self.current_search_id = None
                     else:
                         self.search_inactive_count = 0  # 重置计数器
                
@@ -736,7 +750,9 @@ class LogMonitor:
             # 写入结束标记
             end_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             self.write_to_forum_log(f"=== ForumEngine 论坛结束 - {end_time} ===", "SYSTEM")
-           
+            # 重置搜索会话ID
+            self.current_search_id = None
+
             logger.info("ForumEngine: 论坛已停止")
            
         except Exception as e:

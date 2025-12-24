@@ -110,10 +110,18 @@ class ReportStructureNode(StateMutationNode):
             if not isinstance(report_structure, list):
                 logger.info("报告结构不是列表，尝试转换...")
                 if isinstance(report_structure, dict):
-                    # 如果是单个对象，包装成列表
-                    report_structure = [report_structure]
+                    # 检查是否是包装的Schema格式（包含"items"字段）
+                    if "items" in report_structure:
+                        logger.info("检测到Schema格式，提取items字段")
+                        report_structure = report_structure["items"]
+                        if not isinstance(report_structure, list):
+                            logger.error("items字段不是列表，使用默认结构")
+                            return self._generate_default_structure()
+                    else:
+                        # 如果是单个对象，包装成列表
+                        report_structure = [report_structure]
                 else:
-                    logger.error("报告结构格式无效，使用默认结构")
+                    logger.exception("报告结构格式无效，使用默认结构")
                     return self._generate_default_structure()
             
             # 验证每个段落

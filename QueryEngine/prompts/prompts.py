@@ -23,9 +23,11 @@ output_schema_report_structure = {
 input_schema_first_search = {
     "type": "object",
     "properties": {
+        "query": {"type": "string", "description": "原始查询主题，必须在搜索查询中体现"},
         "title": {"type": "string"},
         "content": {"type": "string"}
-    }
+    },
+    "required": ["query", "title", "content"]
 }
 
 # 首次搜索输出Schema
@@ -36,7 +38,8 @@ output_schema_first_search = {
         "search_tool": {"type": "string"},
         "reasoning": {"type": "string"},
         "start_date": {"type": "string", "description": "开始日期，格式YYYY-MM-DD，仅search_news_by_date工具需要"},
-        "end_date": {"type": "string", "description": "结束日期，格式YYYY-MM-DD，仅search_news_by_date工具需要"}
+        "end_date": {"type": "string", "description": "结束日期，格式YYYY-MM-DD，仅search_news_by_date工具需要"},
+        "time_filter": {"type": "string", "description": "时间过滤器，对于search_news_last_24_hours和search_news_last_week会自动应用"}
     },
     "required": ["search_query", "search_tool", "reasoning"]
 }
@@ -67,10 +70,12 @@ output_schema_first_summary = {
 input_schema_reflection = {
     "type": "object",
     "properties": {
+        "query": {"type": "string", "description": "原始查询主题，必须在搜索查询中体现"},
         "title": {"type": "string"},
         "content": {"type": "string"},
         "paragraph_latest_state": {"type": "string"}
-    }
+    },
+    "required": ["query", "title", "content", "paragraph_latest_state"]
 }
 
 # 反思输出Schema
@@ -81,7 +86,8 @@ output_schema_reflection = {
         "search_tool": {"type": "string"},
         "reasoning": {"type": "string"},
         "start_date": {"type": "string", "description": "开始日期，格式YYYY-MM-DD，仅search_news_by_date工具需要"},
-        "end_date": {"type": "string", "description": "结束日期，格式YYYY-MM-DD，仅search_news_by_date工具需要"}
+        "end_date": {"type": "string", "description": "结束日期，格式YYYY-MM-DD，仅search_news_by_date工具需要"},
+        "time_filter": {"type": "string", "description": "时间过滤器，对于search_news_last_24_hours和search_news_last_week会自动应用"}
     },
     "required": ["search_query", "search_tool", "reasoning"]
 }
@@ -305,22 +311,87 @@ SYSTEM_PROMPT_REFLECTION = f"""
 
 # 总结反思的系统提示词
 SYSTEM_PROMPT_REFLECTION_SUMMARY = f"""
-你是一位深度研究助手。
-你将获得搜索查询、搜索结果、段落标题以及你正在研究的报告段落的预期内容。
-你正在迭代完善这个段落，并且段落的最新状态也会提供给你。
+你是一位资深的新闻分析专家和内容深化专家。
+你正在对已有的新闻分析报告段落进行深度优化和内容扩充，让其更加全面、深入、有说服力。
 数据将按照以下JSON模式定义提供：
 
 <INPUT JSON SCHEMA>
-{json.dumps(input_schema_reflection_summary, indent=2, ensure_ascii=False)}
+{{json.dumps(input_schema_reflection_summary, indent=2, ensure_ascii=False)}}
 </INPUT JSON SCHEMA>
 
-你的任务是根据搜索结果和预期内容丰富段落的当前最新状态。
-不要删除最新状态中的关键信息，尽量丰富它，只添加缺失的信息。
-适当地组织段落结构以便纳入报告中。
+**你的核心任务：大幅丰富和深化段落内容（目标：每段1000-1500字）**
+
+**内容扩充策略：**
+
+1. **保留精华，大量补充**：
+   - 保留原段落的核心观点和重要新闻事实
+   - 大量增加新的新闻来源、数据点和分析层次
+   - 用新搜索到的新闻验证、补充或修正之前的观点
+
+2. **新闻数据密集化处理**：
+   - **新增新闻来源**：更多权威媒体的报道和评论
+   - **新增事实细节**：时间线、地点、人物、事件详情
+   - **新增数据支撑**：统计数字、调查结果、官方数据
+   - **新增观点对比**：不同媒体、专家、机构的观点对比
+
+3. **结构化内容组织**：
+   ```
+   ### 核心事实（更新版）
+   [整合原有事实和新增事实]
+
+   ### 事件时间线深化
+   [补充更详细的事件发展脉络]
+
+   ### 多源报道对比
+   [不同新闻来源的内容对比和互补]
+
+   ### 深层背景分析
+   [基于更多数据的背景解读]
+
+   ### 影响和意义评估
+   [综合所有信息得出的新判断]
+
+   ### 专家观点整合
+   [权威专家的多维度分析]
+   ```
+
+4. **多维度深化分析**：
+   - **横向比较**：不同媒体、机构、专家的报道和观点对比
+   - **纵向追踪**：事件随时间的发展变化和趋势演进
+   - **因果分析**：深入剖析事件的前因后果和内在逻辑
+   - **影响评估**：事件对各方面的影响和意义
+
+5. **具体扩充要求**：
+   - **原创内容保持率**：保留原段落70%的核心内容
+   - **新增内容比例**：新增内容不少于原内容的100%
+   - **数据引用密度**：每200字至少包含3-5个具体新闻事实或数据
+   - **来源多样性**：至少引用5-8个不同的新闻来源
+
+6. **质量提升标准**：
+   - **事实准确性**：所有事实都有明确的新闻来源支撑
+   - **信息密度**：大幅提升信息含量，减少空话套话
+   - **论证充分**：每个观点都有充分的新闻事实和数据支撑
+   - **层次丰富**：从表面新闻到深层原因的多层次分析
+   - **视角多元**：体现不同媒体、时期、角度的观点差异
+
+7. **语言表达优化**：
+   - 更加精准、客观的新闻语言
+   - 用事实和数据说话，让每句话都有价值
+   - 平衡专业性和可读性
+   - 突出重点，形成有力的论证链条
+
+**内容丰富度检查清单**：
+- [ ] 是否包含足够多的新闻事实和数据支撑？
+- [ ] 是否引用了多样化的权威新闻来源？
+- [ ] 是否进行了多层次的深度分析？
+- [ ] 是否体现了不同维度的对比和趋势？
+- [ ] 是否具有较强的客观性和说服力？
+- [ ] 是否达到了预期的字数和信息密度要求？
+
 请按照以下JSON模式定义格式化输出：
 
 <OUTPUT JSON SCHEMA>
-{json.dumps(output_schema_reflection_summary, indent=2, ensure_ascii=False)}
+{{json.dumps(output_schema_reflection_summary, indent=2, ensure_ascii=False)}}
 </OUTPUT JSON SCHEMA>
 
 确保输出是一个符合上述输出JSON模式定义的JSON对象。

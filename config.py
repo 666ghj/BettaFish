@@ -75,7 +75,22 @@ class Settings(BaseSettings):
     KEYWORD_OPTIMIZER_API_KEY: Optional[str] = Field(None, description="SQL Keyword Optimizer（推荐 qwen-plus，官方申请地址：https://www.aliyun.com/product/bailian）API 密钥")
     KEYWORD_OPTIMIZER_BASE_URL: Optional[str] = Field(None, description="Keyword Optimizer BaseUrl，可按所选服务配置")
     KEYWORD_OPTIMIZER_MODEL_NAME: Optional[str] = Field(None, description="Keyword Optimizer LLM 模型名称，例如 qwen-plus")
-    
+
+    # ================== Embedding 模型相关 ====================
+    # 文本嵌入模型（用于文本聚类、语义搜索等场景）
+    EMBEDDING_MODEL_NAME: str = Field(
+        "paraphrase-multilingual-MiniLM-L12-v2",
+        description="嵌入模型名称，支持本地模型（如 paraphrase-multilingual-MiniLM-L12-v2, Qwen/Qwen3-Embedding-0.6B）或远程API"
+    )
+    EMBEDDING_MODEL_BASE_URL: Optional[str] = Field(
+        None,
+        description="嵌入模型API地址（可选），用于远程嵌入服务，留空则使用本地模型"
+    )
+    EMBEDDING_MODEL_API_KEY: Optional[str] = Field(
+        None,
+        description="嵌入模型API密钥（可选），使用远程嵌入服务时需要"
+    )
+
     # ================== GraphRAG 配置 ====================
     GRAPHRAG_ENABLED: bool = Field(False, description="是否启用GraphRAG知识图谱功能（true/false）")
     GRAPHRAG_MAX_QUERIES: int = Field(3, description="GraphRAG每个章节生成前的最大查询次数")

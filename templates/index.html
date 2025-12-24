@@ -2277,9 +2277,9 @@
         const SYSTEM_SHUTDOWN_ENDPOINT = '/api/system/shutdown';
         const START_BUTTON_DEFAULT_TEXT = '保存并启动系统';
         const APP_PORTS = {
-            insight: 8501,
-            media: 8502,
-            query: 8503
+            insight: 7501,
+            media: 7502,
+            query: 7503
         };
 
         // ---------------- GraphRAG 开关与配置同步 ----------------
@@ -2374,6 +2374,15 @@
                     { key: 'KEYWORD_OPTIMIZER_API_KEY', label: 'API Key', type: 'password' },
                     { key: 'KEYWORD_OPTIMIZER_BASE_URL', label: 'Base URL' },
                     { key: 'KEYWORD_OPTIMIZER_MODEL_NAME', label: '模型名称' }
+                ]
+            },
+            {
+                title: 'Embedding 嵌入模型',
+                subtitle: '用于文本聚类和语义搜索，推荐模型：Qwen/Qwen3-Embedding-0.6B',
+                fields: [
+                    { key: 'EMBEDDING_MODEL_API_KEY', label: 'API Key（可选）', type: 'password' },
+                    { key: 'EMBEDDING_MODEL_BASE_URL', label: 'Base URL（可选）' },
+                    { key: 'EMBEDDING_MODEL_NAME', label: '模型名称' }
                 ]
             },
             {
@@ -3339,7 +3348,7 @@
 
             // 向所有运行中的应用发送搜索请求（通过刷新iframe传递参数）
             let totalRunning = 0;
-            const ports = { insight: 8501, media: 8502, query: 8503 };
+            const ports = { insight: 7501, media: 7502, query: 7503 };
 
             Object.keys(appStatus).forEach(app => {
                 if (appStatus[app] === 'running' && ports[app]) {
@@ -3821,7 +3830,7 @@ function getConsoleContainer() {
                 return preloadedIframes[app];
             }
 
-            const ports = { insight: 8501, media: 8502, query: 8503 };
+            const ports = { insight: 7501, media: 7502, query: 7503 };
             if (!ports[app]) {
                 console.warn(`未知的应用: ${app}`);
                 return null;

@@ -23,9 +23,11 @@ output_schema_report_structure = {
 input_schema_first_search = {
     "type": "object",
     "properties": {
+        "query": {"type": "string", "description": "原始查询主题，必须在搜索查询中体现"},
         "title": {"type": "string"},
         "content": {"type": "string"}
-    }
+    },
+    "required": ["query", "title", "content"]
 }
 
 # 首次搜索输出Schema
@@ -34,7 +36,9 @@ output_schema_first_search = {
     "properties": {
         "search_query": {"type": "string"},
         "search_tool": {"type": "string"},
-        "reasoning": {"type": "string"}
+        "reasoning": {"type": "string"},
+        "time_filter": {"type": "string", "description": "时间过滤器，search_last_24_hours和search_last_week工具会自动应用，comprehensive_search可选"},
+        "data_type": {"type": "string", "description": "期望的数据类型，search_for_structured_data工具可能需要，可选值：weather, stock, exchange_rate, wiki等"}
     },
     "required": ["search_query", "search_tool", "reasoning"]
 }
@@ -65,10 +69,12 @@ output_schema_first_summary = {
 input_schema_reflection = {
     "type": "object",
     "properties": {
+        "query": {"type": "string", "description": "原始查询主题，必须在搜索查询中体现"},
         "title": {"type": "string"},
         "content": {"type": "string"},
         "paragraph_latest_state": {"type": "string"}
-    }
+    },
+    "required": ["query", "title", "content", "paragraph_latest_state"]
 }
 
 # 反思输出Schema
@@ -77,7 +83,9 @@ output_schema_reflection = {
     "properties": {
         "search_query": {"type": "string"},
         "search_tool": {"type": "string"},
-        "reasoning": {"type": "string"}
+        "reasoning": {"type": "string"},
+        "time_filter": {"type": "string", "description": "时间过滤器，search_last_24_hours和search_last_week工具会自动应用，comprehensive_search可选"},
+        "data_type": {"type": "string", "description": "期望的数据类型，search_for_structured_data工具可能需要，可选值：weather, stock, exchange_rate, wiki等"}
     },
     "required": ["search_query", "search_tool", "reasoning"]
 }
@@ -143,6 +151,8 @@ SYSTEM_PROMPT_FIRST_SEARCH = f"""
 {json.dumps(input_schema_first_search, indent=2, ensure_ascii=False)}
 </INPUT JSON SCHEMA>
 
+**⚠️ 关键要求：你将收到一个原始查询主题(query字段)，这是用户想要了解的核心话题。你的搜索查询必须围绕这个原始主题展开，段落标题(title)只是指导你从哪个角度分析这个原始主题。**
+
 你可以使用以下5种专业的多模态搜索工具：
 
 1. **comprehensive_search** - 全面综合搜索工具
@@ -166,9 +176,10 @@ SYSTEM_PROMPT_FIRST_SEARCH = f"""
    - 特点：搜索过去一周内的主要报道
 
 你的任务是：
-1. 根据段落主题选择最合适的搜索工具
-2. 制定最佳的搜索查询
-3. 解释你的选择理由
+1. **识别原始查询主题**：从输入的query字段获取用户真正想了解的话题
+2. **精准选择查询工具**：根据段落主题选择最合适的搜索工具
+3. **设计搜索查询**：**🔴 强制要求：搜索词必须直接使用query字段的原词**，不要用更具体的子话题、品牌名、型号名、事件名替换原词。保持查询的通用性，不要缩小范围
+4. **阐述选择理由**：解释为什么这样的查询和工具选择能够获得最相关的信息
 
 注意：所有工具都不需要额外参数，选择工具主要基于搜索意图和需要的信息类型。
 请按照以下JSON模式定义格式化输出（文字请使用中文）：
@@ -269,6 +280,8 @@ SYSTEM_PROMPT_REFLECTION = f"""
 {json.dumps(input_schema_reflection, indent=2, ensure_ascii=False)}
 </INPUT JSON SCHEMA>
 
+**⚠️ 关键要求：你将收到一个原始查询主题(query字段)，这是用户想要了解的核心话题。你的搜索查询必须围绕这个原始主题展开，段落标题只是指导你从哪个角度分析这个原始主题。**
+
 你可以使用以下5种专业的多模态搜索工具：
 
 1. **comprehensive_search** - 全面综合搜索工具
@@ -278,10 +291,11 @@ SYSTEM_PROMPT_REFLECTION = f"""
 5. **search_last_week** - 本周信息搜索工具
 
 你的任务是：
-1. 反思段落文本的当前状态，思考是否遗漏了主题的某些关键方面
-2. 选择最合适的搜索工具来补充缺失信息
-3. 制定精确的搜索查询
-4. 解释你的选择和推理
+1. **识别原始查询主题**：从输入的query字段获取用户真正想了解的话题
+2. **反思内容质量**：反思段落文本的当前状态，思考是否遗漏了主题的某些关键方面
+3. **精准补充查询**：选择最合适的搜索工具来补充缺失信息
+4. **设计搜索查询**：**搜索词中必须体现query字段的内容**，不要用更具体的子话题替换原词
+5. **阐述选择理由**：解释你的选择和推理
 
 注意：所有工具都不需要额外参数，选择工具主要基于搜索意图和需要的信息类型。
 请按照以下JSON模式定义格式化输出：
@@ -296,22 +310,89 @@ SYSTEM_PROMPT_REFLECTION = f"""
 
 # 总结反思的系统提示词
 SYSTEM_PROMPT_REFLECTION_SUMMARY = f"""
-你是一位深度研究助手。
-你将获得搜索查询、搜索结果、段落标题以及你正在研究的报告段落的预期内容。
-你正在迭代完善这个段落，并且段落的最新状态也会提供给你。
+你是一位资深的多媒体内容分析师和内容深化专家。
+你正在对已有的多媒体分析报告段落进行深度优化和内容扩充，让其更加全面、深入、有说服力。
 数据将按照以下JSON模式定义提供：
 
 <INPUT JSON SCHEMA>
-{json.dumps(input_schema_reflection_summary, indent=2, ensure_ascii=False)}
+{{json.dumps(input_schema_reflection_summary, indent=2, ensure_ascii=False)}}
 </INPUT JSON SCHEMA>
 
-你的任务是根据搜索结果和预期内容丰富段落的当前最新状态。
-不要删除最新状态中的关键信息，尽量丰富它，只添加缺失的信息。
-适当地组织段落结构以便纳入报告中。
+**你的核心任务：大幅丰富和深化段落内容（目标：每段1000-1500字）**
+
+**内容扩充策略：**
+
+1. **保留精华，大量补充**：
+   - 保留原段落的核心观点和重要发现
+   - 大量增加新的数据点、多媒体信息和分析层次
+   - 用新搜索到的数据验证、补充或修正之前的观点
+
+2. **多模态数据密集化处理**：
+   - **新增文字内容**：更多的网页摘要、文章引用、观点分析
+   - **新增图片解读**：5-10张代表性图片的详细描述和情感分析
+   - **AI总结升级**：
+     * 对比分析：新旧AI总结的差异和互补
+     * 细分分析：不同搜索工具返回的AI总结的侧重点
+     * 趋势演变：基于多轮搜索的趋势判断
+   - **结构化数据补充**：更多的量化指标和精确数据
+
+3. **结构化内容组织**：
+   ```
+   ### 核心发现（更新版）
+   [整合原有发现和新发现]
+
+   ### 多模态数据画像
+   [原有数据 + 新增数据的综合分析]
+
+   ### 视觉与文字的交织呈现
+   [原有内容 + 新增图片和文本的多角度展示]
+
+   ### 深层洞察升级
+   [基于更多数据的深度分析]
+
+   ### 趋势和模式识别
+   [综合所有数据得出的新规律]
+
+   ### 跨媒体对比分析
+   [不同信息源、媒体类型、时间点的对比]
+   ```
+
+4. **多维度深化分析**：
+   - **横向比较**：不同网站、媒体、信息源的内容对比
+   - **纵向追踪**：事件或话题随时间的发展变化
+   - **关联分析**：文字、图片、数据之间的关联性和一致性
+   - **影响评估**：多媒体内容对公众认知的影响分析
+
+5. **具体扩充要求**：
+   - **原创内容保持率**：保留原段落70%的核心内容
+   - **新增内容比例**：新增内容不少于原内容的100%
+   - **数据引用密度**：每200字至少包含3-5个具体数据点
+   - **多媒体元素密度**：每段至少包含8-12处图片描述或视觉元素分析
+
+6. **质量提升标准**：
+   - **信息密度**：大幅提升信息含量，减少空话套话
+   - **论证充分**：每个观点都有充分的数据和实例支撑
+   - **层次丰富**：从表面现象到深层原因的多层次分析
+   - **视角多元**：体现不同媒体、信息源、时期的观点差异
+
+7. **语言表达优化**：
+   - 更加精准、生动的语言表达
+   - 用数据和视觉元素说话，让每句话都有价值
+   - 平衡专业性和可读性
+   - 突出重点，形成有力的论证链条
+
+**内容丰富度检查清单**：
+- [ ] 是否包含足够多的具体数据和统计信息？
+- [ ] 是否详细描述了足够多样化的图片和视觉元素？
+- [ ] 是否进行了多层次的深度分析？
+- [ ] 是否体现了不同维度的对比和趋势？
+- [ ] 是否具有较强的说服力和可读性？
+- [ ] 是否达到了预期的字数和信息密度要求？
+
 请按照以下JSON模式定义格式化输出：
 
 <OUTPUT JSON SCHEMA>
-{json.dumps(output_schema_reflection_summary, indent=2, ensure_ascii=False)}
+{{json.dumps(output_schema_reflection_summary, indent=2, ensure_ascii=False)}}
 </OUTPUT JSON SCHEMA>
 
 确保输出是一个符合上述输出JSON模式定义的JSON对象。
