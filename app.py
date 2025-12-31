@@ -782,10 +782,11 @@ def check_app_status():
                 info['process'] = None
                 info['status'] = 'stopped'
 
-def wait_for_app_startup(app_name, max_wait_time=90):
+def wait_for_app_startup(app_name, max_wait_time=30):
     """等待应用启动完成"""
     import time
     start_time = time.time()
+    last_exc = None
     while time.time() - start_time < max_wait_time:
         info = processes[app_name]
         if info['process'] is None:
@@ -804,11 +805,15 @@ def wait_for_app_startup(app_name, max_wait_time=90):
                 info['status'] = 'running'
                 return True, "启动成功"
         except Exception as exc:
-            logger.warning(f"{app_name} 健康检查失败: {exc}")
+            last_exc = exc
 
         time.sleep(1)
 
-    return False, "启动超时"
+    timeout_message = f"启动超时（{max_wait_time}s）"
+    if last_exc is not None:
+        timeout_message = f"{timeout_message}: {last_exc}"
+    logger.error(f"{app_name} {timeout_message}")
+    return False, timeout_message
 
 def cleanup_processes():
     """清理所有进程"""
@@ -964,7 +969,7 @@ def start_app(app_name):
 
     if success:
         # 等待应用启动
-        startup_success, startup_message = wait_for_app_startup(app_name, 15)
+        startup_success, startup_message = wait_for_app_startup(app_name, 30)
         if not startup_success:
             message += f" 但启动检查失败: {startup_message}"
     
