@@ -782,7 +782,7 @@ def check_app_status():
                 info['process'] = None
                 info['status'] = 'stopped'
 
-def wait_for_app_startup(app_name, max_wait_time=30):
+def wait_for_app_startup(app_name, max_wait_time=15):
     """等待应用启动完成"""
     import time
     start_time = time.time()
