@@ -300,7 +300,7 @@ def initialize_system_components():
             success, message = start_streamlit_app(app_name, script_path, processes[app_name]['port'])
             logs.append(f"{app_name}: {message}")
             if success:
-                startup_success, startup_message = wait_for_app_startup(app_name, 30)
+                startup_success, startup_message = wait_for_app_startup(app_name, 15)
                 logs.append(f"{app_name} 启动检查: {startup_message}")
                 if not startup_success:
                     errors.append(f"{app_name} 启动失败: {startup_message}")
@@ -969,7 +969,7 @@ def start_app(app_name):
 
     if success:
         # 等待应用启动
-        startup_success, startup_message = wait_for_app_startup(app_name, 30)
+        startup_success, startup_message = wait_for_app_startup(app_name, 15)
         if not startup_success:
             message += f" 但启动检查失败: {startup_message}"
     
