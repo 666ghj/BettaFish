@@ -53,6 +53,7 @@ class LogMonitor:
 
         # 搜索会话ID（用于隔离不同搜索的HOST发言）
         self.current_search_id = None  # 当前搜索会话ID
+        self.last_search_id_time = 0  # 上次生成搜索会话ID的时间戳
        
         # 目标节点识别模式
         # 1. 类名（旧格式可能包含）
@@ -621,7 +622,32 @@ class LogMonitor:
                         # 立即读取新增内容
                         new_lines = self.read_new_lines(log_file, app_name)
                        
-                        # 先检查是否需要触发搜索（只触发一次）
+                        # 先检查Agent初始化（在所有状态下都检测）
+                        for line in new_lines:
+                            # 检查是否是Agent初始化（提前生成搜索会话ID）
+                            if 'Agent已初始化' in line and (app_name.upper() in ['INSIGHT', 'MEDIA', 'QUERY']):
+                                # 时间窗口保护：5秒内只生成一次会话ID
+                                # 这样可以避免同一次查询的多个Agent初始化时重复生成会话ID
+                                current_time = time.time()
+                                if current_time - self.last_search_id_time < 5:
+                                    logger.debug(f"ForumEngine: 检测到{app_name} Agent初始化，但距上次生成会话ID不足5秒，跳过")
+                                    continue
+
+                                logger.info(f"ForumEngine: 检测到{app_name} Agent初始化，准备新的搜索会话")
+                                import uuid
+                                # 生成新的搜索会话ID（无论当前处于什么状态）
+                                self.current_search_id = str(uuid.uuid4())[:8]
+                                self.last_search_id_time = current_time
+                                # 写入新会话ID标记
+                                self.write_to_forum_log(f"=== 搜索会话ID: {self.current_search_id} ===", "SYSTEM")
+                                logger.info(f"ForumEngine: 已生成新的搜索会话ID: {self.current_search_id}")
+                                # 重置搜索状态，准备新一轮搜索
+                                self.is_searching = False
+                                self.search_inactive_count = 0
+                                # 清空主持人缓冲区，避免混淆不同搜索的发言
+                                self.agent_speeches_buffer = []
+
+                        # 检查是否需要触发搜索（只触发一次）
                         if not self.is_searching:
                             for line in new_lines:
                                 # 检查是否包含目标节点模式（支持多种格式）
@@ -631,8 +657,13 @@ class LogMonitor:
                                         logger.info(f"ForumEngine: 在{app_name}中检测到第一次论坛发表内容")
                                         self.is_searching = True
                                         self.search_inactive_count = 0
-                                        # 清空forum.log开始新会话
-                                        self.clear_forum_log()
+                                        # 不再清空forum.log，只进入搜索状态
+                                        # 如果之前没有生成搜索会话ID，这里生成一个（兜底机制）
+                                        if not self.current_search_id:
+                                            import uuid
+                                            self.current_search_id = str(uuid.uuid4())[:8]
+                                            self.write_to_forum_log(f"=== 搜索会话ID: {self.current_search_id} ===", "SYSTEM")
+                                            logger.info(f"ForumEngine: 已生成搜索会话ID: {self.current_search_id}")
                                         break  # 找到一个就够了，跳出循环
                        
                         # 处理所有新增内容（如果正在搜索状态）
