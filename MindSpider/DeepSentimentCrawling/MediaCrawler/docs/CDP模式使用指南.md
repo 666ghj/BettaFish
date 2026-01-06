@@ -16,11 +16,20 @@ CDP（Chrome DevTools Protocol）模式是一种高级的反检测爬虫技术�
 
 ### 1. 启用CDP模式
 
+CDP模式支持两种方式：
+- **本地浏览器模式**: 使用本地安装的Chrome/Edge浏览器
+- **wuying-agentbay-sdk模式**: 使用远程浏览器session（需要API Key）
+
+#### 方式一：本地浏览器模式
+
 在 `config/base_config.py` 中设置：
 
 ```python
 # 启用CDP模式
 ENABLE_CDP_MODE = True
+
+# 使用本地浏览器（默认）
+ENABLE_WUYING_CDP_MODE = False
 
 # CDP调试端口（可选，默认9222）
 CDP_DEBUG_PORT = 9222
@@ -30,6 +39,38 @@ CDP_HEADLESS = False
 
 # 程序结束时是否自动关闭浏览器
 AUTO_CLOSE_BROWSER = True
+```
+
+#### 方式二：wuying-agentbay-sdk模式
+
+1. **安装 wuying-agentbay-sdk**:
+```bash
+# 直接安装 PyPI 版本（推荐）
+pip install wuying-agentbay-sdk
+```
+注意：代码已自动支持同步和异步两种版本的 SDK，会自动适配。
+
+2. **配置API Key**:
+```python
+# 在 config/base_config.py 中设置
+ENABLE_CDP_MODE = True
+ENABLE_WUYING_CDP_MODE = True
+AGENTBAY_API_KEY = "your_api_key_here"  # 或设置环境变量 AGENTBAY_API_KEY
+AGENTBAY_IMAGE_ID = "browser_latest"  # 可选，默认为 browser_latest
+
+# 无头模式配置（agentbay 模式下也支持）
+CDP_HEADLESS = False  # 建议设为 False 以获得最佳反检测效果
+```
+
+或者使用环境变量：
+```bash
+export AGENTBAY_API_KEY="your_api_key_here"
+```
+
+3. **启用配置**:
+```python
+ENABLE_CDP_MODE = True
+ENABLE_WUYING_CDP_MODE = True
 ```
 
 ### 2. 运行测试
@@ -49,11 +90,19 @@ python main.py
 | 配置项 | 类型 | 默认值 | 说明 |
 |--------|------|--------|------|
 | `ENABLE_CDP_MODE` | bool | False | 是否启用CDP模式 |
-| `CDP_DEBUG_PORT` | int | 9222 | CDP调试端口 |
-| `CDP_HEADLESS` | bool | False | CDP模式下的无头模式 |
+| `ENABLE_WUYING_CDP_MODE` | bool | False | 是否使用 wuying-agentbay-sdk 模式 |
+| `CDP_DEBUG_PORT` | int | 9222 | CDP调试端口（仅本地浏览器模式） |
+| `CDP_HEADLESS` | bool | False | CDP模式下的无头模式（本地浏览器模式和 agentbay 模式均支持） |
 | `AUTO_CLOSE_BROWSER` | bool | True | 程序结束时是否关闭浏览器 |
 
-### 高级配置
+### wuying-agentbay-sdk 配置
+
+| 配置项 | 类型 | 默认值 | 说明 |
+|--------|------|--------|------|
+| `AGENTBAY_API_KEY` | str | "" | wuying-agentbay-sdk 的 API Key |
+| `AGENTBAY_IMAGE_ID` | str | "browser_latest" | wuying-agentbay-sdk 的镜像 ID |
+
+### 高级配置（仅本地浏览器模式）
 
 | 配置项 | 类型 | 默认值 | 说明 |
 |--------|------|--------|------|
@@ -137,7 +186,22 @@ python main.py
 
 ### 常见问题
 
-#### 1. 浏览器检测失败
+#### 1. wuying-agentbay-sdk 未安装
+**错误**: `wuying-agentbay-sdk 未安装，将使用本地浏览器模式`
+
+**解决方案**:
+- 安装 wuying-agentbay-sdk: `pip install wuying-agentbay-sdk`
+- 或者设置 `ENABLE_WUYING_CDP_MODE = False` 使用本地浏览器模式
+
+#### 2. wuying-agentbay-sdk API Key 未设置
+**错误**: `使用 wuying-agentbay-sdk 需要设置 AGENTBAY_API_KEY 配置项`
+
+**解决方案**:
+- 在配置文件中设置 `AGENTBAY_API_KEY = "your_api_key"`
+- 或设置环境变量 `export AGENTBAY_API_KEY="your_api_key"`
+- 或在 `.env` 文件中设置 `AGENTBAY_API_KEY=your_api_key`
+
+#### 3. 浏览器检测失败（仅本地浏览器模式）
 **错误**: `未找到可用的浏览器`
 
 **解决方案**:
@@ -145,7 +209,7 @@ python main.py
 - 检查浏览器是否在标准路径下
 - 使用`CUSTOM_BROWSER_PATH`指定浏览器路径
 
-#### 2. 端口被占用
+#### 4. 端口被占用（仅本地浏览器模式）
 **错误**: `无法找到可用的端口`
 
 **解决方案**:
@@ -153,7 +217,7 @@ python main.py
 - 修改`CDP_DEBUG_PORT`为其他端口
 - 系统会自动尝试下一个可用端口
 
-#### 3. 浏览器启动超时
+#### 5. 浏览器启动超时（仅本地浏览器模式）
 **错误**: `浏览器在30秒内未能启动`
 
 **解决方案**:
@@ -161,7 +225,7 @@ python main.py
 - 检查系统资源是否充足
 - 尝试关闭其他占用资源的程序
 
-#### 4. CDP连接失败
+#### 6. CDP连接失败
 **错误**: `CDP连接失败`
 
 **解决方案**:
@@ -198,7 +262,8 @@ ps aux | grep chrome
 ## 最佳实践
 
 ### 1. 反检测优化
-- 保持`CDP_HEADLESS = False`以获得最佳反检测效果
+- 保持`CDP_HEADLESS = False`以获得最佳反检测效果（本地浏览器模式和 agentbay 模式均适用）
+- 在 agentbay 模式下，headless 模式通过 `cmd_args` 参数控制，代码会自动处理
 - 使用真实的User-Agent字符串
 - 避免过于频繁的请求
 
@@ -221,15 +286,33 @@ ps aux | grep chrome
 
 CDP模式的工作原理：
 
+### 本地浏览器模式
+
 1. **浏览器检测**: 自动扫描系统中的Chrome/Edge安装路径
 2. **进程启动**: 使用`--remote-debugging-port`参数启动浏览器
 3. **CDP连接**: 通过WebSocket连接到浏览器的调试接口
 4. **Playwright集成**: 使用`connectOverCDP`方法接管浏览器控制
 5. **上下文管理**: 创建或复用浏览器上下文进行操作
 
+### wuying-agentbay-sdk 模式
+
+1. **Session创建**: 通过 AgentBay SDK 创建远程浏览器 session
+2. **浏览器初始化**: 使用 `BrowserOption` 配置浏览器参数（包括 headless 模式）
+3. **CDP端点获取**: 从远程 session 获取 CDP WebSocket 端点 URL
+4. **Playwright集成**: 使用`connectOverCDP`方法连接到远程浏览器
+5. **上下文管理**: 创建或复用浏览器上下文进行操作
+6. **资源清理**: 程序结束时自动删除远程 session
+
+**Headless 模式控制**: 在 agentbay 模式下，通过 `BrowserOption` 的 `cmd_args` 参数传递 `--headless=new` 来控制无头模式，代码会根据 `CDP_HEADLESS` 配置自动处理。
+
 这种方式绕过了传统WebDriver的检测机制，提供了更加隐蔽的自动化能力。
 
 ## 更新日志
+
+### v1.1.0
+- 新增 wuying-agentbay-sdk 支持
+- 支持使用远程浏览器 session
+- 自动回退到本地浏览器模式（如果 SDK 未安装）
 
 ### v1.0.0
 - 初始版本发布

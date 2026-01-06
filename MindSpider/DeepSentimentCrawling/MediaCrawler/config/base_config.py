@@ -39,7 +39,13 @@ SAVE_LOGIN_STATE = True
 # 这种方式使用真实的浏览器环境，包括用户的扩展、Cookie和设置，大大降低被检测的风险
 ENABLE_CDP_MODE = True
 
-# CDP调试端口，用于与浏览器通信
+# 是否使用 wuying-agentbay-sdk 创建 session 并连接浏览器
+# 如果设置为 True，将使用 wuying-agentbay-sdk 创建远程浏览器 session
+# 需要设置 AGENTBAY_API_KEY
+# 如果设置为 False，将使用本地浏览器通过 CDP 连接
+ENABLE_WUYING_CDP_MODE = False
+
+# CDP调试端口，用于与浏览器通信（仅本地浏览器模式）
 # 如果端口被占用，系统会自动尝试下一个可用端口
 CDP_DEBUG_PORT = 9222
 

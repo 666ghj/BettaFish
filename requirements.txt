@@ -85,3 +85,6 @@ flake8>=6.0.0
 # ===== Web服务器 =====
 fastapi==0.110.2
 uvicorn==0.29.0
+
+# ===== wuying-agentbay-sdk =====
+wuying-agentbay-sdk>=0.12.0
