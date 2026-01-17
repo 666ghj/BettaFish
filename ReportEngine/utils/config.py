@@ -75,6 +75,32 @@ class Settings(BaseSettings):
         default=3, description="GraphRAG每章节查询次数上限"
     )
 
+    # 报告压缩配置
+    ENABLE_REPORT_COMPRESSION: bool = Field(
+        default=True, description="是否启用报告压缩以避免上下文超限"
+    )
+    SUMMARY_STRATEGY: str = Field(
+        default="rule", description="摘要策略：rule=规则提取, llm=LLM摘要, hybrid=混合"
+    )
+    SUMMARY_COMPRESSION_RATIO: float = Field(
+        default=0.35, description="摘要目标压缩率（0.3-0.4推荐）"
+    )
+    EXTRACTION_STRATEGY: str = Field(
+        default="keyword", description="提取策略：keyword=关键词匹配, embedding=语义相似度"
+    )
+    EXTRACTION_MAX_RATIO: float = Field(
+        default=0.5, description="章节提取内容最大比例（相对原文）"
+    )
+    KEYWORD_MATCH_THRESHOLD: int = Field(
+        default=2, description="段落至少匹配的关键词数量"
+    )
+    KEEP_CONTEXT_PARAGRAPHS: bool = Field(
+        default=True, description="提取时是否保留匹配段落的上下文"
+    )
+    CONTEXT_PARAGRAPHS_COUNT: int = Field(
+        default=1, description="保留的上下文段落数量（前后各N段）"
+    )
+
     class Config:
         """Pydantic配置：允许从.env读取并兼容大小写"""
         env_file = ".env"
@@ -109,5 +135,10 @@ def print_config(config: Settings):
     message += f"PDF 导出: {config.ENABLE_PDF_EXPORT}\n"
     message += f"图表样式: {config.CHART_STYLE}\n"
     message += f"LLM API Key: {'已配置' if config.REPORT_ENGINE_API_KEY else '未配置'}\n"
+    message += f"报告压缩: {config.ENABLE_REPORT_COMPRESSION}\n"
+    if config.ENABLE_REPORT_COMPRESSION:
+        message += f"  摘要策略: {config.SUMMARY_STRATEGY}\n"
+        message += f"  压缩率: {config.SUMMARY_COMPRESSION_RATIO:.0%}\n"
+        message += f"  提取策略: {config.EXTRACTION_STRATEGY}\n"
     message += "=========================\n"
     logger.info(message)

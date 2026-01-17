@@ -11,17 +11,18 @@ services:
       - PYTHONUNBUFFERED=1
       - STREAMLIT_SERVER_ENABLE_FILE_WATCHER=false
     ports:
-      - "5000:5000"
+      - "5001:5000"
       - "8501:8501"
       - "8502:8502"
       - "8503:8503"
     volumes:
       - ./logs:/app/logs
       - ./final_reports:/app/final_reports
-      - ./.env:/app/.env  
+      - ./.env:/app/.env
       - ./insight_engine_streamlit_reports:/app/insight_engine_streamlit_reports
       - ./media_engine_streamlit_reports:/app/media_engine_streamlit_reports
       - ./query_engine_streamlit_reports:/app/query_engine_streamlit_reports
+      - ./ReportEngine:/app/ReportEngine
 
   db:
     image: postgres:15

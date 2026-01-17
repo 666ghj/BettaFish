@@ -234,13 +234,20 @@ class ReportAgent:
         
         # 初始化节点
         self._initialize_nodes()
-        
+
         # 初始化文件数量基准
         self._initialize_file_baseline()
-        
+
+        # 初始化报告压缩器
+        from .utils.report_compressor import ReportCompressor
+        self.report_compressor = ReportCompressor(
+            config=self.config,
+            llm_client=self.llm_client if self.config.SUMMARY_STRATEGY == "llm" else None
+        )
+
         # 状态
         self.state = ReportState()
-        
+
         # GraphRAG 状态数据（每次 load_input_files 时重置）
         self._loaded_states = {}
         
@@ -476,6 +483,14 @@ class ReportAgent:
 
         normalized_reports = self._normalize_reports(reports)
 
+        # 根据配置决定是否启用报告压缩
+        if self.config.ENABLE_REPORT_COMPRESSION:
+            # 为阶段1-2生成摘要版本
+            summarized_reports = self.report_compressor.summarize_reports(normalized_reports)
+            logger.info("已生成报告摘要版本用于文档设计和篇幅规划")
+        else:
+            summarized_reports = normalized_reports
+
         def emit(event_type: str, payload: Dict[str, Any]):
             """面向Report Engine流通道的事件分发器，保证错误不外泄。"""
             if not stream_handler:
@@ -516,7 +531,7 @@ class ReportAgent:
                 lambda: self.document_layout_node.run(
                     sections,
                     template_text,
-                    normalized_reports,
+                    summarized_reports,  # 使用摘要版本
                     forum_logs,
                     query,
                     template_overview,
@@ -536,7 +551,7 @@ class ReportAgent:
                 lambda: self.word_budget_node.run(
                     sections,
                     layout_design,
-                    normalized_reports,
+                    summarized_reports,  # 使用摘要版本
                     forum_logs,
                     query,
                     template_overview,
@@ -558,7 +573,7 @@ class ReportAgent:
 
             generation_context = self._build_generation_context(
                 query,
-                normalized_reports,
+                normalized_reports,  # 传递原始报告，在章节生成时动态提取
                 forum_logs,
                 template_result,
                 layout_design,
@@ -1071,6 +1086,8 @@ class ReportAgent:
             "query": query,
             "template_name": template_result.get("template_name"),
             "reports": reports,
+            "reports_original": reports,  # 保留原始报告用于章节生成时的动态提取
+            "report_compressor": self.report_compressor,  # 传递压缩器实例
             "forum_logs": self._stringify(forum_logs),
             "theme_tokens": theme_tokens,
             "style_directives": {

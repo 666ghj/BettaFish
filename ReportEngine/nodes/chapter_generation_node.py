@@ -306,7 +306,30 @@ class ChapterGenerationNode(BaseNode):
         返回:
             dict: 可以直接序列化进提示词的payload，兼顾章节信息与全局约束。
         """
+        # 获取报告内容
+        reports_original = context.get("reports_original", {})
         reports = context.get("reports", {})
+
+        # 如果启用压缩且有原始报告，则提取相关内容
+        compressor = context.get("report_compressor")
+        if compressor and reports_original:
+            try:
+                # 从配置中获取压缩开关
+                from ..utils.config import settings
+                if settings.ENABLE_REPORT_COMPRESSION:
+                    # 动态提取与章节相关的内容
+                    reports = compressor.extract_relevant_content(
+                        reports=reports_original,
+                        chapter_title=section.title,
+                        chapter_outline=section.outline
+                    )
+                    logger.info(
+                        f"章节 '{section.title}' 已提取相关内容"
+                    )
+            except Exception as e:
+                logger.warning(f"章节内容提取失败: {e}，使用原始报告")
+                reports = reports_original
+
         # 章节篇幅规划（来自WordBudgetNode），用于指导字数与强调点
         chapter_plan_map = context.get("chapter_directives", {})
         chapter_plan = chapter_plan_map.get(section.chapter_id) if chapter_plan_map else {}
@@ -355,7 +378,7 @@ class ChapterGenerationNode(BaseNode):
             "chapterPlan": chapter_plan,
             "wordPlan": context.get("word_plan"),
         }
-        
+
         # GraphRAG 增强：如果上下文中包含图谱查询结果，添加到payload
         graph_results = context.get("graph_results")
         if graph_results:
@@ -370,7 +393,7 @@ class ChapterGenerationNode(BaseNode):
             graph_enhancement = context.get("graph_enhancement_prompt")
             if graph_enhancement:
                 payload["graphEnhancementPrompt"] = graph_enhancement
-        
+
         if chapter_plan:
             constraints = payload["constraints"]
             if chapter_plan.get("targetWords"):
