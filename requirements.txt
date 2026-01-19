@@ -49,6 +49,12 @@ lxml>=4.9.0
 parsel==1.9.1
 pyexecjs==1.5.1
 xhshow>=0.1.3
+fake-useragent>=1.4.0  # User agent rotation for Western crawlers
+feedparser>=6.0.10  # RSS feed parsing for news collection
+praw>=7.7.0  # Reddit API wrapper
+twikit>=2.0.0  # Twitter scraping (free alternative to ntscraper)
+google-api-python-client>=2.100.0  # YouTube Data API
+ratelimit>=2.2.1  # Rate limiting for IP protection
 
 # ===== 可视化 =====
 plotly>=5.17.0
