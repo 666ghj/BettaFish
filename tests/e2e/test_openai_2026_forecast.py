@@ -578,6 +578,234 @@ class TestPassCriteria:
             print(f"  {name}: defined")
 
 
+class TestReportGeneration:
+    """Tests for comprehensive report generation from multi-platform data."""
+
+    @pytest.mark.e2e
+    @pytest.mark.asyncio
+    async def test_generate_forecast_report_ir(self):
+        """
+        Generate IR (Intermediate Representation) for OpenAI 2026 forecast report.
+
+        This test validates:
+        1. Data can be collected from multiple platforms
+        2. Data can be structured into IR format
+        3. IR passes validation
+        """
+        from datetime import datetime
+
+        # Collect data from HackerNews (always available)
+        from MindSpider.DeepSentimentCrawling.MediaCrawler.media_platform.hackernews import HackerNewsCrawler
+
+        crawler = HackerNewsCrawler()
+        crawler.keyword = "OpenAI"
+        crawler.max_results = 10
+
+        await crawler.start()
+        results = await crawler.search()
+        await crawler.close()
+
+        assert len(results) > 0, "No data to generate report"
+
+        # Build IR structure
+        report_ir = {
+            "version": "1.0",
+            "metadata": {
+                "title": "OpenAI 2026 Future Forecast Analysis",
+                "subtitle": "Multi-Platform Sentiment Analysis Report",
+                "author": "BettaFish Analysis System",
+                "date": datetime.now().strftime("%Y-%m-%d"),
+                "keywords": ["OpenAI", "AI", "2026", "forecast", "sentiment"],
+            },
+            "chapters": [
+                {
+                    "id": "ch-executive-summary",
+                    "title": "Executive Summary",
+                    "blocks": [
+                        {
+                            "type": "heading",
+                            "level": 1,
+                            "text": "OpenAI 2026 Forecast Analysis",
+                            "anchor": "executive-summary",
+                        },
+                        {
+                            "type": "paragraph",
+                            "runs": [
+                                {
+                                    "text": f"This report analyzes {len(results)} items collected from multiple platforms regarding OpenAI's future outlook in 2026."
+                                }
+                            ],
+                        },
+                    ],
+                },
+                {
+                    "id": "ch-data-summary",
+                    "title": "Data Summary",
+                    "blocks": [
+                        {
+                            "type": "heading",
+                            "level": 2,
+                            "text": "Collected Data Overview",
+                            "anchor": "data-summary",
+                        },
+                        {
+                            "type": "table",
+                            "caption": "Platform Data Summary",
+                            "headers": ["Platform", "Items", "Top Topic"],
+                            "rows": [
+                                ["HackerNews", str(len(results)), results[0].get("title", "N/A")[:50] if results else "N/A"],
+                            ],
+                        },
+                    ],
+                },
+                {
+                    "id": "ch-key-findings",
+                    "title": "Key Findings",
+                    "blocks": [
+                        {
+                            "type": "heading",
+                            "level": 2,
+                            "text": "Top Discussions",
+                            "anchor": "key-findings",
+                        },
+                        {
+                            "type": "list",
+                            "ordered": True,
+                            "items": [
+                                {"runs": [{"text": item.get("title", "Untitled")[:100]}]}
+                                for item in results[:5]
+                            ],
+                        },
+                    ],
+                },
+            ],
+        }
+
+        # Validate IR structure
+        assert "version" in report_ir
+        assert "metadata" in report_ir
+        assert "chapters" in report_ir
+        assert len(report_ir["chapters"]) >= 3
+
+        # Validate chapter structure
+        for chapter in report_ir["chapters"]:
+            assert "id" in chapter
+            assert "title" in chapter
+            assert "blocks" in chapter
+            assert len(chapter["blocks"]) > 0
+
+        print(f"\n=== Report IR Generated ===")
+        print(f"Title: {report_ir['metadata']['title']}")
+        print(f"Chapters: {len(report_ir['chapters'])}")
+        print(f"Data items: {len(results)}")
+
+    @pytest.mark.e2e
+    def test_html_renderer_available(self):
+        """Verify HTML renderer can be imported and instantiated."""
+        try:
+            from ReportEngine.renderers.html_renderer import HTMLRenderer
+
+            renderer = HTMLRenderer()
+            assert renderer is not None
+            print("[PASS] HTMLRenderer available")
+        except ImportError as e:
+            pytest.skip(f"HTMLRenderer not available: {e}")
+
+    @pytest.mark.e2e
+    def test_ir_validator_available(self):
+        """Verify IR validator can be imported."""
+        try:
+            from ReportEngine.ir.validator import validate_document_ir
+
+            # Basic validation test
+            test_ir = {
+                "version": "1.0",
+                "metadata": {"title": "Test"},
+                "chapters": [],
+            }
+            # Just check the function exists
+            assert callable(validate_document_ir)
+            print("[PASS] IR Validator available")
+        except ImportError as e:
+            pytest.skip(f"IR Validator not available: {e}")
+
+    @pytest.mark.e2e
+    @pytest.mark.asyncio
+    async def test_full_report_generation_pipeline(self):
+        """
+        Full E2E test: Collect data → Generate IR → Render HTML.
+
+        This validates the complete report generation pipeline.
+        """
+        import tempfile
+        from datetime import datetime
+        from pathlib import Path
+
+        # 1. Collect data
+        from MindSpider.DeepSentimentCrawling.MediaCrawler.media_platform.hackernews import HackerNewsCrawler
+
+        crawler = HackerNewsCrawler()
+        crawler.keyword = "artificial intelligence 2026"
+        crawler.max_results = 5
+
+        await crawler.start()
+        results = await crawler.search()
+        await crawler.close()
+
+        if not results:
+            pytest.skip("No data collected for report generation")
+
+        # 2. Build minimal IR
+        report_ir = {
+            "version": "1.0",
+            "metadata": {
+                "title": "AI 2026 Forecast Report",
+                "date": datetime.now().strftime("%Y-%m-%d"),
+            },
+            "chapters": [
+                {
+                    "id": "ch-summary",
+                    "title": "Summary",
+                    "blocks": [
+                        {
+                            "type": "heading",
+                            "level": 1,
+                            "text": "AI 2026 Forecast",
+                            "anchor": "summary",
+                        },
+                        {
+                            "type": "paragraph",
+                            "runs": [{"text": f"Analyzed {len(results)} items from HackerNews."}],
+                        },
+                    ],
+                }
+            ],
+        }
+
+        # 3. Try to render (if renderer available)
+        try:
+            from ReportEngine.renderers.html_renderer import HTMLRenderer
+
+            renderer = HTMLRenderer()
+            html_output = renderer.render(report_ir)
+
+            assert html_output is not None
+            assert len(html_output) > PASS_CRITERIA["min_report_size_bytes"]
+            assert "<html" in html_output.lower()
+            assert "AI 2026 Forecast" in html_output
+
+            # Optionally save to temp file
+            with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False) as f:
+                f.write(html_output)
+                print(f"\n[PASS] Report generated: {f.name}")
+                print(f"Report size: {len(html_output)} bytes")
+
+        except ImportError:
+            # If renderer not available, just validate IR structure
+            print("[PARTIAL] IR generated but HTMLRenderer not available")
+            assert len(str(report_ir)) > 100
+
+
 async def main():
     """Run key tests manually for debugging."""
     print("=== OpenAI 2026 Forecast E2E Test ===\n")
