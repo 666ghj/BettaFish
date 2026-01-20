@@ -432,3 +432,166 @@ class ZhihuCreator(Base):
     get_voteup_count = Column(Integer, default=0)
     add_ts = Column(BigInteger)
     last_modify_ts = Column(BigInteger)
+
+
+# ==================== Western Platform Models ====================
+
+class TwitterContent(Base):
+    """Twitter/X tweet content model."""
+    __tablename__ = 'twitter_content'
+    id = Column(Integer, primary_key=True)
+    tweet_id = Column(String(64), index=True, unique=True)
+    user_id = Column(String(64), index=True)
+    username = Column(Text)
+    display_name = Column(Text)
+    avatar = Column(Text)
+    content = Column(Text)
+    created_at = Column(BigInteger, index=True)
+    retweet_count = Column(Integer, default=0)
+    like_count = Column(Integer, default=0)
+    reply_count = Column(Integer, default=0)
+    quote_count = Column(Integer, default=0)
+    view_count = Column(Integer, default=0)
+    tweet_url = Column(Text)
+    media_urls = Column(Text)
+    hashtags = Column(Text)
+    language = Column(String(16))
+    source_keyword = Column(Text, default='')
+    add_ts = Column(BigInteger)
+    last_modify_ts = Column(BigInteger)
+
+
+class TwitterComment(Base):
+    """Twitter/X reply/comment model."""
+    __tablename__ = 'twitter_comment'
+    id = Column(Integer, primary_key=True)
+    comment_id = Column(String(64), index=True, unique=True)
+    tweet_id = Column(String(64), index=True)
+    user_id = Column(String(64), index=True)
+    username = Column(Text)
+    display_name = Column(Text)
+    avatar = Column(Text)
+    content = Column(Text)
+    created_at = Column(BigInteger, index=True)
+    like_count = Column(Integer, default=0)
+    reply_count = Column(Integer, default=0)
+    parent_comment_id = Column(String(64))
+    add_ts = Column(BigInteger)
+    last_modify_ts = Column(BigInteger)
+
+
+class TwitterUser(Base):
+    """Twitter/X user profile model."""
+    __tablename__ = 'twitter_user'
+    id = Column(Integer, primary_key=True)
+    user_id = Column(String(64), unique=True, index=True)
+    username = Column(Text)
+    display_name = Column(Text)
+    avatar = Column(Text)
+    bio = Column(Text)
+    location = Column(Text)
+    website = Column(Text)
+    created_at = Column(BigInteger)
+    followers_count = Column(Integer, default=0)
+    following_count = Column(Integer, default=0)
+    tweet_count = Column(Integer, default=0)
+    verified = Column(Integer, default=0)
+    add_ts = Column(BigInteger)
+    last_modify_ts = Column(BigInteger)
+
+
+class RedditContent(Base):
+    """Reddit post/submission model."""
+    __tablename__ = 'reddit_content'
+    id = Column(Integer, primary_key=True)
+    post_id = Column(String(64), index=True, unique=True)
+    subreddit = Column(String(255), index=True)
+    author = Column(Text)
+    author_id = Column(String(64))
+    title = Column(Text)
+    content = Column(Text)
+    content_html = Column(Text)
+    post_url = Column(Text)
+    created_at = Column(BigInteger, index=True)
+    score = Column(Integer, default=0)
+    upvote_ratio = Column(Text)
+    num_comments = Column(Integer, default=0)
+    is_self = Column(Integer, default=1)
+    is_video = Column(Integer, default=0)
+    media_url = Column(Text)
+    thumbnail = Column(Text)
+    flair = Column(Text)
+    awards = Column(Text)
+    source_keyword = Column(Text, default='')
+    add_ts = Column(BigInteger)
+    last_modify_ts = Column(BigInteger)
+
+
+class RedditComment(Base):
+    """Reddit comment model."""
+    __tablename__ = 'reddit_comment'
+    id = Column(Integer, primary_key=True)
+    comment_id = Column(String(64), index=True, unique=True)
+    post_id = Column(String(64), index=True)
+    subreddit = Column(String(255), index=True)
+    author = Column(Text)
+    author_id = Column(String(64))
+    content = Column(Text)
+    content_html = Column(Text)
+    created_at = Column(BigInteger, index=True)
+    score = Column(Integer, default=0)
+    parent_comment_id = Column(String(64))
+    depth = Column(Integer, default=0)
+    is_submitter = Column(Integer, default=0)
+    awards = Column(Text)
+    add_ts = Column(BigInteger)
+    last_modify_ts = Column(BigInteger)
+
+
+class RedditUser(Base):
+    """Reddit user profile model."""
+    __tablename__ = 'reddit_user'
+    id = Column(Integer, primary_key=True)
+    user_id = Column(String(64), unique=True, index=True)
+    username = Column(Text)
+    created_at = Column(BigInteger)
+    link_karma = Column(Integer, default=0)
+    comment_karma = Column(Integer, default=0)
+    is_gold = Column(Integer, default=0)
+    is_mod = Column(Integer, default=0)
+    verified = Column(Integer, default=0)
+    add_ts = Column(BigInteger)
+    last_modify_ts = Column(BigInteger)
+
+
+class HackerNewsContent(Base):
+    """HackerNews story/post model."""
+    __tablename__ = 'hackernews_content'
+    id = Column(Integer, primary_key=True)
+    item_id = Column(BigInteger, index=True, unique=True)
+    item_type = Column(String(32))
+    author = Column(Text)
+    title = Column(Text)
+    url = Column(Text)
+    text = Column(Text)
+    created_at = Column(BigInteger, index=True)
+    points = Column(Integer, default=0)
+    num_comments = Column(Integer, default=0)
+    story_url = Column(Text)
+    source_keyword = Column(Text, default='')
+    add_ts = Column(BigInteger)
+    last_modify_ts = Column(BigInteger)
+
+
+class HackerNewsComment(Base):
+    """HackerNews comment model."""
+    __tablename__ = 'hackernews_comment'
+    id = Column(Integer, primary_key=True)
+    comment_id = Column(BigInteger, index=True, unique=True)
+    story_id = Column(BigInteger, index=True)
+    author = Column(Text)
+    text = Column(Text)
+    created_at = Column(BigInteger, index=True)
+    parent_id = Column(BigInteger)
+    add_ts = Column(BigInteger)
+    last_modify_ts = Column(BigInteger)

@@ -1,6 +1,9 @@
 """
 Report Engine 默认的OpenAI兼容LLM客户端封装。
 
+This module now uses the unified LLM client from utils/llm/ while preserving
+engine-specific behavior (retry logic, no time prefix).
+
 提供统一的非流式/流式调用、可选重试、字节安全拼接与模型元信息查询。
 """
 
@@ -9,10 +12,12 @@ import sys
 from typing import Any, Dict, Optional, Generator
 from loguru import logger
 
-from openai import OpenAI
-
+# Add project root to path for unified LLM imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 utils_dir = os.path.join(project_root, "utils")
 if utils_dir not in sys.path:
     sys.path.append(utils_dir)
@@ -29,9 +34,17 @@ except ImportError:
 
     LLM_RETRY_CONFIG = None
 
+# Import unified LLM client factory
+from utils.llm import create_llm_client, BaseLLMClient
+
 
 class LLMClient:
-    """针对OpenAI Chat Completion API的轻量封装，统一Report Engine调用入口。"""
+    """
+    针对OpenAI Chat Completion API的轻量封装，统一Report Engine调用入口。
+
+    Preserves backward compatibility while using utils/llm/ unified client.
+    Supports OpenAI, Azure, Anthropic Claude, and OpenRouter.
+    """
 
     def __init__(self, api_key: str, model_name: str, base_url: Optional[str] = None):
         """
@@ -57,18 +70,24 @@ class LLMClient:
         except ValueError:
             self.timeout = 3000.0
 
-        client_kwargs: Dict[str, Any] = {
-            "api_key": api_key,
-            "max_retries": 0,
-        }
-        if base_url:
-            client_kwargs["base_url"] = base_url
-        self.client = OpenAI(**client_kwargs)
+        # Use unified LLM client factory with auto-detection
+        self._unified_client = create_llm_client(
+            provider="auto",
+            api_key=api_key,
+            model_name=model_name,
+            base_url=base_url,
+            timeout=self.timeout,
+        )
+
+        # Keep reference to underlying client for backward compatibility
+        self.client = getattr(self._unified_client, 'client', None)
 
     @with_retry(LLM_RETRY_CONFIG)
     def invoke(self, system_prompt: str, user_prompt: str, **kwargs) -> str:
         """
         以非流式方式调用LLM，并返回一次性完成的完整响应。
+
+        Uses unified client internally, supports OpenAI/Azure/Anthropic/OpenRouter.
 
         Args:
             system_prompt: 系统角色提示
@@ -78,90 +97,43 @@ class LLMClient:
         Returns:
             去除首尾空白后的LLM响应文本
         """
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ]
-
-        allowed_keys = {"temperature", "top_p", "presence_penalty", "frequency_penalty", "stream"}
-        extra_params = {key: value for key, value in kwargs.items() if key in allowed_keys and value is not None}
-
-        timeout = kwargs.pop("timeout", self.timeout)
-
-        response = self.client.chat.completions.create(
-            model=self.model_name,
-            messages=messages,
-            timeout=timeout,
-            **extra_params,
-        )
-
-        if response.choices and response.choices[0].message:
-            return self.validate_response(response.choices[0].message.content)
-        return ""
+        # Delegate to unified client (no time prefix for ReportEngine)
+        return self._unified_client.invoke(system_prompt, user_prompt, **kwargs)
 
     def stream_invoke(self, system_prompt: str, user_prompt: str, **kwargs) -> Generator[str, None, None]:
         """
         流式调用LLM，逐步返回响应内容。
-        
+
+        Uses unified client internally, supports OpenAI/Azure/Anthropic/OpenRouter.
+
         参数:
             system_prompt: 系统提示词。
             user_prompt: 用户提示词。
             **kwargs: 采样参数（temperature、top_p等）。
-            
+
         产出:
             str: 每次yield一段delta文本，方便上层实时渲染。
         """
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ]
+        # Delegate to unified client (no time prefix for ReportEngine)
+        yield from self._unified_client.stream_invoke(system_prompt, user_prompt, **kwargs)
 
-        allowed_keys = {"temperature", "top_p", "presence_penalty", "frequency_penalty"}
-        extra_params = {key: value for key, value in kwargs.items() if key in allowed_keys and value is not None}
-        # 强制使用流式
-        extra_params["stream"] = True
-
-        timeout = kwargs.pop("timeout", self.timeout)
-
-        try:
-            stream = self.client.chat.completions.create(
-                model=self.model_name,
-                messages=messages,
-                timeout=timeout,
-                **extra_params,
-            )
-            
-            for chunk in stream:
-                if chunk.choices and len(chunk.choices) > 0:
-                    delta = chunk.choices[0].delta
-                    if delta and delta.content:
-                        yield delta.content
-        except Exception as e:
-            logger.error(f"流式请求失败: {str(e)}")
-            raise e
-    
     @with_retry(LLM_RETRY_CONFIG)
     def stream_invoke_to_string(self, system_prompt: str, user_prompt: str, **kwargs) -> str:
         """
         流式调用LLM并安全地拼接为完整字符串（避免UTF-8多字节字符截断）。
-        
+
+        Uses unified client internally, supports OpenAI/Azure/Anthropic/OpenRouter.
+
         参数:
             system_prompt: 系统提示词。
             user_prompt: 用户提示词。
             **kwargs: 采样或超时配置。
-            
+
         返回:
             str: 将所有delta拼接后的完整响应。
         """
-        # 以字节形式收集所有块
-        byte_chunks = []
-        for chunk in self.stream_invoke(system_prompt, user_prompt, **kwargs):
-            byte_chunks.append(chunk.encode('utf-8'))
-        
-        # 拼接所有字节，然后一次性解码
-        if byte_chunks:
-            return b''.join(byte_chunks).decode('utf-8', errors='replace')
-        return ""
+        # Delegate to unified client (no time prefix for ReportEngine)
+        return self._unified_client.stream_invoke_to_string(system_prompt, user_prompt, **kwargs)
 
     @staticmethod
     def validate_response(response: Optional[str]) -> str:
@@ -172,8 +144,4 @@ class LLMClient:
 
     def get_model_info(self) -> Dict[str, Any]:
         """以字典形式返回当前客户端的模型/提供方/基础URL信息"""
-        return {
-            "provider": self.provider,
-            "model": self.model_name,
-            "api_base": self.base_url or "default",
-        }
+        return self._unified_client.get_model_info()

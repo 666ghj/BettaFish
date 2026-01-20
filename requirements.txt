@@ -20,6 +20,7 @@ PySocks>=1.7.1
 
 # ===== LLM接口 =====
 openai>=1.3.0
+anthropic>=0.28.0  # Anthropic Claude API support
 # deepseek-ai>=0.1.0  # 使用OpenAI格式
 
 # ===== 搜索API =====
