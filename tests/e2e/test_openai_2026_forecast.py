@@ -184,6 +184,87 @@ class TestOpenAI2026Forecast:
 
     @pytest.mark.e2e
     @pytest.mark.asyncio
+    async def test_weibo_openai_forecast(self):
+        """Test Weibo (微博) search for OpenAI 2026 content."""
+        pytest.importorskip("playwright")
+
+        from MindSpider.DeepSentimentCrawling.MediaCrawler.media_platform.weibo import WeiboCrawler
+
+        result = PlatformResult("weibo")
+
+        try:
+            crawler = WeiboCrawler()
+            crawler.keyword = FORECAST_QUERY_CN
+            crawler.max_results = 15
+
+            start = time.time()
+            await crawler.start()
+            result.results = await crawler.search()
+            result.elapsed_ms = (time.time() - start) * 1000
+            await crawler.close()
+        except Exception as e:
+            result.error = str(e)
+            pytest.skip(f"Weibo search failed (may need login): {e}")
+
+        if result.success:
+            print(f"[Weibo] Found {len(result.results)} results in {result.elapsed_ms:.1f}ms")
+
+    @pytest.mark.e2e
+    @pytest.mark.asyncio
+    async def test_xiaohongshu_openai_forecast(self):
+        """Test Xiaohongshu (小红书) search for OpenAI 2026 content."""
+        pytest.importorskip("playwright")
+
+        from MindSpider.DeepSentimentCrawling.MediaCrawler.media_platform.xhs import XhsCrawler
+
+        result = PlatformResult("xiaohongshu")
+
+        try:
+            crawler = XhsCrawler()
+            crawler.keyword = FORECAST_QUERY_CN
+            crawler.max_results = 15
+
+            start = time.time()
+            await crawler.start()
+            result.results = await crawler.search()
+            result.elapsed_ms = (time.time() - start) * 1000
+            await crawler.close()
+        except Exception as e:
+            result.error = str(e)
+            pytest.skip(f"Xiaohongshu search failed (may need login): {e}")
+
+        if result.success:
+            print(f"[Xiaohongshu] Found {len(result.results)} results in {result.elapsed_ms:.1f}ms")
+
+    @pytest.mark.e2e
+    @pytest.mark.asyncio
+    async def test_douyin_openai_forecast(self):
+        """Test Douyin (抖音) search for OpenAI 2026 content."""
+        pytest.importorskip("playwright")
+
+        from MindSpider.DeepSentimentCrawling.MediaCrawler.media_platform.douyin import DouyinCrawler
+
+        result = PlatformResult("douyin")
+
+        try:
+            crawler = DouyinCrawler()
+            crawler.keyword = FORECAST_QUERY_CN
+            crawler.max_results = 15
+
+            start = time.time()
+            await crawler.start()
+            result.results = await crawler.search()
+            result.elapsed_ms = (time.time() - start) * 1000
+            await crawler.close()
+        except Exception as e:
+            result.error = str(e)
+            pytest.skip(f"Douyin search failed (may need login): {e}")
+
+        if result.success:
+            print(f"[Douyin] Found {len(result.results)} results in {result.elapsed_ms:.1f}ms")
+
+    @pytest.mark.e2e
+    @pytest.mark.asyncio
     async def test_multi_platform_forecast_search(self):
         """
         Core E2E test: Search OpenAI 2026 forecast across all available platforms.
@@ -268,6 +349,60 @@ class TestOpenAI2026Forecast:
         except Exception as e:
             news_result.error = str(e)
         platforms_results["western_news"] = news_result
+
+        # 5. Weibo (微博) - Chinese platform
+        weibo_result = PlatformResult("weibo")
+        try:
+            from MindSpider.DeepSentimentCrawling.MediaCrawler.media_platform.weibo import WeiboCrawler
+            crawler = WeiboCrawler()
+            crawler.keyword = FORECAST_QUERY_CN
+            crawler.max_results = 15
+            start = time.time()
+            await crawler.start()
+            weibo_result.results = await crawler.search()
+            weibo_result.elapsed_ms = (time.time() - start) * 1000
+            await crawler.close()
+        except ImportError as e:
+            weibo_result.error = f"Import error: {e}"
+        except Exception as e:
+            weibo_result.error = str(e)
+        platforms_results["weibo"] = weibo_result
+
+        # 6. Xiaohongshu (小红书) - Chinese platform
+        xhs_result = PlatformResult("xiaohongshu")
+        try:
+            from MindSpider.DeepSentimentCrawling.MediaCrawler.media_platform.xhs import XhsCrawler
+            crawler = XhsCrawler()
+            crawler.keyword = FORECAST_QUERY_CN
+            crawler.max_results = 15
+            start = time.time()
+            await crawler.start()
+            xhs_result.results = await crawler.search()
+            xhs_result.elapsed_ms = (time.time() - start) * 1000
+            await crawler.close()
+        except ImportError as e:
+            xhs_result.error = f"Import error: {e}"
+        except Exception as e:
+            xhs_result.error = str(e)
+        platforms_results["xiaohongshu"] = xhs_result
+
+        # 7. Douyin (抖音) - Chinese platform
+        douyin_result = PlatformResult("douyin")
+        try:
+            from MindSpider.DeepSentimentCrawling.MediaCrawler.media_platform.douyin import DouyinCrawler
+            crawler = DouyinCrawler()
+            crawler.keyword = FORECAST_QUERY_CN
+            crawler.max_results = 15
+            start = time.time()
+            await crawler.start()
+            douyin_result.results = await crawler.search()
+            douyin_result.elapsed_ms = (time.time() - start) * 1000
+            await crawler.close()
+        except ImportError as e:
+            douyin_result.error = f"Import error: {e}"
+        except Exception as e:
+            douyin_result.error = str(e)
+        platforms_results["douyin"] = douyin_result
 
         # === Validation ===
 
@@ -390,9 +525,14 @@ class TestImplementationVerification:
         project_root = Path(__file__).parent.parent.parent
 
         crawler_files = [
+            # Western platforms
             project_root / "MindSpider/DeepSentimentCrawling/MediaCrawler/media_platform/hackernews/core.py",
             project_root / "MindSpider/DeepSentimentCrawling/MediaCrawler/media_platform/reddit/core.py",
             project_root / "MindSpider/DeepSentimentCrawling/MediaCrawler/media_platform/twitter/core.py",
+            # Chinese platforms
+            project_root / "MindSpider/DeepSentimentCrawling/MediaCrawler/media_platform/weibo/core.py",
+            project_root / "MindSpider/DeepSentimentCrawling/MediaCrawler/media_platform/xhs/core.py",
+            project_root / "MindSpider/DeepSentimentCrawling/MediaCrawler/media_platform/douyin/core.py",
         ]
 
         print("\n=== AST Verification ===")
