@@ -13,7 +13,7 @@ import os
 
 # mysql config - 使用MindSpider的数据库配置
 MYSQL_DB_PWD = ""
-MYSQL_DB_USER = "artjiang"
+MYSQL_DB_USER = "bettafish"
 MYSQL_DB_HOST = "localhost"
 MYSQL_DB_PORT = 5432
 MYSQL_DB_NAME = "bettafish"
