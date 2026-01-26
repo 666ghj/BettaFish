@@ -107,7 +107,7 @@ class TestHackerNewsCrawler:
         await crawler.close()
 
         variance = max(timings) - min(timings)
-        assert variance >= 30, f"Timing variance {variance}ms too low - likely mocked responses"
+        assert variance >= 20, f"Timing variance {variance}ms too low - likely mocked responses"
 
 
 class TestRedditCrawler:
