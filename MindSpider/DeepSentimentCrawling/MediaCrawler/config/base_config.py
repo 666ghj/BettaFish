@@ -9,8 +9,8 @@
 # 使用本代码即表示您同意遵守上述原则和LICENSE中的所有条款。
 
 # 基础配置
-PLATFORM = "bili"  # 平台，xhs | dy | ks | bili | wb | tieba | zhihu
-KEYWORDS = "电影鬼灭之刃,亲属想侵吞3姐妹亡父赔偿款,网警斩断侵害未成年人网络黑色产业链,2007年后出生的人不能在马尔代夫吸烟,沈月,是公主也是自己的骑士,以军虐囚视频,唐朝诡事录,广州地铁回应APP乘车码频繁弹窗广告,全红婵的减肥计划精确到克"  # 关键词搜索配置，以英文逗号分隔
+PLATFORM = "zhihu"  # 平台，xhs | dy | ks | bili | wb | tieba | zhihu
+KEYWORDS = "印度疫情感染者死亡率超7成,杨鸣,辞职,彩灯一亮年味就有了,何炅,终于要结束了,惊蛰无声,女子怀孕收男友15万彩礼后不和要退婚,生命树,双胞胎吵架差点把爷爷奶奶吵离婚"  # 关键词搜索配置，以英文逗号分隔
 LOGIN_TYPE = "qrcode"  # qrcode or phone or cookie
 COOKIES = ""
 CRAWLER_TYPE = "search"  # 爬取类型，search(关键词搜索) | detail(帖子详情)| creator(创作者主页数据)
@@ -28,7 +28,7 @@ IP_PROXY_PROVIDER_NAME = "kuaidaili"  # kuaidaili | wandouhttp
 # 设置False会打开一个浏览器
 # 小红书如果一直扫码登录不通过，打开浏览器手动过一下滑动验证码
 # 抖音如果一直提示失败，打开浏览器看下是否扫码登录之后出现了手机号验证，如果出现了手动过一下再试。
-HEADLESS = True
+HEADLESS = False  # Must be False for QR code login
 
 # 是否保存登录状态
 SAVE_LOGIN_STATE = True
@@ -37,7 +37,8 @@ SAVE_LOGIN_STATE = True
 # 是否启用CDP模式 - 使用用户现有的Chrome/Edge浏览器进行爬取，提供更好的反检测能力
 # 启用后将自动检测并启动用户的Chrome/Edge浏览器，通过CDP协议进行控制
 # 这种方式使用真实的浏览器环境，包括用户的扩展、Cookie和设置，大大降低被检测的风险
-ENABLE_CDP_MODE = True
+# DISABLED: CDP mode uses different user_data_dir causing login state to be lost on fallback
+ENABLE_CDP_MODE = False
 
 # CDP调试端口，用于与浏览器通信
 # 如果端口被占用，系统会自动尝试下一个可用端口
@@ -70,7 +71,7 @@ USER_DATA_DIR = "%s_user_data_dir"  # %s will be replaced by platform name
 START_PAGE = 1
 
 # 爬取视频/帖子的数量控制
-CRAWLER_MAX_NOTES_COUNT = 5
+CRAWLER_MAX_NOTES_COUNT = 10
 
 # 并发爬虫数量控制
 MAX_CONCURRENCY_NUM = 1

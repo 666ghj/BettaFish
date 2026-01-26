@@ -50,13 +50,20 @@ class MindSpider:
         
         # 检查settings配置项
         required_configs = [
-            'DB_HOST', 'DB_PORT', 'DB_USER', 'DB_PASSWORD', 'DB_NAME', 'DB_CHARSET',
+            'DB_HOST', 'DB_PORT', 'DB_USER', 'DB_NAME', 'DB_CHARSET',
             'MINDSPIDER_API_KEY', 'MINDSPIDER_BASE_URL', 'MINDSPIDER_MODEL_NAME'
         ]
-        
+        # DB_PASSWORD can be empty for local PostgreSQL trust auth
+        optional_empty_configs = ['DB_PASSWORD']
+
         missing_configs = []
         for config_name in required_configs:
             if not hasattr(settings, config_name) or not getattr(settings, config_name):
+                missing_configs.append(config_name)
+
+        # Check optional configs exist (can be empty)
+        for config_name in optional_empty_configs:
+            if not hasattr(settings, config_name):
                 missing_configs.append(config_name)
         
         if missing_configs:
