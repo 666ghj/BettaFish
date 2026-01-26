@@ -93,6 +93,11 @@ class ZhihuDbStoreImplement(AbstractStore):
         Args:
             content_item: content item dict
         """
+        # Convert int timestamps to str for PostgreSQL VARCHAR columns
+        for time_field in ("created_time", "updated_time"):
+            if time_field in content_item and isinstance(content_item[time_field], int):
+                content_item[time_field] = str(content_item[time_field])
+
         content_id = content_item.get("content_id")
         async with get_session() as session:
             stmt = select(ZhihuContent).where(ZhihuContent.content_id == content_id)
@@ -112,6 +117,10 @@ class ZhihuDbStoreImplement(AbstractStore):
         Args:
             comment_item: comment item dict
         """
+        # Convert int timestamp to str for PostgreSQL VARCHAR column
+        if "publish_time" in comment_item and isinstance(comment_item["publish_time"], int):
+            comment_item["publish_time"] = str(comment_item["publish_time"])
+
         comment_id = comment_item.get("comment_id")
         async with get_session() as session:
             stmt = select(ZhihuComment).where(ZhihuComment.comment_id == comment_id)
