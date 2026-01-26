@@ -1,5 +1,8 @@
 """
 Unified OpenAI-compatible LLM client for the Query Engine, with retry support.
+
+This module now uses the unified LLM client from utils/llm/ while preserving
+engine-specific behavior (time prefix, retry logic).
 """
 
 import os
@@ -8,10 +11,12 @@ from datetime import datetime
 from typing import Any, Dict, Optional, Generator
 from loguru import logger
 
-from openai import OpenAI
-
+# Add project root to path for unified LLM imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 utils_dir = os.path.join(project_root, "utils")
 if utils_dir not in sys.path:
     sys.path.append(utils_dir)
@@ -26,9 +31,17 @@ except ImportError:
 
     LLM_RETRY_CONFIG = None
 
+# Import unified LLM client factory
+from utils.llm import create_llm_client, BaseLLMClient
+
 
 class LLMClient:
-    """Minimal wrapper around the OpenAI-compatible chat completion API."""
+    """
+    Wrapper around the unified LLM client with Query Engine-specific behavior.
+
+    Preserves backward compatibility while using utils/llm/ unified client.
+    Supports OpenAI, Azure, Anthropic Claude, and OpenRouter.
+    """
 
     def __init__(self, api_key: str, model_name: str, base_url: Optional[str] = None):
         if not api_key:
@@ -46,112 +59,79 @@ class LLMClient:
         except ValueError:
             self.timeout = 1800.0
 
-        client_kwargs: Dict[str, Any] = {
-            "api_key": api_key,
-            "max_retries": 0,
-        }
-        if base_url:
-            client_kwargs["base_url"] = base_url
-        self.client = OpenAI(**client_kwargs)
+        # Use unified LLM client factory with auto-detection
+        self._unified_client = create_llm_client(
+            provider="auto",
+            api_key=api_key,
+            model_name=model_name,
+            base_url=base_url,
+            timeout=self.timeout,
+        )
 
-    @with_retry(LLM_RETRY_CONFIG)
-    def invoke(self, system_prompt: str, user_prompt: str, **kwargs) -> str:
+        # Keep reference to underlying client for backward compatibility
+        self.client = getattr(self._unified_client, 'client', None)
+
+    def _add_time_prefix(self, user_prompt: str) -> str:
+        """Add current time prefix to user prompt (Query Engine specific)."""
         current_time = datetime.now().strftime("%Y年%m月%d日%H时%M分")
         time_prefix = f"今天的实际时间是{current_time}"
         if user_prompt:
-            user_prompt = f"{time_prefix}\n{user_prompt}"
-        else:
-            user_prompt = time_prefix
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ]
+            return f"{time_prefix}\n{user_prompt}"
+        return time_prefix
 
-        allowed_keys = {"temperature", "top_p", "presence_penalty", "frequency_penalty", "stream"}
-        extra_params = {key: value for key, value in kwargs.items() if key in allowed_keys and value is not None}
+    @with_retry(LLM_RETRY_CONFIG)
+    def invoke(self, system_prompt: str, user_prompt: str, **kwargs) -> str:
+        """
+        Invoke LLM with time prefix prepended to user prompt.
 
-        timeout = kwargs.pop("timeout", self.timeout)
+        Uses unified client internally, supports OpenAI/Azure/Anthropic/OpenRouter.
+        """
+        # Add time prefix (Query Engine specific behavior)
+        user_prompt_with_time = self._add_time_prefix(user_prompt)
 
-        response = self.client.chat.completions.create(
-            model=self.model_name,
-            messages=messages,
-            timeout=timeout,
-            **extra_params,
-        )
-
-        if response.choices and response.choices[0].message:
-            return self.validate_response(response.choices[0].message.content)
-        return ""
+        # Delegate to unified client
+        return self._unified_client.invoke(system_prompt, user_prompt_with_time, **kwargs)
 
     def stream_invoke(self, system_prompt: str, user_prompt: str, **kwargs) -> Generator[str, None, None]:
         """
         流式调用LLM，逐步返回响应内容
-        
+
+        Uses unified client internally, supports OpenAI/Azure/Anthropic/OpenRouter.
+
         Args:
             system_prompt: 系统提示词
             user_prompt: 用户提示词
             **kwargs: 额外参数（temperature, top_p等）
-            
+
         Yields:
             响应文本块（str）
         """
-        current_time = datetime.now().strftime("%Y年%m月%d日%H时%M分")
-        time_prefix = f"今天的实际时间是{current_time}"
-        if user_prompt:
-            user_prompt = f"{time_prefix}\n{user_prompt}"
-        else:
-            user_prompt = time_prefix
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ]
+        # Add time prefix (Query Engine specific behavior)
+        user_prompt_with_time = self._add_time_prefix(user_prompt)
 
-        allowed_keys = {"temperature", "top_p", "presence_penalty", "frequency_penalty"}
-        extra_params = {key: value for key, value in kwargs.items() if key in allowed_keys and value is not None}
-        # 强制使用流式
-        extra_params["stream"] = True
+        # Delegate to unified client
+        yield from self._unified_client.stream_invoke(system_prompt, user_prompt_with_time, **kwargs)
 
-        timeout = kwargs.pop("timeout", self.timeout)
-
-        try:
-            stream = self.client.chat.completions.create(
-                model=self.model_name,
-                messages=messages,
-                timeout=timeout,
-                **extra_params,
-            )
-            
-            for chunk in stream:
-                if chunk.choices and len(chunk.choices) > 0:
-                    delta = chunk.choices[0].delta
-                    if delta and delta.content:
-                        yield delta.content
-        except Exception as e:
-            logger.error(f"流式请求失败: {str(e)}")
-            raise e
-    
     @with_retry(LLM_RETRY_CONFIG)
     def stream_invoke_to_string(self, system_prompt: str, user_prompt: str, **kwargs) -> str:
         """
         流式调用LLM并安全地拼接为完整字符串（避免UTF-8多字节字符截断）
-        
+
+        Uses unified client internally, supports OpenAI/Azure/Anthropic/OpenRouter.
+
         Args:
             system_prompt: 系统提示词
             user_prompt: 用户提示词
             **kwargs: 额外参数（temperature, top_p等）
-            
+
         Returns:
             完整的响应字符串
         """
-        # 以字节形式收集所有块
-        byte_chunks = []
-        for chunk in self.stream_invoke(system_prompt, user_prompt, **kwargs):
-            byte_chunks.append(chunk.encode('utf-8'))
-        
-        # 拼接所有字节，然后一次性解码
-        if byte_chunks:
-            return b''.join(byte_chunks).decode('utf-8', errors='replace')
-        return ""
+        # Add time prefix (Query Engine specific behavior)
+        user_prompt_with_time = self._add_time_prefix(user_prompt)
+
+        # Delegate to unified client
+        return self._unified_client.stream_invoke_to_string(system_prompt, user_prompt_with_time, **kwargs)
 
     @staticmethod
     def validate_response(response: Optional[str]) -> str:
@@ -160,8 +140,5 @@ class LLMClient:
         return response.strip()
 
     def get_model_info(self) -> Dict[str, Any]:
-        return {
-            "provider": self.provider,
-            "model": self.model_name,
-            "api_base": self.base_url or "default",
-        }
+        """Get model information from the unified client."""
+        return self._unified_client.get_model_info()

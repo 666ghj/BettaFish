@@ -185,7 +185,7 @@ postgresql_db_config = {{
                 elif line.startswith('CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = '):
                     new_lines.append('CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = 20')
                 elif line.startswith('HEADLESS = '):
-                    new_lines.append('HEADLESS = True')  # 使用无头模式
+                    new_lines.append('HEADLESS = False  # Must be False for QR code login')
                 else:
                     new_lines.append(line)
             

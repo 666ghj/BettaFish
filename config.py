@@ -94,6 +94,40 @@ class Settings(BaseSettings):
     ANSPIRE_API_KEY: Optional[str] = Field(None, description="Anspire AI Search API（申请地址：https://open.anspire.cn/）API密钥，用于Anspire搜索")
 
     
+    # ================== LLM Provider Configuration ====================
+    # Supports: openai, azure, anthropic, auto (auto-detect from model name)
+    LLM_PROVIDER: Literal["openai", "azure", "anthropic", "auto"] = Field(
+        "auto", description="LLM provider type. 'auto' detects from model name/base_url"
+    )
+    AZURE_API_VERSION: Optional[str] = Field(
+        "2024-02-01", description="Azure OpenAI API version (only for Azure provider)"
+    )
+
+    # ================== Western Media Platform Configuration ====================
+    # Twitter/X (using twikit library - cookie-based auth)
+    TWITTER_USERNAME: Optional[str] = Field(None, description="Twitter/X username for login")
+    TWITTER_EMAIL: Optional[str] = Field(None, description="Twitter/X email for login")
+    TWITTER_PASSWORD: Optional[str] = Field(None, description="Twitter/X password for login")
+    TWITTER_COOKIES_PATH: Optional[str] = Field(None, description="Path to Twitter cookies JSON file")
+
+    # Reddit (using praw library - OAuth)
+    REDDIT_CLIENT_ID: Optional[str] = Field(None, description="Reddit OAuth client ID (https://www.reddit.com/prefs/apps)")
+    REDDIT_CLIENT_SECRET: Optional[str] = Field(None, description="Reddit OAuth client secret")
+    REDDIT_USER_AGENT: str = Field(
+        "BettaFish/1.0 (Public Opinion Analysis)", description="Reddit API user agent string"
+    )
+
+    # HackerNews (no auth needed - public Algolia API)
+    HACKERNEWS_MAX_RESULTS: int = Field(100, description="Maximum HackerNews results per search")
+
+    # Rate Limiting (protect IPs from bans)
+    WESTERN_CRAWLER_RATE_LIMIT_DELAY: float = Field(
+        2.0, description="Seconds between requests for Western platform crawlers"
+    )
+    WESTERN_CRAWLER_MAX_REQUESTS_PER_HOUR: int = Field(
+        100, description="Maximum requests per hour for Western platform crawlers"
+    )
+
     # ================== Insight Engine 搜索配置 ====================
     DEFAULT_SEARCH_HOT_CONTENT_LIMIT: int = Field(100, description="热榜内容默认最大数")
     DEFAULT_SEARCH_TOPIC_GLOBALLY_LIMIT_PER_TABLE: int = Field(50, description="按表全局话题最大数")

@@ -50,15 +50,27 @@ def get_video_url_arr(note_item: Dict) -> List:
     if note_item.get('type') != 'video':
         return []
 
+    video = note_item.get('video')
+    if not video:
+        return []
+
+    consumer = video.get('consumer')
+    if not consumer:
+        return []
+
     videoArr = []
-    originVideoKey = note_item.get('video').get('consumer').get('origin_video_key')
+    originVideoKey = consumer.get('origin_video_key', '')
     if originVideoKey == '':
-        originVideoKey = note_item.get('video').get('consumer').get('originVideoKey')
+        originVideoKey = consumer.get('originVideoKey', '')
     # 降级有水印
     if originVideoKey == '':
-        videos = note_item.get('video').get('media').get('stream').get('h264')
-        if type(videos).__name__ == 'list':
-            videoArr = [v.get('master_url') for v in videos]
+        media = video.get('media')
+        if media:
+            stream = media.get('stream')
+            if stream:
+                videos = stream.get('h264')
+                if type(videos).__name__ == 'list':
+                    videoArr = [v.get('master_url') for v in videos]
     else:
         videoArr = [f"http://sns-video-bd.xhscdn.com/{originVideoKey}"]
 
@@ -143,6 +155,11 @@ async def update_xhs_note_comment(note_id: str, comment_item: Dict):
     comment_id = comment_item.get("id")
     comment_pictures = [item.get("url_default", "") for item in comment_item.get("pictures", [])]
     target_comment = comment_item.get("target_comment", {})
+    # Ensure numeric fields are integers (API sometimes returns strings)
+    sub_comment_count = comment_item.get("sub_comment_count", 0)
+    like_count = comment_item.get("like_count", 0)
+    parent_comment_id = target_comment.get("id", 0)
+
     local_db_item = {
         "comment_id": comment_id,  # 评论id
         "create_time": comment_item.get("create_time"),  # 评论时间
@@ -152,11 +169,11 @@ async def update_xhs_note_comment(note_id: str, comment_item: Dict):
         "user_id": user_info.get("user_id"),  # 用户id
         "nickname": user_info.get("nickname"),  # 用户昵称
         "avatar": user_info.get("image"),  # 用户头像
-        "sub_comment_count": comment_item.get("sub_comment_count", 0),  # 子评论数
+        "sub_comment_count": int(sub_comment_count) if sub_comment_count else 0,  # 子评论数
         "pictures": ",".join(comment_pictures),  # 评论图片
-        "parent_comment_id": target_comment.get("id", 0),  # 父评论id
+        "parent_comment_id": str(parent_comment_id) if parent_comment_id else "0",  # 父评论id
         "last_modify_ts": utils.get_current_timestamp(),  # 最后更新时间戳（MediaCrawler程序生成的，主要用途在db存储的时候记录一条记录最新更新时间）
-        "like_count": comment_item.get("like_count", 0),
+        "like_count": int(like_count) if like_count else 0,
     }
     utils.logger.info(f"[store.xhs.update_xhs_note_comment] xhs note comment:{local_db_item}")
     await XhsStoreFactory.create_store().store_comment(local_db_item)
