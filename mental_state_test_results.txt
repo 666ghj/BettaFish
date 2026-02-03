@@ -3,37 +3,31 @@
 
 测试案例 1:
   文本: 明天就要考试了，我一道题都不会做，这下完蛋了
-  心态: API错误
-  成功: False
-  原因: API请求失败: 429
+  心态: 焦虑
+  成功: True
 
 测试案例 2:
   文本: 大学毕业了，不知道该考研还是找工作，感觉每条路都不确定
-  心态: API错误
-  成功: False
-  原因: API请求失败: 429
+  心态: 迷茫
+  成功: True
 
 测试案例 3:
   文本: 虽然现在很困难，但我相信只要坚持努力，未来一定会变好
-  心态: API错误
-  成功: False
-  原因: API请求失败: 429
+  心态: 希望
+  成功: True
 
 测试案例 4:
   文本: 尝试了所有方法都没有用，一切努力都是白费，我放弃了
-  心态: API错误
-  成功: False
-  原因: API请求失败: 429
+  心态: 绝望
+  成功: True
 
 测试案例 5:
   文本: 随便吧，公司怎样就怎样，我也不想争取什么了
-  心态: API错误
-  成功: False
-  原因: API请求失败: 429
+  心态: 躺平
+  成功: True
 
 测试案例 6:
   文本: 今天中午吃了牛肉面，味道还不错
-  心态: 分析失败
-  成功: False
-  原因: 发生异常: HTTPSConnectionPool(host='api.moonshot.cn', port=443): Max retries exceeded with url: /v1/chat/completions (Caused by SSLError(SSLEOFError(8, '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1032)')))
+  心态: 中性
+  成功: True
 

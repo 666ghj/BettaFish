@@ -101,13 +101,13 @@ class WeiboMultilingualSentimentAnalyzer:
         }
         # ===== 【新增：心态分析配置】=====
         # 定义你要分析的5种心态
-        self.mental_states = ["焦虑", "迷茫", "希望", "绝望", "躺平"]
+        self.mental_states = ["焦虑", "迷茫", "希望", "绝望", "躺平", "中性", "不确定"]
         
         # 配置LLM API信息（你需要填写这些信息）
         self.mental_state_config = {
             "api_key": "sk-n0OBGlBIrrcSV2r6sw9W4DNMBLuB0RP74r8BqI4XIYi5Tkne",      # 你的API密钥
             "base_url": "https://api.moonshot.cn/v1",  # API地址
-            "model_name": "kimi-k2-turbo"            # 模型名称
+            "model_name": "kimi-k2-turbo-preview"            # 模型名称
         }
         # ===== 【新增结束】=====
         if not SENTIMENT_ANALYSIS_ENABLED:
@@ -643,9 +643,18 @@ class WeiboMultilingualSentimentAnalyzer:
         
         try:
             # 1. 构建提示词（告诉AI要做什么）
-            prompt = f"""请分析以下文本所反映的主要社会心态，必须且只能从以下五个选项中选出一个：焦虑、迷茫、希望、绝望、躺平。
-文本：“{text}”
-只输出心态类别词语，不要有任何其他解释。"""
+            prompt = f"""请严格分析以下文本是否反映了特定的社会心态。
+**任务**：判断文本主要属于以下哪一种心态：焦虑、迷茫、希望、绝望、躺平。
+**重要规则**：
+1. **“焦虑”**：通常表现为对即将发生事件的过度担忧、紧张和压力感（如考试、 deadline）。
+2. **“绝望”**：通常表现为对现状或未来的彻底无望感、认为努力无用（如“放弃”、“没意义”）。
+3. 如果文本只是中性的日常叙述（如描述食物、天气、普通事件），没有强烈的情绪或社会态度倾向，请回答“中性”。
+4. 只有当文本明确表达出上述定义的心态时，才选择对应的词语。
+5. 你的回答只能且必须是一个词语，从以下七个选项中选一：【焦虑、迷茫、希望、绝望、躺平、中性、不确定】。
+
+待分析文本：“{text}”
+
+请输出一个词语："""
             
             # 2. 调用LLM API
             headers = {
