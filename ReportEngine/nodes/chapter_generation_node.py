@@ -168,7 +168,7 @@ class ChapterGenerationNode(BaseNode):
             enable_llm_repair=False,
         )
 
-def run(
+    def run(
         self,
         section: TemplateSection,
         context: Dict[str, Any],
