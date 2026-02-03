@@ -99,7 +99,17 @@ class WeiboMultilingualSentimentAnalyzer:
             3: "正面",
             4: "非常正面",
         }
-
+        # ===== 【新增：心态分析配置】=====
+        # 定义你要分析的5种心态
+        self.mental_states = ["焦虑", "迷茫", "希望", "绝望", "躺平"]
+        
+        # 配置LLM API信息（你需要填写这些信息）
+        self.mental_state_config = {
+            "api_key": "sk-n0OBGlBIrrcSV2r6sw9W4DNMBLuB0RP74r8BqI4XIYi5Tkne",      # 你的API密钥
+            "base_url": "https://api.moonshot.cn/v1",  # API地址
+            "model_name": "kimi-k2-turbo"            # 模型名称
+        }
+        # ===== 【新增结束】=====
         if not SENTIMENT_ANALYSIS_ENABLED:
             self.disable("情感分析功能已在配置中关闭。")
         elif not (TORCH_AVAILABLE and TRANSFORMERS_AVAILABLE):
@@ -528,7 +538,19 @@ class WeiboMultilingualSentimentAnalyzer:
         # 执行批量情感分析
         print(f"正在对{len(texts_to_analyze)}条内容进行情感分析...")
         batch_result = self.analyze_batch(texts_to_analyze, show_progress=True)
-
+        # ===== 【新增：执行心态分析】=====
+        print(f"正在对{len(texts_to_analyze)}条内容进行心态分析...")
+        mental_state_results = self.analyze_mental_state_batch(texts_to_analyze)
+        
+        # 统计心态分布
+        mental_state_distribution = {}
+        for result in mental_state_results:
+            if result.get("success", False):
+                state = result.get("mental_state", "未知")
+                if state not in mental_state_distribution:
+                    mental_state_distribution[state] = 0
+                mental_state_distribution[state] += 1
+        # ===== 【新增结束】=====
         if not batch_result.analysis_performed:
             reason = self.disable_reason or "情感分析功能不可用"
             if batch_result.results:
@@ -586,9 +608,121 @@ class WeiboMultilingualSentimentAnalyzer:
                 "sentiment_distribution": sentiment_distribution,
                 "high_confidence_results": high_confidence_results,  # 返回所有高置信度结果，不做限制
                 "summary": sentiment_summary,
+                 # ===== 【新增：加入心态分析结果】=====
+                "mental_state_analysis": {
+                    "total_analyzed": len(mental_state_results),
+                    "success_count": sum(1 for r in mental_state_results if r.get("success", False)),
+                    "mental_state_distribution": mental_state_distribution,
+                    "results_sample": mental_state_results[:3]  # 显示前3条结果作为示例
+                }
+                 # ===== 【新增结束】=====
             }
         }
-
+    # ===== 【新增：心态分析方法】=====
+    def analyze_mental_state(self, text: str) -> Dict[str, Any]:
+        """
+        分析文本的社会心态（焦虑/迷茫/希望/绝望/躺平）
+        
+        Args:
+            text: 要分析的文本
+            
+        Returns:
+            包含心态分析结果的字典
+        """
+        import requests
+        import json
+        
+        if not text or not text.strip():
+            return {
+                "text": text,
+                "mental_state": "未知",
+                "confidence": 0.0,
+                "success": False,
+                "reason": "输入文本为空"
+            }
+        
+        try:
+            # 1. 构建提示词（告诉AI要做什么）
+            prompt = f"""请分析以下文本所反映的主要社会心态，必须且只能从以下五个选项中选出一个：焦虑、迷茫、希望、绝望、躺平。
+文本：“{text}”
+只输出心态类别词语，不要有任何其他解释。"""
+            
+            # 2. 调用LLM API
+            headers = {
+                "Authorization": f"Bearer {self.mental_state_config['api_key']}",
+                "Content-Type": "application/json"
+            }
+            
+            data = {
+                "model": self.mental_state_config["model_name"],
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.1  # 低随机性，保证稳定输出
+            }
+            
+            # 3. 发送请求
+            response = requests.post(
+                f"{self.mental_state_config['base_url']}/chat/completions",
+                headers=headers,
+                json=data,
+                timeout=30
+            )
+            
+            # 4. 解析结果
+            if response.status_code == 200:
+                result = response.json()
+                predicted_state = result["choices"][0]["message"]["content"].strip()
+                
+                # 检查返回是否合法
+                if predicted_state in self.mental_states:
+                    return {
+                        "text": text,
+                        "mental_state": predicted_state,
+                        "confidence": 0.9,  # 可以设为固定值
+                        "success": True
+                    }
+                else:
+                    return {
+                        "text": text,
+                        "mental_state": "未知",
+                        "confidence": 0.0,
+                        "success": False,
+                        "reason": f"API返回了不在预期范围内的内容: {predicted_state}"
+                    }
+            else:
+                return {
+                    "text": text,
+                    "mental_state": "API错误",
+                    "confidence": 0.0,
+                    "success": False,
+                    "reason": f"API请求失败: {response.status_code}"
+                }
+                
+        except Exception as e:
+            return {
+                "text": text,
+                "mental_state": "分析失败",
+                "confidence": 0.0,
+                "success": False,
+                "reason": f"发生异常: {str(e)}"
+            }
+    
+    def analyze_mental_state_batch(self, texts: List[str]) -> List[Dict[str, Any]]:
+        """
+        批量心态分析
+        
+        Args:
+            texts: 文本列表
+            
+        Returns:
+            心态分析结果列表
+        """
+        results = []
+        for i, text in enumerate(texts):
+            print(f"心态分析进度: {i+1}/{len(texts)}")
+            result = self.analyze_mental_state(text)
+            results.append(result)
+        return results
+    # ===== 【新增结束】=====
     def get_model_info(self) -> Dict[str, Any]:
         """
         获取模型信息
