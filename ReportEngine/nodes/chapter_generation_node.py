@@ -168,7 +168,7 @@ class ChapterGenerationNode(BaseNode):
             enable_llm_repair=False,
         )
 
-    def run(
+def run(
         self,
         section: TemplateSection,
         context: Dict[str, Any],
@@ -247,6 +247,16 @@ class ChapterGenerationNode(BaseNode):
         chapter_json.setdefault("title", section.title)
         chapter_json.setdefault("order", section.order)
         self._sanitize_chapter_blocks(chapter_json)
+
+        # ================= [新增逻辑开始] =================
+        # 如果不是占位符章节（即正常生成的章节），且上下文中包含来源数据，则注入来源信息块
+        if not placeholder_created:
+            try:
+                self._inject_source_info_block(chapter_json, context)
+            except Exception as e:
+                # 注入过程中的任何错误不应导致整个章节生成失败，仅记录警告
+                logger.warning(f"[{run_id}] {section.title} 数据来源信息注入失败: {e}")
+        # ================= [新增逻辑结束] =================
 
         valid, errors = self.validator.validate_chapter(chapter_json)
         if not valid and errors:
