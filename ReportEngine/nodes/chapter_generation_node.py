@@ -356,6 +356,55 @@ class ChapterGenerationNode(BaseNode):
             "wordPlan": context.get("word_plan"),
         }
         
+        def _inject_source_info_block(self, chapter_json: Dict[str, Any], context: Dict[str, Any]):
+        # 1. 获取来源数据 (优先使用 GraphRAG 的匹配结果)
+        graph_results = context.get("graph_results")
+        if not graph_results:
+            return
+
+        matched_sources = graph_results.get("matched_sources", [])
+        if not matched_sources:
+            return
+
+        # 2. 计算数量与摘要
+        count = len(matched_sources)
+        # 取前3个来源作为示例展示，避免列表过长
+        preview_sources = "、".join(matched_sources[:3])
+        if count > 3:
+            preview_sources += f" 等 {count} 个来源"
+        
+        display_text = f"本章节分析引用了：{preview_sources}。"
+
+        # 3. 构造符合 IR Schema 的 Callout Block
+        # 使用 'note' 或 'info' 风格，根据你的前端渲染支持决定
+        source_block = {
+            "type": "callout",
+            "tone": "neutral", # 中性色调，作为页脚信息
+            "title": "数据来源追踪",
+            "blocks": [
+                {
+                    "type": "paragraph",
+                    "inlines": [
+                        {
+                            "text": display_text,
+                            # 可选：加粗数量
+                            # "marks": ["bold"] 
+                        }
+                    ]
+                }
+            ],
+            "meta": {
+                "sourceCount": count,
+                "sourceList": matched_sources  # 前端可用于实现悬浮提示完整列表
+            }
+        }
+
+        # 4. 注入到 blocks 列表末尾
+        if "blocks" in chapter_json and isinstance(chapter_json["blocks"], list):
+            chapter_json["blocks"].append(source_block)
+            # 可选：记录日志
+            # logger.info(f"已向章节注入 {count} 个数据来源信息")
+
         # GraphRAG 增强：如果上下文中包含图谱查询结果，添加到payload
         graph_results = context.get("graph_results")
         if graph_results:
