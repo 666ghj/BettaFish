@@ -1,0 +1,10 @@
+services:
+  bettafish:
+    image: bettafish
+    build:
+      context: MindSpider/DeepSentimentCrawling/MediaCrawler
+      dockerfile: ./Dockerfile
+    environment:
+      NODE_ENV: production
+    ports:
+      - 3000:3000
