@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 """
 BroadTopicExtraction模块 - 话题提取器
-基于DeepSeek直接提取关键词和生成新闻总结
+基于LLM直接提取关键词和生成新闻总结。
+支持 OpenAI / Anthropic（含 Claude Code OAuth）双后端。
 """
 
 import sys
@@ -10,11 +11,15 @@ import json
 import re
 from pathlib import Path
 from typing import List, Dict, Tuple
-from openai import OpenAI
 
-# 添加项目根目录到路径
-project_root = Path(__file__).parent.parent
-sys.path.append(str(project_root))
+# 添加 MindSpider 目录到路径
+mindspider_root = Path(__file__).parent.parent
+sys.path.append(str(mindspider_root))
+
+# 添加项目根目录到路径（用于导入 utils.llm_provider）
+project_root = mindspider_root.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
 
 try:
     import config
@@ -22,16 +27,23 @@ try:
 except ImportError:
     raise ImportError("无法导入settings.py配置文件")
 
+from utils.llm_provider import LLMClient
+
 class TopicExtractor:
     """话题提取器"""
 
     def __init__(self):
         """初始化话题提取器"""
-        self.client = OpenAI(
-            api_key=settings.MINDSPIDER_API_KEY,
-            base_url=settings.MINDSPIDER_BASE_URL
-        )
         self.model = settings.MINDSPIDER_MODEL_NAME
+
+        # 使用统一 LLM 客户端（自动支持 OpenAI / Anthropic OAuth）
+        self.llm_client = LLMClient(
+            api_key=settings.MINDSPIDER_API_KEY,
+            model_name=self.model,
+            base_url=settings.MINDSPIDER_BASE_URL,
+            engine_name="MindSpider TopicExtractor",
+            prepend_time=False,
+        )
     
     def extract_keywords_and_summary(self, news_list: List[Dict], max_keywords: int = 100) -> Tuple[List[str], str]:
         """
@@ -54,19 +66,15 @@ class TopicExtractor:
         prompt = self._build_analysis_prompt(news_text, max_keywords)
         
         try:
-            # 调用DeepSeek API
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "你是一个专业的新闻分析师，擅长从热点新闻中提取关键词和撰写分析总结。"},
-                    {"role": "user", "content": prompt}
-                ],
+            # 通过统一 LLM 客户端调用（自动支持 OpenAI / Anthropic）
+            result_text = self.llm_client.invoke(
+                "你是一个专业的新闻分析师，擅长从热点新闻中提取关键词和撰写分析总结。",
+                prompt,
                 max_tokens=1500,
-                temperature=0.3
+                temperature=0.3,
             )
             
             # 解析返回结果
-            result_text = response.choices[0].message.content
             keywords, summary = self._parse_analysis_result(result_text)
             
             print(f"成功提取 {len(keywords)} 个关键词并生成新闻总结")

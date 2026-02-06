@@ -1,13 +1,12 @@
 """
 论坛主持人模块
-使用硅基流动的Qwen3模型作为论坛主持人，引导多个agent进行讨论
+使用LLM作为论坛主持人，引导多个agent进行讨论。
+支持 OpenAI / Anthropic（含 Claude Code OAuth）双后端。
 """
 
-from openai import OpenAI
 import sys
 import os
 from typing import List, Dict, Any, Optional
-from datetime import datetime
 import re
 
 # 添加项目根目录到Python路径以导入config
@@ -22,6 +21,7 @@ if utils_dir not in sys.path:
     sys.path.append(utils_dir)
 
 from utils.retry_helper import with_graceful_retry, SEARCH_API_RETRY_CONFIG
+from utils.llm_provider import LLMClient
 
 
 class ForumHost:
@@ -37,6 +37,7 @@ class ForumHost:
         Args:
             api_key: 论坛主持人 LLM API 密钥，如果不提供则从配置文件读取
             base_url: 论坛主持人 LLM API 接口基础地址，默认使用配置文件提供的SiliconFlow地址
+            model_name: 模型名称，如果不提供则从配置文件读取
         """
         self.api_key = api_key or settings.FORUM_HOST_API_KEY
 
@@ -44,12 +45,16 @@ class ForumHost:
             raise ValueError("未找到论坛主持人API密钥，请在环境变量文件中设置FORUM_HOST_API_KEY")
 
         self.base_url = base_url or settings.FORUM_HOST_BASE_URL
+        self.model = model_name or settings.FORUM_HOST_MODEL_NAME
 
-        self.client = OpenAI(
+        # 使用统一 LLM 客户端（自动支持 OpenAI / Anthropic OAuth）
+        self.llm_client = LLMClient(
             api_key=self.api_key,
-            base_url=self.base_url
+            model_name=self.model,
+            base_url=self.base_url,
+            engine_name="Forum Host",
+            prepend_time=True,
         )
-        self.model = model_name or settings.FORUM_HOST_MODEL_NAME  # Use configured model
 
         # Track previous summaries to avoid duplicates
         self.previous_summaries = []
@@ -209,27 +214,17 @@ class ForumHost:
     
     @with_graceful_retry(SEARCH_API_RETRY_CONFIG, default_return={"success": False, "error": "API服务暂时不可用"})
     def _call_qwen_api(self, system_prompt: str, user_prompt: str) -> Dict[str, Any]:
-        """调用Qwen API"""
+        """调用 LLM API（通过统一客户端，自动支持 OpenAI / Anthropic）"""
         try:
-            current_time = datetime.now().strftime("%Y年%m月%d日%H时%M分")
-            time_prefix = f"今天的实际时间是{current_time}"
-            if user_prompt:
-                user_prompt = f"{time_prefix}\n{user_prompt}"
-            else:
-                user_prompt = time_prefix
-                
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
+            # LLMClient.invoke 已自动处理时间前缀注入
+            content = self.llm_client.invoke(
+                system_prompt,
+                user_prompt,
                 temperature=0.6,
                 top_p=0.9,
             )
 
-            if response.choices:
-                content = response.choices[0].message.content
+            if content:
                 return {"success": True, "content": content}
             else:
                 return {"success": False, "error": "API返回格式异常"}

@@ -1,9 +1,9 @@
 """
 关键词优化中间件
-使用Qwen AI将Agent生成的搜索词优化为更适合舆情数据库查询的关键词
+使用LLM将Agent生成的搜索词优化为更适合舆情数据库查询的关键词。
+支持 OpenAI / Anthropic（含 Claude Code OAuth）双后端。
 """
 
-from openai import OpenAI
 import json
 import sys
 import os
@@ -23,6 +23,7 @@ if utils_dir not in sys.path:
     sys.path.append(utils_dir)
 
 from retry_helper import with_graceful_retry, SEARCH_API_RETRY_CONFIG
+from utils.llm_provider import LLMClient
 
 @dataclass
 class KeywordOptimizationResponse:
@@ -44,21 +45,26 @@ class KeywordOptimizer:
         初始化关键词优化器
         
         Args:
-            api_key: 硅基流动API密钥，如果不提供则从配置文件读取
-            base_url: 接口基础地址，默认使用配置文件提供的SiliconFlow地址
+            api_key: API密钥或OAuth token，如果不提供则从配置文件读取
+            base_url: 接口基础地址，默认使用配置文件中的地址
+            model_name: 模型名称，如果不提供则从配置文件读取
         """
         self.api_key = api_key or settings.KEYWORD_OPTIMIZER_API_KEY
 
         if not self.api_key:
-            raise ValueError("未找到硅基流动API密钥，请在config.py中设置KEYWORD_OPTIMIZER_API_KEY")
+            raise ValueError("未找到API密钥，请在配置文件中设置KEYWORD_OPTIMIZER_API_KEY")
 
         self.base_url = base_url or settings.KEYWORD_OPTIMIZER_BASE_URL
-
-        self.client = OpenAI(
-            api_key=self.api_key,
-            base_url=self.base_url
-        )
         self.model = model_name or settings.KEYWORD_OPTIMIZER_MODEL_NAME
+
+        # 使用统一 LLM 客户端（自动支持 OpenAI / Anthropic OAuth）
+        self.llm_client = LLMClient(
+            api_key=self.api_key,
+            model_name=self.model,
+            base_url=self.base_url,
+            engine_name="Keyword Optimizer",
+            prepend_time=False,
+        )
     
     def optimize_keywords(self, original_query: str, context: str = "") -> KeywordOptimizationResponse:
         """
@@ -190,19 +196,15 @@ class KeywordOptimizer:
     
     @with_graceful_retry(SEARCH_API_RETRY_CONFIG, default_return={"success": False, "error": "关键词优化服务暂时不可用"})
     def _call_qwen_api(self, system_prompt: str, user_prompt: str) -> Dict[str, Any]:
-        """调用Qwen API"""
+        """调用 LLM API（通过统一客户端，自动支持 OpenAI / Anthropic）"""
         try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
+            content = self.llm_client.invoke(
+                system_prompt,
+                user_prompt,
                 temperature=0.7,
             )
 
-            if response.choices:
-                content = response.choices[0].message.content
+            if content:
                 return {"success": True, "content": content}
             else:
                 return {"success": False, "error": "API返回格式异常"}
