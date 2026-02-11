@@ -14,27 +14,19 @@ V3.0 核心更新:
 - 新增平台精搜工具: 新增 `search_topic_on_platform` 工具，作为特例，
   允许Agent在特定平台（B站、微博等七大平台）上对某一话题进行精确搜索，并支持时间筛选。
 - 结构优化: 调整了数据结构与函数文档，以适应新功能。
-- 心态分析整合: 在`get_comments_for_topic`中自动为评论添加心态分析结果。
 
 主要工具:
 - search_hot_content: 查找指定时间范围内的综合热度最高的内容。
 - search_topic_globally: 在整个数据库中全局搜索与特定话题相关的所有内容和评论。
 - search_topic_by_date: 在指定的历史日期范围内搜索与特定话题相关的内容。
-- get_comments_for_topic: 专门提取公众对于某一特定话题的评论数据，并自动进行心态分析。
+- get_comments_for_topic: 专门提取公众对于某一特定话题的评论数据。
 - search_topic_on_platform: 在指定的单个社交媒体平台上搜索特定话题。
 """
 
 import os
-import sys
 import json
 from loguru import logger
 import asyncio
-
-# ===== 【导入心态分析器】=====
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from tools.sentiment_analyzer import multilingual_sentiment_analyzer
-# ======================
-
 from typing import List, Dict, Any, Optional, Literal
 from dataclasses import dataclass, field
 from ..utils.db import fetch_all
@@ -52,7 +44,7 @@ class QueryResult:
     author_nickname: Optional[str] = None
     url: Optional[str] = None
     publish_time: Optional[datetime] = None
-    engagement: Dict[str, Any] = field(default_factory=dict)
+    engagement: Dict[str, int] = field(default_factory=dict)
     source_keyword: Optional[str] = None
     hotness_score: float = 0.0
     source_table: str = ""
@@ -123,7 +115,7 @@ class MediaCrawlerDB:
         self._table_columns_cache[table_name] = columns
         return columns
 
-    def _extract_engagement(self, row: Dict[str, Any]) -> Dict[str, Any]:
+    def _extract_engagement(self, row: Dict[str, Any]) -> Dict[str, int]:
         """从数据行中提取并统一互动指标"""
         engagement = {}
         mapping = { 'likes': ['liked_count', 'like_count', 'voteup_count', 'comment_like_count'], 'comments': ['video_comment', 'comments_count', 'comment_count', 'total_replay_num', 'sub_comment_count'], 'shares': ['video_share_count', 'shared_count', 'share_count', 'total_forwards'], 'views': ['video_play_count', 'viewd_count'], 'favorites': ['video_favorite_count', 'collected_count'], 'coins': ['video_coin_count'], 'danmaku': ['video_danmaku'], }
@@ -331,40 +323,6 @@ class MediaCrawlerDB:
         raw_results = self._execute_query(final_query, params)
         
         formatted = [QueryResult(platform=r['platform'], content_type='comment', title_or_content=r['content'], author_nickname=r['author'], publish_time=self._to_datetime(r['ts']), engagement={'likes': int(r['likes']) if str(r['likes']).isdigit() else 0}, source_table=r['source_table']) for r in raw_results]
-        
-        # ===== 【在此处插入心态分析整合代码】=====
-        # 1. 提取评论文本列表
-        comment_texts = [result.title_or_content for result in formatted if result.title_or_content.strip()]
-        
-        if comment_texts:
-            logger.info(f"[心态分析整合] 开始对 {len(comment_texts)} 条评论进行心态分析...")
-            try:
-                # 2. 调用心态分析批量方法
-                mental_state_results = multilingual_sentiment_analyzer.analyze_mental_state_batch(comment_texts)
-                
-                # 3. 将心态分析结果附加到每条评论数据中
-                for i, comment_result in enumerate(formatted):
-                    if i < len(mental_state_results):
-                        mental_state_info = mental_state_results[i]
-                        # 将心态结果作为一个新字段存入 engagement 字典
-                        comment_result.engagement['mental_state'] = mental_state_info.get('mental_state', '未知')
-                        comment_result.engagement['mental_confidence'] = mental_state_info.get('confidence', 0.0)
-                        comment_result.engagement['mental_success'] = mental_state_info.get('success', False)
-                    else:
-                        # 如果结果数量不匹配，使用默认值
-                        comment_result.engagement['mental_state'] = '未知'
-                        comment_result.engagement['mental_confidence'] = 0.0
-                        comment_result.engagement['mental_success'] = False
-                logger.info(f"[心态分析整合] 分析完成，已附加到 {len(formatted)} 条评论。")
-            except Exception as e:
-                logger.error(f"[心态分析整合] 过程出现异常，但不影响主流程: {e}")
-                # 可选：为所有评论添加一个默认的心态分析字段
-                for result in formatted:
-                    result.engagement['mental_state'] = '分析失败'
-                    result.engagement['mental_confidence'] = 0.0
-                    result.engagement['mental_success'] = False
-        # ===== 【整合代码结束】=====
-        
         return DBResponse("get_comments_for_topic", params_for_log, results=formatted, results_count=len(formatted))
 
     def search_topic_on_platform(
@@ -459,15 +417,11 @@ def print_response_summary(response: DBResponse):
             publish_time_str = res.publish_time.strftime('%Y-%m-%d %H:%M') if res.publish_time else "N/A"
             hotness_str = f", hotness: {res.hotness_score:.2f}" if getattr(res, "hotness_score", 0) > 0 else ""
             engagement_dict = getattr(res, "engagement", {}) or {}
-            # 特别显示心态分析结果
-            mental_state_info = ""
-            if 'mental_state' in engagement_dict:
-                mental_state_info = f" | 心态: {engagement_dict.get('mental_state', '未知')} (置信度: {engagement_dict.get('mental_confidence', 0):.2f})"
-            engagement_str = ", ".join(f"{k}: {v}" for k, v in engagement_dict.items() if k not in ['mental_state', 'mental_confidence', 'mental_success'])
+            engagement_str = ", ".join(f"{k}: {v}" for k, v in engagement_dict.items() if v)
             output_lines.append(
                 f"{idx}. [{res.platform.upper()}/{res.content_type}] {content_preview}\n"
                 f"   作者: {author_str} | 时间: {publish_time_str}"
-                f"{hotness_str} | 源关键词: '{res.source_keyword or 'N/A'}'{mental_state_info}\n"
+                f"{hotness_str} | 源关键词: '{res.source_keyword or 'N/A'}'\n"
                 f"   链接: {res.url or 'N/A'}\n"
                 f"   互动数据: {{{engagement_str}}}"
             )
@@ -501,11 +455,6 @@ if __name__ == "__main__":
         # 场景5: (新增) 在微博上精确搜索 "许凯" 在特定一天内的内容
         response5 = db_agent_tools.search_topic_on_platform(platform='weibo', topic="许凯", start_date='2025-08-22', end_date='2025-08-22', limit=5)
         print_response_summary(response5)
-
-        # 场景6: 测试获取评论并查看心态分析结果
-        logger.info("\n=== 测试心态分析整合 ===")
-        response6 = db_agent_tools.get_comments_for_topic(topic="科技", limit=10)
-        print_response_summary(response6)
 
     except ValueError as e:
         logger.exception(f"初始化失败: {e}")
