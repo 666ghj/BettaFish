@@ -151,7 +151,8 @@ class MindSpider:
                 [sys.executable, str(init_script)],
                 cwd=self.schema_path,
                 capture_output=True,
-                text=True
+                text=True,
+                encoding='utf-8'
             )
             
             if result.returncode == 0:
