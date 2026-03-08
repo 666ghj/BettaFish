@@ -37,7 +37,7 @@ class LLMClient:
             raise ValueError("Insight Engine INSIGHT_ENGINE_MODEL_NAME is required.")
 
         self.api_key = api_key
-        self.base_url = base_url
+        self.base_url = self._validate_base_url(base_url) if base_url else base_url
         self.model_name = model_name
         self.provider = model_name
         timeout_fallback = os.getenv("LLM_REQUEST_TIMEOUT") or os.getenv("INSIGHT_ENGINE_REQUEST_TIMEOUT") or "1800"

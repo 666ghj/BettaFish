@@ -33,6 +33,28 @@ class LLMClient:
     Minimal wrapper around the OpenAI-compatible chat completion API.
     """
 
+    @staticmethod
+    def _validate_base_url(base_url: str) -> str:
+        """Validate and normalize base_url to ensure it has a protocol prefix."""
+        if not base_url:
+            return base_url
+        
+        base_url = base_url.strip()
+        
+        # Check if URL already has a protocol
+        if base_url.startswith(('http://', 'https://')):
+            return base_url
+        
+        # Auto-add https:// prefix if missing
+        import warnings
+        warnings.warn(
+            f"base_url '{base_url}' is missing 'http://' or 'https://' protocol prefix. "
+            f"Auto-prepending 'https://'. Please update your configuration.",
+            UserWarning
+        )
+        return f"https://{base_url}"
+
+
     def __init__(self, api_key: str, model_name: str, base_url: Optional[str] = None):
         if not api_key:
             raise ValueError("Media Engine LLM API key is required.")
@@ -40,7 +62,7 @@ class LLMClient:
             raise ValueError("Media Engine model name is required.")
 
         self.api_key = api_key
-        self.base_url = base_url
+        self.base_url = self._validate_base_url(base_url) if base_url else base_url
         self.model_name = model_name
         self.provider = model_name
         timeout_fallback = os.getenv("LLM_REQUEST_TIMEOUT") or os.getenv("MEDIA_ENGINE_REQUEST_TIMEOUT") or "1800"
