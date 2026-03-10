@@ -19,7 +19,7 @@
 
 
 
-[English](./README-EN.md) | [中文文档](./README.md)
+[English](./README-EN.md) | [中文文档](./README.md) | [한국어](./README-KR.md)
 
 </div>
 
