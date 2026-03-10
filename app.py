@@ -743,7 +743,24 @@ def stop_streamlit_app(app_name):
 
 HEALTHCHECK_PATH = "/_stcore/health"
 HEALTHCHECK_PROXIES = {'http': None, 'https': None}
-HEALTHCHECK_GRACE_SECONDS = 15
+
+
+def _read_env_int(name: str, default: int) -> int:
+    try:
+        return int(os.getenv(name, default))
+    except (TypeError, ValueError):
+        return default
+
+
+def _read_env_float(name: str, default: float) -> float:
+    try:
+        return float(os.getenv(name, default))
+    except (TypeError, ValueError):
+        return default
+
+
+HEALTHCHECK_GRACE_SECONDS = _read_env_int("HEALTHCHECK_GRACE_SECONDS", 15)
+HEALTHCHECK_TIMEOUT_SECONDS = _read_env_float("HEALTHCHECK_TIMEOUT_SECONDS", 2.0)
 
 
 def _build_healthcheck_url(port):
@@ -773,7 +790,7 @@ def check_app_status():
                 try:
                     response = requests.get(
                         _build_healthcheck_url(info['port']),
-                        timeout=2,
+                        timeout=HEALTHCHECK_TIMEOUT_SECONDS,
                         proxies=HEALTHCHECK_PROXIES
                     )
                     if response.status_code == 200:
@@ -804,7 +821,7 @@ def wait_for_app_startup(app_name, max_wait_time=90):
         try:
             response = requests.get(
                 _build_healthcheck_url(info['port']),
-                timeout=2,
+                timeout=HEALTHCHECK_TIMEOUT_SECONDS,
                 proxies=HEALTHCHECK_PROXIES
             )
             if response.status_code == 200:
