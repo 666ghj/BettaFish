@@ -8,6 +8,7 @@ MindSpider - AI爬虫项目主程序
 import os
 import sys
 import argparse
+import ssl
 from datetime import date, datetime
 from pathlib import Path
 import subprocess
@@ -18,7 +19,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine
 from sqlalchemy import inspect, text
 from config import settings
 from loguru import logger
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, parse_qs
 
 # 添加项目根目录到路径
 project_root = Path(__file__).parent
@@ -71,18 +72,31 @@ class MindSpider:
         """检查数据库连接"""
         logger.info("检查数据库连接...")
         
-        def build_async_url() -> str:
+        def build_async_url() -> tuple[str, dict]:
             dialect = (settings.DB_DIALECT or "mysql").lower()
+            db_name = settings.DB_NAME or ""
+            connect_args: dict = {}
             if dialect == "postgresql":
-                return f"postgresql+asyncpg://{settings.DB_USER}:{quote_plus(settings.DB_PASSWORD)}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
+                db_name, connect_args = _parse_db_name_with_ssl(db_name)
+            if dialect == "postgresql":
+                return (
+                    f"postgresql+asyncpg://{settings.DB_USER}:{quote_plus(settings.DB_PASSWORD)}"
+                    f"@{settings.DB_HOST}:{settings.DB_PORT}/{db_name}",
+                    connect_args,
+                )
             # 默认使用 mysql 异步驱动 asyncmy
             return (
                 f"mysql+asyncmy://{settings.DB_USER}:{quote_plus(settings.DB_PASSWORD)}"
-                f"@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}?charset={settings.DB_CHARSET}"
+                f"@{settings.DB_HOST}:{settings.DB_PORT}/{db_name}?charset={settings.DB_CHARSET}",
+                connect_args,
             )
 
-        async def _test_connection(db_url: str) -> None:
-            engine: AsyncEngine = create_async_engine(db_url, pool_pre_ping=True)
+        async def _test_connection(db_url: str, connect_args: dict) -> None:
+            engine: AsyncEngine = create_async_engine(
+                db_url,
+                pool_pre_ping=True,
+                connect_args=connect_args,
+            )
             try:
                 async with engine.connect() as conn:
                     await conn.execute(text("SELECT 1"))
@@ -90,8 +104,8 @@ class MindSpider:
                 await engine.dispose()
 
         try:
-            db_url: str = build_async_url()
-            asyncio.run(_test_connection(db_url))
+            db_url, connect_args = build_async_url()
+            asyncio.run(_test_connection(db_url, connect_args))
             logger.info("数据库连接正常")
             return True
         except Exception as e:
@@ -102,17 +116,30 @@ class MindSpider:
         """检查数据库表是否存在"""
         logger.info("检查数据库表...")
         
-        def build_async_url() -> str:
+        def build_async_url() -> tuple[str, dict]:
             dialect = (settings.DB_DIALECT or "mysql").lower()
+            db_name = settings.DB_NAME or ""
+            connect_args: dict = {}
             if dialect == "postgresql":
-                return f"postgresql+asyncpg://{settings.DB_USER}:{quote_plus(settings.DB_PASSWORD)}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
+                db_name, connect_args = _parse_db_name_with_ssl(db_name)
+            if dialect == "postgresql":
+                return (
+                    f"postgresql+asyncpg://{settings.DB_USER}:{quote_plus(settings.DB_PASSWORD)}"
+                    f"@{settings.DB_HOST}:{settings.DB_PORT}/{db_name}",
+                    connect_args,
+                )
             return (
                 f"mysql+asyncmy://{settings.DB_USER}:{quote_plus(settings.DB_PASSWORD)}"
-                f"@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}?charset={settings.DB_CHARSET}"
+                f"@{settings.DB_HOST}:{settings.DB_PORT}/{db_name}?charset={settings.DB_CHARSET}",
+                connect_args,
             )
 
-        async def _check_tables(db_url: str) -> list[str]:
-            engine: AsyncEngine = create_async_engine(db_url, pool_pre_ping=True)
+        async def _check_tables(db_url: str, connect_args: dict) -> list[str]:
+            engine: AsyncEngine = create_async_engine(
+                db_url,
+                pool_pre_ping=True,
+                connect_args=connect_args,
+            )
             try:
                 async with engine.connect() as conn:
                     def _get_tables(sync_conn):
@@ -123,8 +150,8 @@ class MindSpider:
                 await engine.dispose()
 
         try:
-            db_url: str = build_async_url()
-            existing_tables = asyncio.run(_check_tables(db_url))
+            db_url, connect_args = build_async_url()
+            existing_tables = asyncio.run(_check_tables(db_url, connect_args))
             required_tables = ['daily_news', 'daily_topics']
             missing_tables = [t for t in required_tables if t not in existing_tables]
             if missing_tables:
@@ -135,6 +162,37 @@ class MindSpider:
         except Exception as e:
             logger.exception(f"检查数据库表失败: {e}")
             return False
+
+
+def _parse_db_name_with_ssl(db_name: str) -> tuple[str, dict]:
+    if "?" not in db_name:
+        return db_name, {}
+    base_name, query = db_name.split("?", 1)
+    params = {k: v[-1] if v else "" for k, v in parse_qs(query, keep_blank_values=True).items()}
+    ssl_value = _build_ssl_connect_arg(params)
+    if ssl_value is None:
+        return base_name, {}
+    return base_name, {"ssl": ssl_value}
+
+
+def _build_ssl_connect_arg(params: dict) -> object | None:
+    sslmode = (params.get("sslmode") or "").lower()
+    sslrootcert = params.get("sslrootcert")
+    sslcert = params.get("sslcert")
+    sslkey = params.get("sslkey")
+
+    if not sslmode and not any([sslrootcert, sslcert, sslkey]):
+        return None
+    if sslmode == "disable":
+        return False
+    if sslmode in ("require", "allow", "prefer") and not any([sslrootcert, sslcert, sslkey]):
+        return True
+
+    context = ssl.create_default_context(cafile=sslrootcert or None)
+    if sslcert:
+        context.load_cert_chain(sslcert, sslkey or None)
+    context.check_hostname = sslmode == "verify-full"
+    return context
     
     def initialize_database(self) -> bool:
         """初始化数据库"""

@@ -12,8 +12,9 @@ from __future__ import annotations
 
 import asyncio
 import os
+import ssl
 from typing import Optional
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, parse_qs
 from loguru import logger
 
 from sqlalchemy.ext.asyncio import create_async_engine
@@ -38,11 +39,11 @@ def _env(key: str, default: Optional[str] = None) -> Optional[str]:
     return v if v not in (None, "") else default
 
 
-def _build_database_url() -> str:
+def _build_database_url_and_args() -> tuple[str, dict]:
     # 优先 DATABASE_URL
     database_url = settings.DATABASE_URL if hasattr(settings, "DATABASE_URL") else None
     if database_url:
-        return database_url
+        return database_url, {}
 
     dialect = (settings.DB_DIALECT or "mysql").lower()
     host = settings.DB_HOST or "localhost"
@@ -51,11 +52,45 @@ def _build_database_url() -> str:
     password = settings.DB_PASSWORD or ""
     password = quote_plus(password)
     db_name = settings.DB_NAME or "mindspider"
+    connect_args: dict = {}
+    if dialect in ("postgresql", "postgres"):
+        db_name, connect_args = _parse_db_name_with_ssl(db_name)
 
     if dialect in ("postgresql", "postgres"):
-        return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{db_name}"
+        return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{db_name}", connect_args
 
-    return f"mysql+aiomysql://{user}:{password}@{host}:{port}/{db_name}"
+    return f"mysql+aiomysql://{user}:{password}@{host}:{port}/{db_name}", connect_args
+
+
+def _parse_db_name_with_ssl(db_name: str) -> tuple[str, dict]:
+    if "?" not in db_name:
+        return db_name, {}
+    base_name, query = db_name.split("?", 1)
+    params = {k: v[-1] if v else "" for k, v in parse_qs(query, keep_blank_values=True).items()}
+    ssl_value = _build_ssl_connect_arg(params)
+    if ssl_value is None:
+        return base_name, {}
+    return base_name, {"ssl": ssl_value}
+
+
+def _build_ssl_connect_arg(params: dict) -> object | None:
+    sslmode = (params.get("sslmode") or "").lower()
+    sslrootcert = params.get("sslrootcert")
+    sslcert = params.get("sslcert")
+    sslkey = params.get("sslkey")
+
+    if not sslmode and not any([sslrootcert, sslcert, sslkey]):
+        return None
+    if sslmode == "disable":
+        return False
+    if sslmode in ("require", "allow", "prefer") and not any([sslrootcert, sslcert, sslkey]):
+        return True
+
+    context = ssl.create_default_context(cafile=sslrootcert or None)
+    if sslcert:
+        context.load_cert_chain(sslcert, sslkey or None)
+    context.check_hostname = sslmode == "verify-full"
+    return context
 
 
 async def _create_views_if_needed(engine_dialect: str):
@@ -90,7 +125,8 @@ async def _create_views_if_needed(engine_dialect: str):
 
     # PostgreSQL 的 CREATE OR REPLACE VIEW 也可用；两端均执行
     from sqlalchemy.ext.asyncio import AsyncEngine
-    engine: AsyncEngine = create_async_engine(_build_database_url())
+    database_url, connect_args = _build_database_url_and_args()
+    engine: AsyncEngine = create_async_engine(database_url, connect_args=connect_args)
     async with engine.begin() as conn:
         await conn.execute(text(v_topic_crawling_stats))
         await conn.execute(text(v_daily_summary))
@@ -98,8 +134,13 @@ async def _create_views_if_needed(engine_dialect: str):
 
 
 async def main() -> None:
-    database_url = _build_database_url()
-    engine = create_async_engine(database_url, pool_pre_ping=True, pool_recycle=1800)
+    database_url, connect_args = _build_database_url_and_args()
+    engine = create_async_engine(
+        database_url,
+        pool_pre_ping=True,
+        pool_recycle=1800,
+        connect_args=connect_args,
+    )
 
     # 由于 models_bigdata 和 models_sa 现在共享同一个 Base，所有表都在同一个 metadata 中
     # 只需创建一次，SQLAlchemy 会自动处理表之间的依赖关系
@@ -116,5 +157,4 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
-
 
