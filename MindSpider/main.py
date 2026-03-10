@@ -98,7 +98,7 @@ class MindSpider:
             logger.exception(f"数据库连接失败: {e}")
             return False
     
-    def check_database_tables(self) -> bool:
+    def check_database_tables(self, log_missing_as_error: bool = True, hint_init: bool = False) -> bool:
         """检查数据库表是否存在"""
         logger.info("检查数据库表...")
         
@@ -128,7 +128,13 @@ class MindSpider:
             required_tables = ['daily_news', 'daily_topics']
             missing_tables = [t for t in required_tables if t not in existing_tables]
             if missing_tables:
-                logger.error(f"缺少数据库表: {', '.join(missing_tables)}")
+                message = f"缺少数据库表: {', '.join(missing_tables)}"
+                if log_missing_as_error:
+                    logger.error(message)
+                else:
+                    logger.warning(message)
+                if hint_init:
+                    logger.info("可运行: python MindSpider/main.py --init-db")
                 return False
             logger.info("数据库表检查通过")
             return True
@@ -392,7 +398,7 @@ class MindSpider:
             logger.info(f"数据库连接: {'正常' if db_conn_ok else '异常'}")
             
             if db_conn_ok:
-                db_tables_ok = self.check_database_tables()
+                db_tables_ok = self.check_database_tables(log_missing_as_error=False, hint_init=True)
                 logger.info(f"数据库表: {'正常' if db_tables_ok else '需要初始化'}")
         
         # 依赖状态
