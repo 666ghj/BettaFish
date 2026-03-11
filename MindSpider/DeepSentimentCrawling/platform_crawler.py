@@ -137,6 +137,9 @@ postgresql_db_config = {{
     "db_name": POSTGRESQL_DB_NAME,
 }}
 
+# MediaCrawler compatibility alias for postgres config name
+postgres_db_config = postgresql_db_config
+
 '''
             
             # 写入新配置
@@ -169,7 +172,7 @@ postgresql_db_config = {{
             # 判断数据库类型，确定 SAVE_DATA_OPTION
             db_dialect = (config.settings.DB_DIALECT or "mysql").lower()
             is_postgresql = db_dialect in ("postgresql", "postgres")
-            save_data_option = "postgresql" if is_postgresql else "db"
+            save_data_option = "postgres" if is_postgresql else "db"
             
             base_config_path = self.mediacrawler_path / "config" / "base_config.py"
             
@@ -180,17 +183,27 @@ postgresql_db_config = {{
             with open(base_config_path, 'r', encoding='utf-8') as f:
                 content = f.read()
             
-            # 修改关键配置项
+            # Replace config lines carefully; only skip continuation lines when CRAWLER_TYPE uses multi-line parentheses.
             lines = content.split('\n')
             new_lines = []
-            
+            skip_crawler_type_continuation = False
+
             for line in lines:
+                if skip_crawler_type_continuation:
+                    stripped = line.strip()
+                    if stripped == ')':
+                        skip_crawler_type_continuation = False
+                        continue
+                    continue
+
                 if line.startswith('PLATFORM = '):
-                    new_lines.append(f'PLATFORM = "{platform}"  # 平台，xhs | dy | ks | bili | wb | tieba | zhihu')
+                    new_lines.append(f'PLATFORM = "{platform}"  # platform: xhs | dy | ks | bili | wb | tieba | zhihu')
                 elif line.startswith('KEYWORDS = '):
-                    new_lines.append(f'KEYWORDS = "{keywords_str}"  # 关键词搜索配置，以英文逗号分隔')
+                    new_lines.append(f'KEYWORDS = "{keywords_str}"  # keyword search configuration, separated by commas')
                 elif line.startswith('CRAWLER_TYPE = '):
-                    new_lines.append(f'CRAWLER_TYPE = "{crawler_type}"  # 爬取类型，search(关键词搜索) | detail(帖子详情)| creator(创作者主页数据)')
+                    new_lines.append(f'CRAWLER_TYPE = "{crawler_type}"  # search | detail | creator')
+                    stripped = line.strip()
+                    skip_crawler_type_continuation = stripped.endswith('(') or ('(' in stripped and ')' not in stripped)
                 elif line.startswith('SAVE_DATA_OPTION = '):
                     new_lines.append(f'SAVE_DATA_OPTION = "{save_data_option}"  # csv or db or json or sqlite or postgresql')
                 elif line.startswith('CRAWLER_MAX_NOTES_COUNT = '):
@@ -200,10 +213,22 @@ postgresql_db_config = {{
                 elif line.startswith('CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = '):
                     new_lines.append('CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = 20')
                 elif line.startswith('HEADLESS = '):
-                    new_lines.append('HEADLESS = True')  # 使用无头模式
+                    new_lines.append('HEADLESS = False')  # keep browser visible for QR-code login and debugging
                 else:
                     new_lines.append(line)
-            
+
+            # Append fallback options when the current MediaCrawler version does not define them.
+            if 'ENABLE_GET_COMMENTS =' not in content:
+                new_lines.append('ENABLE_GET_COMMENTS = True')
+            if 'ENABLE_GET_SUB_COMMENTS =' not in content:
+                new_lines.append('ENABLE_GET_SUB_COMMENTS = False')
+            if 'CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES =' not in content:
+                new_lines.append('CRAWLER_MAX_COMMENTS_COUNT_SINGLENOTES = 20')
+            if 'START_DAY =' not in content:
+                new_lines.append('START_DAY = "2024-01-01"')
+            if 'END_DAY =' not in content:
+                new_lines.append('END_DAY = "2024-01-01"')
+
             # 写入新配置
             with open(base_config_path, 'w', encoding='utf-8') as f:
                 f.write('\n'.join(new_lines))
@@ -253,7 +278,7 @@ postgresql_db_config = {{
             # 判断数据库类型，确定 save_data_option
             db_dialect = (config.settings.DB_DIALECT or "mysql").lower()
             is_postgresql = db_dialect in ("postgresql", "postgres")
-            save_data_option = "postgresql" if is_postgresql else "db"
+            save_data_option = "postgres" if is_postgresql else "db"
             
             # 构建命令
             cmd = [
