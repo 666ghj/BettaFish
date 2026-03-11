@@ -1,0 +1,56 @@
+{% extends "mvp/base.html" %}
+
+{% block title %}热点与排行 - BettaFish{% endblock %}
+
+{% block content %}
+<div class="panel-grid hot-grid">
+  <div class="glass panel fade-up">
+    <div class="panel-title">筛选器</div>
+    <div class="filter-row">
+      <label>主题关键词</label>
+      <input id="topicInput" type="text" placeholder="输入主题关键词，如 语言规范">
+    </div>
+    <div class="filter-row">
+      <label>开始日期</label>
+      <input id="startDate" type="date">
+    </div>
+    <div class="filter-row">
+      <label>结束日期</label>
+      <input id="endDate" type="date">
+    </div>
+    <button id="searchBtn" class="btn-primary">刷新数据</button>
+  </div>
+
+  <div class="glass panel fade-up">
+    <div class="panel-title">热度 Top10</div>
+    <div id="rankingList" class="ranking-list"></div>
+  </div>
+</div>
+
+<div class="glass panel fade-up">
+  <div class="panel-title">热点事件列表</div>
+  <div class="table-wrap">
+    <table class="event-table">
+      <thead>
+        <tr>
+          <th>时间</th>
+          <th>话题</th>
+          <th>内容</th>
+          <th>互动量</th>
+          <th>RI</th>
+        </tr>
+      </thead>
+      <tbody id="eventsBody"></tbody>
+    </table>
+  </div>
+  <div class="pager">
+    <button id="prevPage">上一页</button>
+    <span id="pageInfo">第 1 页</span>
+    <button id="nextPage">下一页</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='mvp/js/hot_ranking.js') }}"></script>
+{% endblock %}

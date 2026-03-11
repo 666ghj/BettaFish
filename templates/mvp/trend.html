@@ -1,0 +1,30 @@
+{% extends "mvp/base.html" %}
+
+{% block title %}30天趋势 - BettaFish{% endblock %}
+
+{% block content %}
+<div class="glass panel fade-up">
+  <div class="panel-title">趋势筛选</div>
+  <div class="inline-filters">
+    <input id="topicInput" type="text" placeholder="输入主题关键词（可选）">
+    <input id="startDate" type="date">
+    <input id="endDate" type="date">
+    <button id="loadTrendBtn" class="btn-primary">更新趋势</button>
+  </div>
+</div>
+
+<div class="panel-grid trend-grid">
+  <div class="glass panel fade-up">
+    <div class="panel-title">近30天 RI 指数变化</div>
+    <div id="riskChart" class="chart"></div>
+  </div>
+  <div class="glass panel fade-up">
+    <div class="panel-title">话题数量变化</div>
+    <div id="countChart" class="chart"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='mvp/js/trend.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends "mvp/base.html" %}
+
+{% block title %}全国热力图 - BettaFish{% endblock %}
+
+{% block content %}
+<div class="glass panel fade-up">
+  <div class="panel-title">热力图筛选</div>
+  <div class="inline-filters">
+    <input id="startDate" type="date">
+    <input id="endDate" type="date">
+    <button id="loadHeatmapBtn" class="btn-primary">刷新热力图</button>
+  </div>
+</div>
+
+<div class="panel-grid heat-grid">
+  <div class="glass panel fade-up">
+    <div class="panel-title">全国舆情风险分布</div>
+    <div id="chinaMap" class="chart map-chart"></div>
+  </div>
+  <div class="glass panel fade-up">
+    <div class="panel-title">省份风险排行榜</div>
+    <div id="regionList" class="ranking-list"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='mvp/js/heatmap.js') }}"></script>
+{% endblock %}

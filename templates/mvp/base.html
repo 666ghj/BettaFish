@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}BettaFish 可视化看板{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='mvp/css/dashboard.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js"></script>
+</head>
+<body>
+  <div class="bg-layer bg-orb-1"></div>
+  <div class="bg-layer bg-orb-2"></div>
+  <div class="bg-layer bg-orb-3"></div>
+
+  <header class="topbar glass">
+    <div class="brand">BettaFish 舆情监测 MVP</div>
+    <div class="badge">Flask + Templates</div>
+  </header>
+
+  <main class="layout">
+    <aside class="sidebar glass">
+      <a class="nav-item {% if page_key == 'hot' %}active{% endif %}" href="/mvp/">热点与排行</a>
+      <a class="nav-item {% if page_key == 'trend' %}active{% endif %}" href="/mvp/trend">30天趋势</a>
+      <a class="nav-item {% if page_key == 'heatmap' %}active{% endif %}" href="/mvp/heatmap">全国热力图</a>
+    </aside>
+
+    <section class="content">
+      {% block content %}{% endblock %}
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='mvp/js/common.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
