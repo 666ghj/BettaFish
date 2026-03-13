@@ -116,6 +116,36 @@ CONFIG_KEYS = [
     'ANSPIRE_API_KEY'
 ]
 
+# Substrings that mark a config key as sensitive.  Values for these keys will
+# be masked in API responses so they are never leaked in plaintext.
+_SENSITIVE_KEY_PATTERNS = ('API_KEY', 'SECRET', 'PASSWORD')
+
+
+def _is_sensitive_key(key: str) -> bool:
+    """Return True if *key* looks like it holds a secret value."""
+    upper = key.upper()
+    return any(pat in upper for pat in _SENSITIVE_KEY_PATTERNS)
+
+
+def _mask_value(value: str) -> str:
+    """Mask a sensitive value, keeping only the last 4 characters visible."""
+    if not value:
+        return ''
+    if len(value) <= 4:
+        return '***'
+    return '***' + value[-4:]
+
+
+def _mask_config(config: dict) -> dict:
+    """Return a copy of *config* with sensitive values masked."""
+    masked = {}
+    for key, value in config.items():
+        if _is_sensitive_key(key) and value:
+            masked[key] = _mask_value(value)
+        else:
+            masked[key] = value
+    return masked
+
 
 def _load_config_module():
     """Load or reload the config module to ensure latest values are available."""
@@ -1200,10 +1230,14 @@ def search():
 
 @app.route('/api/config', methods=['GET'])
 def get_config():
-    """Expose selected configuration values to the frontend."""
+    """Expose selected configuration values to the frontend.
+
+    Sensitive values (API keys, passwords, secrets) are masked so they are
+    never returned in plaintext over the network.
+    """
     try:
         config_values = read_config_values()
-        return jsonify({'success': True, 'config': config_values})
+        return jsonify({'success': True, 'config': _mask_config(config_values)})
     except Exception as exc:
         logger.exception("读取配置失败")
         return jsonify({'success': False, 'message': f'读取配置失败: {exc}'}), 500
@@ -1227,7 +1261,7 @@ def update_config():
     try:
         write_config_values(updates)
         updated_config = read_config_values()
-        return jsonify({'success': True, 'config': updated_config})
+        return jsonify({'success': True, 'config': _mask_config(updated_config)})
     except Exception as exc:
         logger.exception("更新配置失败")
         return jsonify({'success': False, 'message': f'更新配置失败: {exc}'}), 500
