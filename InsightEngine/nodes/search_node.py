@@ -121,6 +121,16 @@ class FirstSearchNode(BaseNode):
                         return self._get_default_search_query()
             
             # 验证和清理结果
+            if isinstance(result, list):
+                if result and isinstance(result[0], dict):
+                    result = result[0]
+                else:
+                    logger.warning("搜索输出为列表，使用默认查询")
+                    return self._get_default_search_query()
+            if not isinstance(result, dict):
+                logger.warning("搜索输出不是对象，使用默认查询")
+                return self._get_default_search_query()
+
             search_query = result.get("search_query", "")
             reasoning = result.get("reasoning", "")
             
@@ -256,6 +266,16 @@ class ReflectionNode(BaseNode):
                         return self._get_default_reflection_query()
             
             # 验证和清理结果
+            if isinstance(result, list):
+                if result and isinstance(result[0], dict):
+                    result = result[0]
+                else:
+                    logger.warning("搜索输出为列表，使用默认查询")
+                    return self._get_default_reflection_query()
+            if not isinstance(result, dict):
+                logger.warning("搜索输出不是对象，使用默认查询")
+                return self._get_default_reflection_query()
+
             search_query = result.get("search_query", "")
             reasoning = result.get("reasoning", "")
             
