@@ -40,7 +40,13 @@ class Settings(BaseSettings):
     
     # ======================= LLM 相关 =======================
     # 我们的LLM模型API赞助商有：https://aihubmix.com/?aff=8Ds9，提供了非常全面的模型api
-    
+    # 支持任何兼容 OpenAI 格式的 LLM 提供商，包括但不限于：
+    #   - Kimi（Moonshot）: https://platform.moonshot.cn/
+    #   - DeepSeek: https://platform.deepseek.com/
+    #   - Gemini（通过中转）: https://aihubmix.com/?aff=8Ds9
+    #   - Qwen（通义千问）: https://www.aliyun.com/product/bailian
+    #   - MiniMax: https://platform.minimax.io/  （204K 超大上下文，适合深度分析与报告生成）
+
     # Insight Agent（推荐Kimi，申请地址：https://platform.moonshot.cn/）
     INSIGHT_ENGINE_API_KEY: Optional[str] = Field(None, description="Insight Agent（推荐 kimi-k2，官方申请地址：https://platform.moonshot.cn/）API 密钥，用于主 LLM。🚩请先按推荐配置申请并跑通，再根据需要调整 KEY、BASE_URL 与 MODEL_NAME。")
     INSIGHT_ENGINE_BASE_URL: Optional[str] = Field("https://api.moonshot.cn/v1", description="Insight Agent LLM BaseUrl，可根据厂商自定义")

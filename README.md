@@ -576,13 +576,13 @@ SENTIMENT_CONFIG = {
 >```python
 >from openai import OpenAI
 >
->client = OpenAI(api_key="your_api_key", 
+>client = OpenAI(api_key="your_api_key",
 >                base_url="https://aihubmix.com/v1")
 >
 >response = client.chat.completions.create(
 >    model="gpt-4o-mini",
 >    messages=[
->        {'role': 'user', 
+>        {'role': 'user',
 >         'content': "推理模型会给市场带来哪些新的机会"}
 >    ],
 >)
@@ -590,6 +590,41 @@ SENTIMENT_CONFIG = {
 >complete_response = response.choices[0].message.content
 >print(complete_response)
 >```
+
+#### 已验证的 LLM 提供商
+
+以下是经过验证可直接使用的 LLM 提供商：
+
+| 提供商 | 推荐模型 | Base URL | 申请地址 | 特点 |
+|--------|---------|----------|---------|------|
+| Kimi (Moonshot) | `kimi-k2-0711-preview` | `https://api.moonshot.cn/v1` | [platform.moonshot.cn](https://platform.moonshot.cn/) | 强大的中文理解能力 |
+| DeepSeek | `deepseek-chat` | `https://api.deepseek.com` | [platform.deepseek.com](https://platform.deepseek.com/) | 高性价比推理模型 |
+| Gemini (AIHubMix中转) | `gemini-2.5-pro` | `https://aihubmix.com/v1` | [aihubmix.com](https://aihubmix.com/?aff=8Ds9) | 强大的多模态能力 |
+| Qwen (通义千问) | `qwen-plus` | 按平台配置 | [aliyun.com/bailian](https://www.aliyun.com/product/bailian) | 中文优化 |
+| **MiniMax** | `MiniMax-M2.5` | `https://api.minimax.io/v1` | [platform.minimax.io](https://platform.minimax.io/) | **204K 超大上下文**，适合深度分析与报告生成 |
+
+<details>
+<summary>使用 MiniMax 的快速配置示例</summary>
+
+[MiniMax](https://platform.minimax.io/) 提供 OpenAI 兼容接口，拥有 204,800 tokens 超大上下文窗口，非常适合需要处理大量文本的舆情分析场景。
+
+**可选模型：**
+| 模型 | 说明 |
+|------|------|
+| `MiniMax-M2.5` | 旗舰模型，推荐用于 Report Agent 等需要深度分析的场景 |
+| `MiniMax-M2.5-highspeed` | 高速版本，适合 Query Agent 等需要快速响应的场景 |
+
+**配置示例（以 Report Agent 为例）：**
+```env
+REPORT_ENGINE_API_KEY=your_minimax_api_key
+REPORT_ENGINE_BASE_URL=https://api.minimax.io/v1
+REPORT_ENGINE_MODEL_NAME=MiniMax-M2.5
+```
+
+> 注意：MiniMax 的 temperature 参数范围为 (0, 1]，不支持设为 0，推荐使用默认值 1.0。
+> 国内用户可使用国内域名：`https://api.minimaxi.com/v1`
+
+</details>
 
 ### 更改情感分析模型
 

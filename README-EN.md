@@ -571,13 +571,13 @@ The system supports any LLM provider that follows the OpenAI request format. You
 >```python
 >from openai import OpenAI
 >
->client = OpenAI(api_key="your_api_key", 
+>client = OpenAI(api_key="your_api_key",
 >                base_url="https://aihubmix.com/v1")
 >
 >response = client.chat.completions.create(
 >    model="gpt-4o-mini",
 >    messages=[
->        {'role': 'user', 
+>        {'role': 'user',
 >         'content': "What new opportunities will reasoning models bring to the market?"}
 >    ],
 >)
@@ -585,6 +585,41 @@ The system supports any LLM provider that follows the OpenAI request format. You
 >complete_response = response.choices[0].message.content
 >print(complete_response)
 >```
+
+#### Verified LLM Providers
+
+The following LLM providers have been verified and can be used directly:
+
+| Provider | Recommended Model | Base URL | Sign Up | Highlights |
+|----------|------------------|----------|---------|------------|
+| Kimi (Moonshot) | `kimi-k2-0711-preview` | `https://api.moonshot.cn/v1` | [platform.moonshot.cn](https://platform.moonshot.cn/) | Strong Chinese language understanding |
+| DeepSeek | `deepseek-chat` | `https://api.deepseek.com` | [platform.deepseek.com](https://platform.deepseek.com/) | Cost-effective reasoning model |
+| Gemini (via AIHubMix) | `gemini-2.5-pro` | `https://aihubmix.com/v1` | [aihubmix.com](https://aihubmix.com/?aff=8Ds9) | Powerful multimodal capabilities |
+| Qwen | `qwen-plus` | Per platform | [aliyun.com/bailian](https://www.aliyun.com/product/bailian) | Optimized for Chinese |
+| **MiniMax** | `MiniMax-M2.5` | `https://api.minimax.io/v1` | [platform.minimax.io](https://platform.minimax.io/) | **204K ultra-large context window**, ideal for deep analysis & report generation |
+
+<details>
+<summary>Quick Configuration Example for MiniMax</summary>
+
+[MiniMax](https://platform.minimax.io/) provides an OpenAI-compatible API with a 204,800-token ultra-large context window, making it ideal for public opinion analysis scenarios that require processing large volumes of text.
+
+**Available Models:**
+| Model | Description |
+|-------|-------------|
+| `MiniMax-M2.5` | Flagship model, recommended for Report Agent and deep analysis tasks |
+| `MiniMax-M2.5-highspeed` | High-speed version, suitable for Query Agent and fast-response tasks |
+
+**Configuration Example (using Report Agent as an example):**
+```env
+REPORT_ENGINE_API_KEY=your_minimax_api_key
+REPORT_ENGINE_BASE_URL=https://api.minimax.io/v1
+REPORT_ENGINE_MODEL_NAME=MiniMax-M2.5
+```
+
+> Note: MiniMax's temperature parameter range is (0, 1], zero is not supported. The recommended default is 1.0.
+> Users in mainland China can use the domestic endpoint: `https://api.minimaxi.com/v1`
+
+</details>
 
 ### Change Sentiment Analysis Models
 
