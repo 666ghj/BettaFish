@@ -596,7 +596,7 @@ The following LLM providers have been verified and can be used directly:
 | DeepSeek | `deepseek-chat` | `https://api.deepseek.com` | [platform.deepseek.com](https://platform.deepseek.com/) | Cost-effective reasoning model |
 | Gemini (via AIHubMix) | `gemini-2.5-pro` | `https://aihubmix.com/v1` | [aihubmix.com](https://aihubmix.com/?aff=8Ds9) | Powerful multimodal capabilities |
 | Qwen | `qwen-plus` | Per platform | [aliyun.com/bailian](https://www.aliyun.com/product/bailian) | Optimized for Chinese |
-| **MiniMax** | `MiniMax-M2.5` | `https://api.minimax.io/v1` | [platform.minimax.io](https://platform.minimax.io/) | **204K ultra-large context window**, ideal for deep analysis & report generation |
+| **MiniMax** | `MiniMax-M2.7` | `https://api.minimax.io/v1` | [platform.minimax.io](https://platform.minimax.io/) | **204K ultra-large context window**, enhanced reasoning & coding capabilities |
 
 <details>
 <summary>Quick Configuration Example for MiniMax</summary>
@@ -606,14 +606,16 @@ The following LLM providers have been verified and can be used directly:
 **Available Models:**
 | Model | Description |
 |-------|-------------|
-| `MiniMax-M2.5` | Flagship model, recommended for Report Agent and deep analysis tasks |
-| `MiniMax-M2.5-highspeed` | High-speed version, suitable for Query Agent and fast-response tasks |
+| `MiniMax-M2.7` | Latest flagship model with enhanced reasoning & coding, recommended for Report Agent and deep analysis tasks |
+| `MiniMax-M2.7-highspeed` | High-speed version of M2.7, suitable for Query Agent and fast-response tasks |
+| `MiniMax-M2.5` | Previous generation flagship model, still available for all scenarios |
+| `MiniMax-M2.5-highspeed` | Previous generation high-speed version |
 
 **Configuration Example (using Report Agent as an example):**
 ```env
 REPORT_ENGINE_API_KEY=your_minimax_api_key
 REPORT_ENGINE_BASE_URL=https://api.minimax.io/v1
-REPORT_ENGINE_MODEL_NAME=MiniMax-M2.5
+REPORT_ENGINE_MODEL_NAME=MiniMax-M2.7
 ```
 
 > Note: MiniMax's temperature parameter range is (0, 1], zero is not supported. The recommended default is 1.0.

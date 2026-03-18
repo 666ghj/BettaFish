@@ -601,7 +601,7 @@ SENTIMENT_CONFIG = {
 | DeepSeek | `deepseek-chat` | `https://api.deepseek.com` | [platform.deepseek.com](https://platform.deepseek.com/) | 高性价比推理模型 |
 | Gemini (AIHubMix中转) | `gemini-2.5-pro` | `https://aihubmix.com/v1` | [aihubmix.com](https://aihubmix.com/?aff=8Ds9) | 强大的多模态能力 |
 | Qwen (通义千问) | `qwen-plus` | 按平台配置 | [aliyun.com/bailian](https://www.aliyun.com/product/bailian) | 中文优化 |
-| **MiniMax** | `MiniMax-M2.5` | `https://api.minimax.io/v1` | [platform.minimax.io](https://platform.minimax.io/) | **204K 超大上下文**，适合深度分析与报告生成 |
+| **MiniMax** | `MiniMax-M2.7` | `https://api.minimax.io/v1` | [platform.minimax.io](https://platform.minimax.io/) | **204K 超大上下文**，增强推理与编码能力 |
 
 <details>
 <summary>使用 MiniMax 的快速配置示例</summary>
@@ -611,14 +611,16 @@ SENTIMENT_CONFIG = {
 **可选模型：**
 | 模型 | 说明 |
 |------|------|
-| `MiniMax-M2.5` | 旗舰模型，推荐用于 Report Agent 等需要深度分析的场景 |
-| `MiniMax-M2.5-highspeed` | 高速版本，适合 Query Agent 等需要快速响应的场景 |
+| `MiniMax-M2.7` | 最新旗舰模型，增强推理与编码能力，推荐用于 Report Agent 等深度分析场景 |
+| `MiniMax-M2.7-highspeed` | M2.7 高速版本，适合 Query Agent 等需要快速响应的场景 |
+| `MiniMax-M2.5` | 上一代旗舰模型，仍可用于各类场景 |
+| `MiniMax-M2.5-highspeed` | 上一代高速版本 |
 
 **配置示例（以 Report Agent 为例）：**
 ```env
 REPORT_ENGINE_API_KEY=your_minimax_api_key
 REPORT_ENGINE_BASE_URL=https://api.minimax.io/v1
-REPORT_ENGINE_MODEL_NAME=MiniMax-M2.5
+REPORT_ENGINE_MODEL_NAME=MiniMax-M2.7
 ```
 
 > 注意：MiniMax 的 temperature 参数范围为 (0, 1]，不支持设为 0，推荐使用默认值 1.0。
