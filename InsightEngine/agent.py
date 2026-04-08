@@ -26,6 +26,7 @@ from .nodes import (
 from .state import State
 from .tools import (
     DBResponse,
+    KeywordOptimizationResponse,
     MediaCrawlerDB,
     keyword_optimizer,
     multilingual_sentiment_analyzer,
@@ -246,9 +247,19 @@ class DeepSearchAgent:
             )
 
         # 对于需要搜索词的工具，使用关键词优化中间件
-        optimized_response = keyword_optimizer.optimize_keywords(
-            original_query=query, context=f"使用{tool_name}工具进行查询"
-        )
+        try:
+            optimized_response = keyword_optimizer.optimize_keywords(
+                original_query=query, context=f"使用{tool_name}工具进行查询"
+            )
+        except Exception as e:
+            logger.error(f"  ❌ 关键词优化出现意外错误: {str(e)}，回退到原始查询")
+            optimized_response = KeywordOptimizationResponse(
+                original_query=query,
+                optimized_keywords=[query],
+                reasoning=f"关键词优化异常，使用原始查询: {str(e)}",
+                success=False,
+                error_message=str(e),
+            )
 
         logger.info(f"  🔍 原始查询: '{query}'")
         logger.info(f"  ✨ 优化后关键词: {optimized_response.optimized_keywords}")
