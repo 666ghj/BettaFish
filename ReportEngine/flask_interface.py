@@ -999,6 +999,7 @@ def cancel_task(task_id: str):
 
     try:
         with task_lock:
+            cancelled = False
             if current_task and current_task.task_id == task_id:
                 if current_task.status == "running":
                     current_task.update_status("cancelled", 0, "用户取消任务")
@@ -1006,15 +1007,18 @@ def cancel_task(task_id: str):
                         'message': '任务被用户主动终止',
                         'task': current_task.to_dict(),
                     })
+                    cancelled = True
                 current_task = None
-            task = tasks_registry.get(task_id)
-            if task and task.status == 'running':
-                task.update_status("cancelled", task.progress, "用户取消任务")
-                task.publish_event('cancelled', {
-                    'message': '任务被用户主动终止',
-                    'task': task.to_dict(),
-                })
-
+            if not cancelled:
+                task = tasks_registry.get(task_id)
+                if task and task.status == 'running':
+                    task.update_status("cancelled", task.progress, "用户取消任务")
+                    task.publish_event('cancelled', {
+                        'message': '任务被用户主动终止',
+                        'task': task.to_dict(),
+                    })
+                    cancelled = True
+            if cancelled:
                 return jsonify({
                     'success': True,
                     'message': '任务已取消'

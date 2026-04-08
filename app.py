@@ -1171,10 +1171,13 @@ def search():
     # 向运行中的应用发送搜索请求
     results = {}
     api_ports = {'insight': 8501, 'media': 8502, 'query': 8503}
-    
+
     for app_name in running_apps:
+        api_port = api_ports.get(app_name)
+        if api_port is None:
+            # forum and other non-Streamlit apps have no searchable API endpoint
+            continue
         try:
-            api_port = api_ports[app_name]
             # 调用Streamlit应用的API端点
             response = requests.post(
                 f"http://localhost:{api_port}/api/search",
