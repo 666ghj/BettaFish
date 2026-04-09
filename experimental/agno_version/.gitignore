@@ -1,0 +1,20 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+logs/
+final_reports/
+*.html
+*.pdf
+*.log
+.venv/
+venv/
+BettaFish/
+final_reports/
+
+# 生成的报告产物
+reports/
+
+# Mock 数据库（运行 scripts/init_mock_db.py 重新生成）
+data/*.db
