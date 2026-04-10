@@ -15,7 +15,9 @@ from .prompts import (
     output_schema_first_summary,
     output_schema_reflection,
     output_schema_reflection_summary,
-    input_schema_report_formatting
+    input_schema_report_formatting,
+    build_first_search_prompt,
+    build_reflection_prompt,
 )
 
 __all__ = [
@@ -30,5 +32,7 @@ __all__ = [
     "output_schema_first_summary", 
     "output_schema_reflection",
     "output_schema_reflection_summary",
-    "input_schema_report_formatting"
+    "input_schema_report_formatting",
+    "build_first_search_prompt",
+    "build_reflection_prompt",
 ]

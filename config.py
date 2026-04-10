@@ -79,6 +79,7 @@ class Settings(BaseSettings):
     # ================== 网络工具配置 ====================
     # Tavily API（申请地址：https://www.tavily.com/）
     TAVILY_API_KEY: Optional[str] = Field(None, description="Tavily API（申请地址：https://www.tavily.com/）API密钥，用于Tavily网络搜索")
+    ADANOS_API_KEY: Optional[str] = Field(None, description="Adanos Market Sentiment API 密钥。可选；启用后 Query Agent 可调用结构化股票/市场情绪研究工具。")
 
     SEARCH_TOOL_TYPE: Literal["AnspireAPI", "BochaAPI"] = Field("AnspireAPI", description="网络搜索工具类型，支持BochaAPI或AnspireAPI两种，默认为AnspireAPI")
     # Bocha API（申请地址：https://open.bochaai.com/）

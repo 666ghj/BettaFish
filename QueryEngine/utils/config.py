@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     
     # ================== 网络工具配置 ====================
     TAVILY_API_KEY: str = Field(..., description="Tavily API（申请地址：https://www.tavily.com/）API密钥，用于Tavily网络搜索")
+    ADANOS_API_KEY: Optional[str] = Field(None, description="Adanos Market Sentiment API 密钥。可选；启用后 Query Agent 可调用结构化股票/市场情绪研究工具。")
     
     # ================== 搜索参数配置 ====================
     SEARCH_TIMEOUT: int = Field(240, description="搜索超时（秒）")
@@ -67,6 +68,7 @@ def print_config(config: Settings):
     message += f"LLM 模型: {config.QUERY_ENGINE_MODEL_NAME}\n"
     message += f"LLM Base URL: {config.QUERY_ENGINE_BASE_URL or '(默认)'}\n"
     message += f"Tavily API Key: {'已配置' if config.TAVILY_API_KEY else '未配置'}\n"
+    message += f"Adanos API Key: {'已配置' if config.ADANOS_API_KEY else '未配置'}\n"
     message += f"搜索超时: {config.SEARCH_TIMEOUT} 秒\n"
     message += f"最长内容长度: {config.SEARCH_CONTENT_MAX_LENGTH}\n"
     message += f"最大反思次数: {config.MAX_REFLECTIONS}\n"
