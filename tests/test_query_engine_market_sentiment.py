@@ -132,6 +132,7 @@ def test_adanos_sentiment_agency_formats_stock_results():
     assert "Average buzz score" in response.results[0].content
     assert any(result.title == "AAPL REDDIT sentiment details" for result in response.results)
     assert any(result.title == "AAPL X sentiment details" for result in response.results)
+    assert all(result.url == agency._DOCS_URL for result in response.results)
 
 
 def test_adanos_sentiment_agency_formats_market_overview():
@@ -170,6 +171,29 @@ def test_adanos_sentiment_agency_formats_market_overview():
     assert any(result.title == "NEWS market sentiment overview" for result in response.results)
 
 
+def test_adanos_sentiment_agency_ignores_common_finance_acronyms():
+    agency = AdanosSentimentAgency(api_key="test-adanos-key")
+
+    def fake_request(path, params):
+        if path == "/news/stocks/v1/market-sentiment":
+            return {
+                "buzz_score": 58.0,
+                "sentiment_score": 0.14,
+                "bullish_pct": 53,
+                "trend": "stable",
+                "mentions": 321,
+                "active_tickers": 20,
+            }
+        return None
+
+    agency._request_json = fake_request
+
+    response = agency.search_market_sentiment("What ETF sentiment drivers matter now?", days=7)
+
+    assert response.results
+    assert response.results[0].title == "Cross-source US market sentiment overview"
+
+
 def test_execute_search_tool_market_sentiment_is_fail_open():
     agent = DeepSearchAgent.__new__(DeepSearchAgent)
     agent.market_sentiment_agency = None
@@ -179,3 +203,29 @@ def test_execute_search_tool_market_sentiment_is_fail_open():
     assert isinstance(response, TavilyResponse)
     assert response.results == []
     assert "not configured" in (response.answer or "").lower()
+
+
+def test_build_search_kwargs_keeps_valid_date_range():
+    agent = DeepSearchAgent.__new__(DeepSearchAgent)
+
+    tool_name, search_kwargs = agent._build_search_kwargs(
+        "search_news_by_date",
+        {"start_date": "2026-04-01", "end_date": "2026-04-07"},
+        "  - ",
+    )
+
+    assert tool_name == "search_news_by_date"
+    assert search_kwargs == {"start_date": "2026-04-01", "end_date": "2026-04-07"}
+
+
+def test_build_search_kwargs_downgrades_invalid_date_range():
+    agent = DeepSearchAgent.__new__(DeepSearchAgent)
+
+    tool_name, search_kwargs = agent._build_search_kwargs(
+        "search_news_by_date",
+        {"start_date": "2026/04/01", "end_date": "2026-04-07"},
+        "  - ",
+    )
+
+    assert tool_name == "basic_search_news"
+    assert search_kwargs == {}

@@ -111,6 +111,30 @@ class DeepSearchAgent:
             return True
         except ValueError:
             return False
+
+    def _build_search_kwargs(self, tool_name: str, tool_output: Dict[str, Any], log_prefix: str) -> tuple[str, Dict[str, Any]]:
+        """Normalize optional tool arguments and downgrade invalid date searches safely."""
+        search_kwargs: Dict[str, Any] = {}
+
+        if tool_name != "search_news_by_date":
+            return tool_name, search_kwargs
+
+        start_date = tool_output.get("start_date")
+        end_date = tool_output.get("end_date")
+
+        if start_date and end_date:
+            if self._validate_date_format(start_date) and self._validate_date_format(end_date):
+                search_kwargs["start_date"] = start_date
+                search_kwargs["end_date"] = end_date
+                logger.info(f"{log_prefix}时间范围: {start_date} 到 {end_date}")
+                return tool_name, search_kwargs
+
+            logger.info(f"{log_prefix}⚠️  日期格式错误（应为YYYY-MM-DD），改用基础搜索")
+            logger.info(f"{log_prefix}    提供的日期: start_date={start_date}, end_date={end_date}")
+            return "basic_search_news", search_kwargs
+
+        logger.info(f"{log_prefix}⚠️  search_news_by_date工具缺少时间参数，改用基础搜索")
+        return "basic_search_news", search_kwargs
     
     def execute_search_tool(self, tool_name: str, query: str, **kwargs) -> TavilyResponse:
         """
@@ -264,26 +288,7 @@ class DeepSearchAgent:
         # 执行搜索
         logger.info("  - 执行网络搜索...")
         
-        # 处理search_news_by_date的特殊参数
-        search_kwargs = {}
-        if search_tool == "search_news_by_date":
-            start_date = search_output.get("start_date")
-            end_date = search_output.get("end_date")
-            
-            if start_date and end_date:
-                # 验证日期格式
-                if self._validate_date_format(start_date) and self._validate_date_format(end_date):
-                    search_kwargs["start_date"] = start_date
-                    search_kwargs["end_date"] = end_date
-                    logger.info(f"  - 时间范围: {start_date} 到 {end_date}")
-                else:
-                    logger.info(f"  ⚠️  日期格式错误（应为YYYY-MM-DD），改用基础搜索")
-                    logger.info(f"      提供的日期: start_date={start_date}, end_date={end_date}")
-                    search_tool = "basic_search_news"
-            else:
-                logger.info(f"  ⚠️  search_news_by_date工具缺少时间参数，改用基础搜索")
-                search_tool = "basic_search_news"
-        
+        search_tool, search_kwargs = self._build_search_kwargs(search_tool, search_output, "  - ")
         search_response = self.execute_search_tool(search_tool, search_query, **search_kwargs)
         
         # 转换为兼容格式
@@ -354,27 +359,7 @@ class DeepSearchAgent:
             logger.info(f"    选择的工具: {search_tool}")
             logger.info(f"    反思推理: {reasoning}")
             
-            # 执行反思搜索
-            # 处理search_news_by_date的特殊参数
-            search_kwargs = {}
-            if search_tool == "search_news_by_date":
-                start_date = reflection_output.get("start_date")
-                end_date = reflection_output.get("end_date")
-                
-                if start_date and end_date:
-                    # 验证日期格式
-                    if self._validate_date_format(start_date) and self._validate_date_format(end_date):
-                        search_kwargs["start_date"] = start_date
-                        search_kwargs["end_date"] = end_date
-                        logger.info(f"    时间范围: {start_date} 到 {end_date}")
-                    else:
-                        logger.info(f"    ⚠️  日期格式错误（应为YYYY-MM-DD），改用基础搜索")
-                        logger.info(f"        提供的日期: start_date={start_date}, end_date={end_date}")
-                        search_tool = "basic_search_news"
-                else:
-                    logger.info(f"    ⚠️  search_news_by_date工具缺少时间参数，改用基础搜索")
-                    search_tool = "basic_search_news"
-            
+            search_tool, search_kwargs = self._build_search_kwargs(search_tool, reflection_output, "    ")
             search_response = self.execute_search_tool(search_tool, search_query, **search_kwargs)
             
             # 转换为兼容格式

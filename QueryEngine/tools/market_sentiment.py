@@ -33,6 +33,30 @@ class AdanosSentimentAgency:
     _BASE_URL = "https://api.adanos.org"
     _DOCS_URL = "https://api.adanos.org/docs"
     _SOURCES = ("news", "reddit", "x", "polymarket")
+    _NON_TICKER_TOKENS = {
+        "A",
+        "AN",
+        "AND",
+        "CPI",
+        "EPS",
+        "ETF",
+        "ETFS",
+        "EUR",
+        "FED",
+        "FOMC",
+        "FOR",
+        "GDP",
+        "IPO",
+        "NEWS",
+        "PCE",
+        "PE",
+        "SEC",
+        "STOCK",
+        "THE",
+        "USD",
+        "USA",
+        "WITH",
+    }
 
     def __init__(self, api_key: Optional[str] = None):
         api_key = api_key or os.getenv("ADANOS_API_KEY")
@@ -175,7 +199,7 @@ class AdanosSentimentAgency:
 
         return SearchResult(
             title=f"{ticker} {source.upper()} sentiment details",
-            url=f"{self._BASE_URL}/{source}/stocks/v1/stock/{ticker}?days={days}",
+            url=self._DOCS_URL,
             content="\n".join(lines),
             score=payload.get("buzz_score"),
         )
@@ -244,7 +268,7 @@ class AdanosSentimentAgency:
 
         return SearchResult(
             title=f"{source.upper()} market sentiment overview",
-            url=f"{self._BASE_URL}/{source}/stocks/v1/market-sentiment?days={days}",
+            url=self._DOCS_URL,
             content="\n".join(lines),
             score=payload.get("buzz_score"),
         )
@@ -259,7 +283,7 @@ class AdanosSentimentAgency:
             if "$" not in raw_candidate and candidate.upper() != raw_candidate:
                 continue
             candidate = candidate.upper()
-            if candidate in {"A", "AN", "AND", "FOR", "WITH", "THE", "USA", "NEWS", "STOCK"}:
+            if candidate in AdanosSentimentAgency._NON_TICKER_TOKENS:
                 continue
             if candidate not in seen:
                 seen.add(candidate)
