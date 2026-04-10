@@ -123,30 +123,7 @@ input_schema_report_formatting = {
 
 # ===== 系统提示词定义 =====
 
-# 生成报告结构的系统提示词
-SYSTEM_PROMPT_REPORT_STRUCTURE = f"""
-你是一位深度研究助手。给定一个查询，你需要规划一个报告的结构和其中包含的段落。最多五个段落。
-确保段落的排序合理有序。
-一旦大纲创建完成，你将获得工具来分别为每个部分搜索网络并进行反思。
-请按照以下JSON模式定义格式化输出：
-
-<OUTPUT JSON SCHEMA>
-{json.dumps(output_schema_report_structure, indent=2, ensure_ascii=False)}
-</OUTPUT JSON SCHEMA>
-
-标题和内容属性将用于更深入的研究。
-确保输出是一个符合上述输出JSON模式定义的JSON对象。
-只返回JSON对象，不要有解释或额外文本。
-"""
-
-# 每个段落第一次搜索的系统提示词
-SYSTEM_PROMPT_FIRST_SEARCH = f"""
-你是一位深度研究助手。你将获得报告中的一个段落，其标题和预期内容将按照以下JSON模式定义提供：
-
-<INPUT JSON SCHEMA>
-{json.dumps(input_schema_first_search, indent=2, ensure_ascii=False)}
-</INPUT JSON SCHEMA>
-
+BASE_SEARCH_TOOL_SECTION = """
 你可以使用以下6种专业的新闻搜索工具：
 
 1. **basic_search_news** - 基础新闻搜索工具
@@ -174,12 +151,42 @@ SYSTEM_PROMPT_FIRST_SEARCH = f"""
    - 特点：可以指定开始和结束日期进行搜索
    - 特殊要求：需要提供start_date和end_date参数，格式为'YYYY-MM-DD'
    - 注意：只有这个工具需要额外的时间参数
+""".strip()
+
+MARKET_SENTIMENT_TOOL_SECTION = """
+
+7. **search_market_sentiment** - 结构化市场情绪研究工具
+   - 适用于：股票、ETF、市场情绪、看多看空、舆情热度、市场关注度等金融研究问题
+   - 特点：直接返回来自 Reddit、X、财经新闻、Polymarket 的结构化市场情绪指标，而非普通网页搜索结果
+   - 特殊建议：如果研究特定股票，请在查询中尽量包含明确股票代码（例如 AAPL、TSLA、NVDA）
+""".rstrip()
+
+
+def _build_tool_section(enable_market_sentiment: bool) -> str:
+    return BASE_SEARCH_TOOL_SECTION + (MARKET_SENTIMENT_TOOL_SECTION if enable_market_sentiment else "")
+
+
+def build_first_search_prompt(enable_market_sentiment: bool = False) -> str:
+    tool_section = _build_tool_section(enable_market_sentiment)
+    market_note = (
+        "\n5. 如果主题明确是股票、ETF 或市场情绪分析，并且存在结构化市场情绪工具，请优先考虑使用该工具。"
+        if enable_market_sentiment
+        else ""
+    )
+    return f"""
+你是一位深度研究助手。你将获得报告中的一个段落，其标题和预期内容将按照以下JSON模式定义提供：
+
+<INPUT JSON SCHEMA>
+{json.dumps(input_schema_first_search, indent=2, ensure_ascii=False)}
+</INPUT JSON SCHEMA>
+
+{tool_section}
 
 你的任务是：
 1. 根据段落主题选择最合适的搜索工具
 2. 制定最佳的搜索查询
 3. 如果选择search_news_by_date工具，必须同时提供start_date和end_date参数（格式：YYYY-MM-DD）
-4. 解释你的选择理由
+4. 解释你的选择理由{market_note}
 5. 仔细核查新闻中的可疑点，破除谣言和误导，尽力还原事件原貌
 
 注意：除了search_news_by_date工具外，其他工具都不需要额外参数。
@@ -191,7 +198,62 @@ SYSTEM_PROMPT_FIRST_SEARCH = f"""
 
 确保输出是一个符合上述输出JSON模式定义的JSON对象。
 只返回JSON对象，不要有解释或额外文本。
+""".strip()
+
+
+def build_reflection_prompt(enable_market_sentiment: bool = False) -> str:
+    tool_section = _build_tool_section(enable_market_sentiment)
+    market_note = (
+        "\n6. 如果当前段落明显属于股票或市场分析，并且结构化市场情绪工具可用，应优先用它补齐定量证据。"
+        if enable_market_sentiment
+        else ""
+    )
+    return f"""
+你是一位深度研究助手。你负责为研究报告构建全面的段落。你将获得段落标题、计划内容摘要，以及你已经创建的段落最新状态，所有这些都将按照以下JSON模式定义提供：
+
+<INPUT JSON SCHEMA>
+{json.dumps(input_schema_reflection, indent=2, ensure_ascii=False)}
+</INPUT JSON SCHEMA>
+
+{tool_section}
+
+你的任务是：
+1. 反思段落文本的当前状态，思考是否遗漏了主题的某些关键方面
+2. 选择最合适的搜索工具来补充缺失信息
+3. 制定精确的搜索查询
+4. 如果选择search_news_by_date工具，必须同时提供start_date和end_date参数（格式：YYYY-MM-DD）
+5. 解释你的选择和推理{market_note}
+6. 仔细核查新闻中的可疑点，破除谣言和误导，尽力还原事件原貌
+
+注意：除了search_news_by_date工具外，其他工具都不需要额外参数。
+请按照以下JSON模式定义格式化输出：
+
+<OUTPUT JSON SCHEMA>
+{json.dumps(output_schema_reflection, indent=2, ensure_ascii=False)}
+</OUTPUT JSON SCHEMA>
+
+确保输出是一个符合上述输出JSON模式定义的JSON对象。
+只返回JSON对象，不要有解释或额外文本。
+""".strip()
+
+# 生成报告结构的系统提示词
+SYSTEM_PROMPT_REPORT_STRUCTURE = f"""
+你是一位深度研究助手。给定一个查询，你需要规划一个报告的结构和其中包含的段落。最多五个段落。
+确保段落的排序合理有序。
+一旦大纲创建完成，你将获得工具来分别为每个部分搜索网络并进行反思。
+请按照以下JSON模式定义格式化输出：
+
+<OUTPUT JSON SCHEMA>
+{json.dumps(output_schema_report_structure, indent=2, ensure_ascii=False)}
+</OUTPUT JSON SCHEMA>
+
+标题和内容属性将用于更深入的研究。
+确保输出是一个符合上述输出JSON模式定义的JSON对象。
+只返回JSON对象，不要有解释或额外文本。
 """
+
+# 每个段落第一次搜索的系统提示词
+SYSTEM_PROMPT_FIRST_SEARCH = build_first_search_prompt(enable_market_sentiment=False)
 
 # 每个段落第一次总结的系统提示词
 SYSTEM_PROMPT_FIRST_SUMMARY = f"""
@@ -268,40 +330,7 @@ SYSTEM_PROMPT_FIRST_SUMMARY = f"""
 """
 
 # 反思(Reflect)的系统提示词
-SYSTEM_PROMPT_REFLECTION = f"""
-你是一位深度研究助手。你负责为研究报告构建全面的段落。你将获得段落标题、计划内容摘要，以及你已经创建的段落最新状态，所有这些都将按照以下JSON模式定义提供：
-
-<INPUT JSON SCHEMA>
-{json.dumps(input_schema_reflection, indent=2, ensure_ascii=False)}
-</INPUT JSON SCHEMA>
-
-你可以使用以下6种专业的新闻搜索工具：
-
-1. **basic_search_news** - 基础新闻搜索工具
-2. **deep_search_news** - 深度新闻分析工具
-3. **search_news_last_24_hours** - 24小时最新新闻工具  
-4. **search_news_last_week** - 本周新闻工具
-5. **search_images_for_news** - 图片搜索工具
-6. **search_news_by_date** - 按日期范围搜索工具（需要时间参数）
-
-你的任务是：
-1. 反思段落文本的当前状态，思考是否遗漏了主题的某些关键方面
-2. 选择最合适的搜索工具来补充缺失信息
-3. 制定精确的搜索查询
-4. 如果选择search_news_by_date工具，必须同时提供start_date和end_date参数（格式：YYYY-MM-DD）
-5. 解释你的选择和推理
-6. 仔细核查新闻中的可疑点，破除谣言和误导，尽力还原事件原貌
-
-注意：除了search_news_by_date工具外，其他工具都不需要额外参数。
-请按照以下JSON模式定义格式化输出：
-
-<OUTPUT JSON SCHEMA>
-{json.dumps(output_schema_reflection, indent=2, ensure_ascii=False)}
-</OUTPUT JSON SCHEMA>
-
-确保输出是一个符合上述输出JSON模式定义的JSON对象。
-只返回JSON对象，不要有解释或额外文本。
-"""
+SYSTEM_PROMPT_REFLECTION = build_reflection_prompt(enable_market_sentiment=False)
 
 # 总结反思的系统提示词
 SYSTEM_PROMPT_REFLECTION_SUMMARY = f"""

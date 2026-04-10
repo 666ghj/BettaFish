@@ -4,12 +4,12 @@
 """
 
 import json
-from typing import Dict, Any
+from typing import Any, Dict
 from json.decoder import JSONDecodeError
 from loguru import logger
 
 from .base_node import BaseNode
-from ..prompts import SYSTEM_PROMPT_FIRST_SEARCH, SYSTEM_PROMPT_REFLECTION
+from ..prompts import build_first_search_prompt, build_reflection_prompt
 from ..utils.text_processing import (
     remove_reasoning_from_output,
     clean_json_tags,
@@ -21,7 +21,7 @@ from ..utils.text_processing import (
 class FirstSearchNode(BaseNode):
     """为段落生成首次搜索查询的节点"""
     
-    def __init__(self, llm_client):
+    def __init__(self, llm_client, enable_market_sentiment: bool = False):
         """
         初始化首次搜索节点
         
@@ -29,6 +29,7 @@ class FirstSearchNode(BaseNode):
             llm_client: LLM客户端
         """
         super().__init__(llm_client, "FirstSearchNode")
+        self.system_prompt = build_first_search_prompt(enable_market_sentiment)
     
     def validate_input(self, input_data: Any) -> bool:
         """验证输入数据"""
@@ -42,7 +43,7 @@ class FirstSearchNode(BaseNode):
             return "title" in input_data and "content" in input_data
         return False
     
-    def run(self, input_data: Any, **kwargs) -> Dict[str, str]:
+    def run(self, input_data: Any, **kwargs) -> Dict[str, Any]:
         """
         调用LLM生成搜索查询和理由
         
@@ -66,7 +67,7 @@ class FirstSearchNode(BaseNode):
             logger.info("正在生成首次搜索查询")
             
             # 调用LLM
-            response = self.llm_client.stream_invoke_to_string(SYSTEM_PROMPT_FIRST_SEARCH, message)
+            response = self.llm_client.stream_invoke_to_string(self.system_prompt, message)
             
             # 处理响应
             processed_response = self.process_output(response)
@@ -78,7 +79,7 @@ class FirstSearchNode(BaseNode):
             logger.exception(f"生成首次搜索查询失败: {str(e)}")
             raise e
     
-    def process_output(self, output: str) -> Dict[str, str]:
+    def process_output(self, output: str) -> Dict[str, Any]:
         """
         处理LLM输出，提取搜索查询和推理
         
@@ -123,6 +124,9 @@ class FirstSearchNode(BaseNode):
             # 验证和清理结果
             search_query = result.get("search_query", "")
             reasoning = result.get("reasoning", "")
+            search_tool = result.get("search_tool") or "basic_search_news"
+            start_date = result.get("start_date")
+            end_date = result.get("end_date")
             
             if not search_query:
                 logger.warning("未找到搜索查询，使用默认查询")
@@ -130,7 +134,10 @@ class FirstSearchNode(BaseNode):
             
             return {
                 "search_query": search_query,
-                "reasoning": reasoning
+                "search_tool": search_tool,
+                "reasoning": reasoning,
+                "start_date": start_date,
+                "end_date": end_date,
             }
             
         except Exception as e:
@@ -138,7 +145,7 @@ class FirstSearchNode(BaseNode):
             # 返回默认查询
             return self._get_default_search_query()
     
-    def _get_default_search_query(self) -> Dict[str, str]:
+    def _get_default_search_query(self) -> Dict[str, Any]:
         """
         获取默认搜索查询
         
@@ -147,14 +154,17 @@ class FirstSearchNode(BaseNode):
         """
         return {
             "search_query": "相关主题研究",
-            "reasoning": "由于解析失败，使用默认搜索查询"
+            "search_tool": "basic_search_news",
+            "reasoning": "由于解析失败，使用默认搜索查询",
+            "start_date": None,
+            "end_date": None,
         }
 
 
 class ReflectionNode(BaseNode):
     """反思段落并生成新搜索查询的节点"""
     
-    def __init__(self, llm_client):
+    def __init__(self, llm_client, enable_market_sentiment: bool = False):
         """
         初始化反思节点
         
@@ -162,6 +172,7 @@ class ReflectionNode(BaseNode):
             llm_client: LLM客户端
         """
         super().__init__(llm_client, "ReflectionNode")
+        self.system_prompt = build_reflection_prompt(enable_market_sentiment)
     
     def validate_input(self, input_data: Any) -> bool:
         """验证输入数据"""
@@ -177,7 +188,7 @@ class ReflectionNode(BaseNode):
             return all(field in input_data for field in required_fields)
         return False
     
-    def run(self, input_data: Any, **kwargs) -> Dict[str, str]:
+    def run(self, input_data: Any, **kwargs) -> Dict[str, Any]:
         """
         调用LLM反思并生成搜索查询
         
@@ -201,7 +212,7 @@ class ReflectionNode(BaseNode):
             logger.info("正在进行反思并生成新搜索查询")
             
             # 调用LLM
-            response = self.llm_client.stream_invoke_to_string(SYSTEM_PROMPT_REFLECTION, message)
+            response = self.llm_client.stream_invoke_to_string(self.system_prompt, message)
             
             # 处理响应
             processed_response = self.process_output(response)
@@ -213,7 +224,7 @@ class ReflectionNode(BaseNode):
             logger.exception(f"反思生成搜索查询失败: {str(e)}")
             raise e
     
-    def process_output(self, output: str) -> Dict[str, str]:
+    def process_output(self, output: str) -> Dict[str, Any]:
         """
         处理LLM输出，提取搜索查询和推理
         
@@ -258,6 +269,9 @@ class ReflectionNode(BaseNode):
             # 验证和清理结果
             search_query = result.get("search_query", "")
             reasoning = result.get("reasoning", "")
+            search_tool = result.get("search_tool") or "basic_search_news"
+            start_date = result.get("start_date")
+            end_date = result.get("end_date")
             
             if not search_query:
                 logger.warning("未找到搜索查询，使用默认查询")
@@ -265,7 +279,10 @@ class ReflectionNode(BaseNode):
             
             return {
                 "search_query": search_query,
-                "reasoning": reasoning
+                "search_tool": search_tool,
+                "reasoning": reasoning,
+                "start_date": start_date,
+                "end_date": end_date,
             }
             
         except Exception as e:
@@ -273,7 +290,7 @@ class ReflectionNode(BaseNode):
             # 返回默认查询
             return self._get_default_reflection_query()
     
-    def _get_default_reflection_query(self) -> Dict[str, str]:
+    def _get_default_reflection_query(self) -> Dict[str, Any]:
         """
         获取默认反思搜索查询
         
@@ -282,5 +299,8 @@ class ReflectionNode(BaseNode):
         """
         return {
             "search_query": "深度研究补充信息",
-            "reasoning": "由于解析失败，使用默认反思搜索查询"
+            "search_tool": "basic_search_news",
+            "reasoning": "由于解析失败，使用默认反思搜索查询",
+            "start_date": None,
+            "end_date": None,
         }

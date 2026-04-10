@@ -10,9 +10,11 @@ from .search import (
     ImageResult,
     print_response_summary
 )
+from .market_sentiment import AdanosSentimentAgency
 
 __all__ = [
     "TavilyNewsAgency", 
+    "AdanosSentimentAgency",
     "SearchResult", 
     "TavilyResponse", 
     "ImageResult",

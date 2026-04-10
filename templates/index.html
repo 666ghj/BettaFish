@@ -2108,7 +2108,7 @@
             },
             {
                 title: '外部检索工具',
-                subtitle: '联动搜索引擎、网站抓取等在线服务，两个都需配置',
+                subtitle: '联动搜索引擎、网站抓取和可选的结构化市场情绪研究服务',
                 fields: [
                     {
                         key: 'SEARCH_TOOL_TYPE',
@@ -2117,6 +2117,7 @@
                         options: ['BochaAPI', 'AnspireAPI']
                     },
                     { key: 'TAVILY_API_KEY', label: 'Tavily API Key', type: 'password' },
+                    { key: 'ADANOS_API_KEY', label: 'Adanos API Key（可选）', type: 'password' },
                     { key: 'BOCHA_WEB_SEARCH_API_KEY', label: 'Bocha API Key', type: 'password', condition: { key: 'SEARCH_TOOL_TYPE', value: 'BochaAPI' } },
                     { key: 'ANSPIRE_API_KEY', label: 'Anspire API Key', type: 'password', condition: { key: 'SEARCH_TOOL_TYPE', value: 'AnspireAPI' } }
                 ]

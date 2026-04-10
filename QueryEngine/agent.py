@@ -19,7 +19,7 @@ from .nodes import (
     ReportFormattingNode
 )
 from .state import State
-from .tools import TavilyNewsAgency, TavilyResponse
+from .tools import AdanosSentimentAgency, TavilyNewsAgency, TavilyResponse
 from .utils import Settings, format_search_results_for_prompt
 from loguru import logger
 
@@ -42,6 +42,11 @@ class DeepSearchAgent:
         
         # 初始化搜索工具集
         self.search_agency = TavilyNewsAgency(api_key=self.config.TAVILY_API_KEY)
+        self.market_sentiment_agency = (
+            AdanosSentimentAgency(api_key=self.config.ADANOS_API_KEY)
+            if self.config.ADANOS_API_KEY
+            else None
+        )
         
         # 初始化节点
         self._initialize_nodes()
@@ -54,7 +59,10 @@ class DeepSearchAgent:
         
         logger.info(f"Query Agent已初始化")
         logger.info(f"使用LLM: {self.llm_client.get_model_info()}")
-        logger.info(f"搜索工具集: TavilyNewsAgency (支持6种搜索工具)")
+        search_tools = "TavilyNewsAgency (支持6种新闻搜索工具)"
+        if self.market_sentiment_agency:
+            search_tools += " + AdanosSentimentAgency (结构化市场情绪工具)"
+        logger.info(f"搜索工具集: {search_tools}")
     
     def _initialize_llm(self) -> LLMClient:
         """初始化LLM客户端"""
@@ -66,8 +74,15 @@ class DeepSearchAgent:
     
     def _initialize_nodes(self):
         """初始化处理节点"""
-        self.first_search_node = FirstSearchNode(self.llm_client)
-        self.reflection_node = ReflectionNode(self.llm_client)
+        enable_market_sentiment = bool(self.config.ADANOS_API_KEY)
+        self.first_search_node = FirstSearchNode(
+            self.llm_client,
+            enable_market_sentiment=enable_market_sentiment,
+        )
+        self.reflection_node = ReflectionNode(
+            self.llm_client,
+            enable_market_sentiment=enable_market_sentiment,
+        )
         self.first_summary_node = FirstSummaryNode(self.llm_client)
         self.reflection_summary_node = ReflectionSummaryNode(self.llm_client)
         self.report_formatting_node = ReportFormattingNode(self.llm_client)
@@ -109,6 +124,7 @@ class DeepSearchAgent:
                 - "search_news_last_week": 本周新闻
                 - "search_images_for_news": 新闻图片搜索
                 - "search_news_by_date": 按日期范围搜索新闻
+                - "search_market_sentiment": 结构化股票与市场情绪研究
             query: 搜索查询
             **kwargs: 额外参数（如start_date, end_date, max_results）
             
@@ -134,6 +150,16 @@ class DeepSearchAgent:
             if not start_date or not end_date:
                 raise ValueError("search_news_by_date工具需要start_date和end_date参数")
             return self.search_agency.search_news_by_date(query, start_date, end_date)
+        elif tool_name == "search_market_sentiment":
+            if not self.market_sentiment_agency:
+                logger.info("  → Adanos市场情绪工具未配置，跳过结构化情绪研究")
+                return TavilyResponse(
+                    query=query,
+                    answer="Structured market sentiment tool is not configured.",
+                    results=[],
+                )
+            days = kwargs.get("days", 7)
+            return self.market_sentiment_agency.search_market_sentiment(query, days=days)
         else:
             logger.warning(f"  ⚠️  未知的搜索工具: {tool_name}，使用默认基础搜索")
             return self.search_agency.basic_search_news(query)

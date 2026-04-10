@@ -58,6 +58,8 @@
 
 > 举个例子. 你只需简单修改Agent工具集的api参数与prompt，就可以把他变成一个金融领域的市场分析系统
 >
+> 现在仓库也支持一个可选的 `ADANOS_API_KEY` 路径，让 Query Agent 在不改变默认舆情工作流的前提下，补充结构化的股票与市场情绪研究能力。
+>
 > 附一个比较活跃的L站项目讨论帖：https://linux.do/t/topic/1009280
 >
 > 查看L站佬友做的测评 [开源项目(微舆)与manus|minimax|ChatGPT|Perplexity对比](https://linux.do/t/topic/1148040)
