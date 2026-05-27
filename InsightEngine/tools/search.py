@@ -69,6 +69,12 @@ class MediaCrawlerDB:
     W_VIEW = 0.1
     W_DANMAKU = 0.5
 
+    # 热点查询允许的表白名单（防止SQL注入）
+    _ALLOWED_HOT_TABLES = frozenset({
+        'bilibili_video', 'douyin_aweme', 'weibo_note',
+        'xhs_note', 'kuaishou_video', 'zhihu_content',
+    })
+
     def __init__(self):
         """
         初始化客户端。
@@ -160,6 +166,9 @@ class MediaCrawlerDB:
 
         all_queries, params = [], []
         for table, formula in hotness_formulas.items():
+            if table not in self._ALLOWED_HOT_TABLES:
+                logger.warning(f"search_hot_content: skipping disallowed table '{table}'")
+                continue
             time_filter_sql, time_filter_param = "", None
             if table == 'weibo_note': time_filter_sql, time_filter_param = "`create_date_time` >= %s", start_time.strftime('%Y-%m-%d %H:%M:%S')
             elif table in ['kuaishou_video', 'xhs_note', 'douyin_aweme']: time_col = 'time' if table == 'xhs_note' else 'create_time'; time_filter_sql, time_filter_param = f"`{time_col}` >= %s", str(int(start_time.timestamp() * 1000))
