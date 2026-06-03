@@ -32,6 +32,7 @@ from .tools import (
 )
 from .utils import format_search_results_for_prompt
 from .utils.config import Settings, settings
+from .utils.deduplication import build_result_dedup_key
 
 ENABLE_CLUSTERING: bool = True  # 是否启用聚类采样
 MAX_CLUSTERED_RESULTS: int = 50  # 聚类后最大返回结果数
@@ -378,8 +379,8 @@ class DeepSearchAgent:
         unique_results = []
 
         for result in results:
-            # 使用URL或内容作为去重标识
-            identifier = result.url if result.url else result.title_or_content[:100]
+            # Use full content and source metadata for URL-less results.
+            identifier = build_result_dedup_key(result)
             if identifier not in seen:
                 seen.add(identifier)
                 unique_results.append(result)
