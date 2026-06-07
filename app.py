@@ -959,6 +959,8 @@ def start_app(app_name):
             logger.exception("手动启动ForumEngine失败")
             return jsonify({'success': False, 'message': f'ForumEngine启动失败: {exc}'})
 
+        if app_name not in STREAMLIT_SCRIPTS:
+            return jsonify({'success': False, 'message': f'未知的应用: {app_name}'}), 400
     script_path = STREAMLIT_SCRIPTS.get(app_name)
     if not script_path:
         return jsonify({'success': False, 'message': '该应用不支持启动操作'})
