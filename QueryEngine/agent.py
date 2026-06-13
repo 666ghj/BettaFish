@@ -21,6 +21,7 @@ from .nodes import (
 from .state import State
 from .tools import TavilyNewsAgency, TavilyResponse
 from .utils import Settings, format_search_results_for_prompt
+from localized_search import LocalizedSearchClient
 from loguru import logger
 
 class DeepSearchAgent:
@@ -41,7 +42,15 @@ class DeepSearchAgent:
         self.llm_client = self._initialize_llm()
         
         # 初始化搜索工具集
-        self.search_agency = TavilyNewsAgency(api_key=self.config.TAVILY_API_KEY)
+        if getattr(self.config, "SEARCH_TOOL_TYPE", "LocalizedAPI") in {"LocalizedAPI", "BraveAPI", "NaverAPI", "SerperAPI", "JinaAPI", "SearxngAPI"}:
+            self.search_agency = LocalizedSearchClient(
+                provider=getattr(self.config, "SEARCH_PROVIDER", "brave"),
+                fail_closed=getattr(self.config, "SEARCH_FAIL_CLOSED", True),
+                timeout=getattr(self.config, "SEARCH_TIMEOUT", 30),
+                settings_obj=self.config,
+            )
+        else:
+            self.search_agency = TavilyNewsAgency(api_key=self.config.TAVILY_API_KEY)
         
         # 初始化节点
         self._initialize_nodes()
@@ -54,7 +63,7 @@ class DeepSearchAgent:
         
         logger.info(f"Query Agent已初始化")
         logger.info(f"使用LLM: {self.llm_client.get_model_info()}")
-        logger.info(f"搜索工具集: TavilyNewsAgency (支持6种搜索工具)")
+        logger.info(f"搜索工具集: {self.search_agency.__class__.__name__}")
     
     def _initialize_llm(self) -> LLMClient:
         """初始化LLM客户端"""
@@ -97,7 +106,7 @@ class DeepSearchAgent:
         except ValueError:
             return False
     
-    def execute_search_tool(self, tool_name: str, query: str, **kwargs) -> TavilyResponse:
+    def execute_search_tool(self, tool_name: str, query: str, **kwargs) -> Any:
         """
         执行指定的搜索工具
         

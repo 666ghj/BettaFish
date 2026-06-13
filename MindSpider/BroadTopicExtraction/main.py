@@ -233,11 +233,19 @@ class BroadTopicExtraction:
 
 # ==================== 命令行工具 ====================
 
-async def run_extraction_command(sources=None, keywords_count=100, show_details=True):
+async def run_extraction_command(sources=None, keywords_count=100, show_details=True, source_mode=None, provider=None, queries=None, rss_feeds=None):
     """运行话题提取命令"""
     
     try:
         async with BroadTopicExtraction() as extractor:
+            if any(value is not None for value in (source_mode, provider, queries, rss_feeds)):
+                extractor.news_collector.close()
+                extractor.news_collector = NewsCollector(
+                    source_mode=source_mode,
+                    provider=provider,
+                    queries=queries,
+                    rss_feeds=rss_feeds,
+                )
             # 运行话题提取
             result = await extractor.run_daily_extraction(
                 news_sources=sources,
@@ -287,8 +295,12 @@ async def run_extraction_command(sources=None, keywords_count=100, show_details=
 def main():
     """主函数"""
     parser = argparse.ArgumentParser(description="MindSpider每日话题提取工具")
-    parser.add_argument("--sources", nargs="+", help="指定新闻源平台", 
+    parser.add_argument("--sources", nargs="+", help="指定 source/provider。默认 localized provider；legacy China source requires --source-mode legacy_china.", 
                        choices=list(SOURCE_NAMES.keys()))
+    parser.add_argument("--source-mode", choices=["localized", "legacy_china"], default=None, help="source collection mode")
+    parser.add_argument("--provider", choices=["searxng", "naver", "brave", "tavily", "serper", "jina"], default=None, help="localized source provider")
+    parser.add_argument("--queries", nargs="+", default=None, help="localized provider search queries")
+    parser.add_argument("--rss-feeds", nargs="+", default=None, help="RSS feed URLs for localized collection")
     parser.add_argument("--keywords", type=int, default=100, help="最大关键词数量 (默认100)")
     parser.add_argument("--quiet", action="store_true", help="简化输出模式")
     parser.add_argument("--list-sources", action="store_true", help="显示支持的新闻源")
@@ -312,7 +324,11 @@ def main():
         success = asyncio.run(run_extraction_command(
             sources=args.sources,
             keywords_count=args.keywords,
-            show_details=not args.quiet
+            show_details=not args.quiet,
+            source_mode=args.source_mode,
+            provider=args.provider,
+            queries=args.queries,
+            rss_feeds=args.rss_feeds,
         ))
         
         sys.exit(0 if success else 1)

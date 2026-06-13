@@ -1,15 +1,18 @@
-version: "3.9"
-
 services:
   bettafish:
-    image: ghcr.io/666ghj/bettafish:latest
-    # Speed up mirror
-    # image: ghcr.nju.edu.cn/666ghj/bettafish:latest
+    build: .
+    image: bettafish-localized:latest
     container_name: bettafish
     restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
     environment:
       - PYTHONUNBUFFERED=1
       - STREAMLIT_SERVER_ENABLE_FILE_WATCHER=false
+      - SEARCH_TOOL_TYPE=${SEARCH_TOOL_TYPE:-LocalizedAPI}
+      - SEARCH_PROVIDER=${SEARCH_PROVIDER:-searxng}
+      - SEARXNG_BASE_URL=${SEARXNG_BASE_URL:-http://searxng:8080}
     ports:
       - "5000:5000"
       - "8501:8501"
@@ -18,17 +21,33 @@ services:
     volumes:
       - ./logs:/app/logs
       - ./final_reports:/app/final_reports
-      - ./.env:/app/.env  
       - ./insight_engine_streamlit_reports:/app/insight_engine_streamlit_reports
       - ./media_engine_streamlit_reports:/app/media_engine_streamlit_reports
       - ./query_engine_streamlit_reports:/app/query_engine_streamlit_reports
+    depends_on:
+      - db
+      - searxng
+
+  searxng:
+    image: searxng/searxng:latest
+    container_name: bettafish-searxng
+    restart: unless-stopped
+    environment:
+      - SEARXNG_BASE_URL=http://localhost:${SEARXNG_PORT:-8080}/
+      - UWSGI_WORKERS=2
+      - UWSGI_THREADS=2
+    ports:
+      - "${SEARXNG_PORT:-8080}:8080"
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
 
   db:
     image: postgres:15
     container_name: bettafish-db
     restart: unless-stopped
     env_file:
-      - .env
+      - path: .env
+        required: false
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-bettafish}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bettafish}

@@ -9,7 +9,7 @@ Query Engine 配置管理模块
 from pathlib import Path
 from pydantic_settings import BaseSettings
 from pydantic import Field
-from typing import Optional
+from typing import Optional, Literal
 from loguru import logger
 
 
@@ -32,8 +32,18 @@ class Settings(BaseSettings):
     QUERY_ENGINE_PROVIDER: Optional[str] = Field(None, description="Query Engine LLM提供商（兼容字段）")
     
     # ================== 网络工具配置 ====================
-    TAVILY_API_KEY: str = Field(..., description="Tavily API（申请地址：https://www.tavily.com/）API密钥，用于Tavily网络搜索")
+    TAVILY_API_KEY: Optional[str] = Field(None, description="Tavily API key; required only when SEARCH_PROVIDER=tavily or SEARCH_TOOL_TYPE=TavilyAPI")
     
+    SEARCH_TOOL_TYPE: Literal["LocalizedAPI", "TavilyAPI", "BraveAPI", "NaverAPI", "SerperAPI", "JinaAPI", "SearxngAPI", "AnspireAPI", "BochaAPI"] = Field("LocalizedAPI", description="Search tool type. LocalizedAPI routes through SEARCH_PROVIDER.")
+    SEARCH_PROVIDER: Literal["tavily", "brave", "naver", "serper", "jina", "searxng", "anspire", "bocha"] = Field("searxng", description="Search provider. Compose/local default is searxng.")
+    SEARCH_FAIL_CLOSED: bool = Field(True, description="Fail closed on provider/key errors.")
+    SEARXNG_BASE_URL: Optional[str] = Field("http://searxng:8080", description="SearXNG base URL. Use http://localhost:8080 for host/dev.")
+    BRAVE_SEARCH_API_KEY: Optional[str] = Field(None, description="Brave Search API key")
+    NAVER_CLIENT_ID: Optional[str] = Field(None, description="Naver Search client id")
+    NAVER_CLIENT_SECRET: Optional[str] = Field(None, description="Naver Search client secret")
+    SERPER_API_KEY: Optional[str] = Field(None, description="Serper API key")
+    JINA_API_KEY: Optional[str] = Field(None, description="Jina API key")
+
     # ================== 搜索参数配置 ====================
     SEARCH_TIMEOUT: int = Field(240, description="搜索超时（秒）")
     SEARCH_CONTENT_MAX_LENGTH: int = Field(20000, description="用于提示的最长内容长度")

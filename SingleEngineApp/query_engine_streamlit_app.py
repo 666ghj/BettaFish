@@ -98,20 +98,29 @@ def main():
         if not settings.QUERY_ENGINE_API_KEY:
             st.error("请在您的环境变量中设置QUERY_ENGINE_API_KEY")
             return
-        if not settings.TAVILY_API_KEY:
-            st.error("请在您的环境变量中设置TAVILY_API_KEY")
+        provider = getattr(settings, "SEARCH_PROVIDER", "searxng")
+        if provider == "tavily" and not settings.TAVILY_API_KEY:
+            st.error("SEARCH_PROVIDER=tavily 时请设置 TAVILY_API_KEY")
             return
 
-        # 自动使用配置文件中的API密钥
+        # 自动使用配置文件中的API密钥；LocalizedAPI 默认可使用 Compose 内置 SearXNG
         engine_key = settings.QUERY_ENGINE_API_KEY
-        tavily_key = settings.TAVILY_API_KEY
 
         # 创建配置
         config = Settings(
             QUERY_ENGINE_API_KEY=engine_key,
             QUERY_ENGINE_BASE_URL=settings.QUERY_ENGINE_BASE_URL,
             QUERY_ENGINE_MODEL_NAME=model_name,
-            TAVILY_API_KEY=tavily_key,
+            TAVILY_API_KEY=settings.TAVILY_API_KEY,
+            SEARCH_TOOL_TYPE=getattr(settings, "SEARCH_TOOL_TYPE", "LocalizedAPI"),
+            SEARCH_PROVIDER=provider,
+            SEARCH_FAIL_CLOSED=getattr(settings, "SEARCH_FAIL_CLOSED", True),
+            SEARXNG_BASE_URL=getattr(settings, "SEARXNG_BASE_URL", "http://searxng:8080"),
+            BRAVE_SEARCH_API_KEY=getattr(settings, "BRAVE_SEARCH_API_KEY", None),
+            NAVER_CLIENT_ID=getattr(settings, "NAVER_CLIENT_ID", None),
+            NAVER_CLIENT_SECRET=getattr(settings, "NAVER_CLIENT_SECRET", None),
+            SERPER_API_KEY=getattr(settings, "SERPER_API_KEY", None),
+            JINA_API_KEY=getattr(settings, "JINA_API_KEY", None),
             MAX_REFLECTIONS=max_reflections,
             SEARCH_CONTENT_MAX_LENGTH=max_content_length,
             OUTPUT_DIR="query_engine_streamlit_reports"

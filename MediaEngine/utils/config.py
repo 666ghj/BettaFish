@@ -71,7 +71,15 @@ class Settings(BaseSettings):
     # ================== 网络工具配置 ====================
     TAVILY_API_KEY: str = Field(None, description="Tavily API（申请地址：https://www.tavily.com/）API密钥，用于Tavily网络搜索")
     
-    SEARCH_TOOL_TYPE: Literal["AnspireAPI", "BochaAPI"] = Field("AnspireAPI", description="网络搜索工具类型，支持BochaAPI或AnspireAPI两种，默认为AnspireAPI")
+    SEARCH_TOOL_TYPE: Literal["LocalizedAPI", "TavilyAPI", "BraveAPI", "NaverAPI", "SerperAPI", "JinaAPI", "SearxngAPI", "AnspireAPI", "BochaAPI"] = Field("LocalizedAPI", description="Search tool type. LocalizedAPI routes through SEARCH_PROVIDER; Anspire/Bocha are legacy opt-in.")
+    SEARCH_PROVIDER: Literal["tavily", "brave", "naver", "serper", "jina", "searxng", "anspire", "bocha"] = Field("searxng", description="Search provider. Compose/local default is searxng.")
+    SEARCH_FAIL_CLOSED: bool = Field(True, description="Fail closed on provider/key errors.")
+    SEARXNG_BASE_URL: Optional[str] = Field("http://searxng:8080", description="SearXNG base URL. Use http://localhost:8080 for host/dev.")
+    BRAVE_SEARCH_API_KEY: Optional[str] = Field(None, description="Brave Search API key")
+    NAVER_CLIENT_ID: Optional[str] = Field(None, description="Naver Search client id")
+    NAVER_CLIENT_SECRET: Optional[str] = Field(None, description="Naver Search client secret")
+    SERPER_API_KEY: Optional[str] = Field(None, description="Serper API key")
+    JINA_API_KEY: Optional[str] = Field(None, description="Jina API key")
     BOCHA_BASE_URL: Optional[str] = Field("https://api.bochaai.com/v1/ai-search", description="Bocha AI 搜索BaseUrl或博查网页搜索BaseUrl")
     BOCHA_WEB_SEARCH_API_KEY: Optional[str] = Field(None, description="Bocha API（申请地址：https://open.bochaai.com/）API密钥，用于Bocha搜索")
     # Anspire AI Search API（申请地址：https://open.anspire.cn/）

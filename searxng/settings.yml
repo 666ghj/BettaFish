@@ -1,0 +1,13 @@
+use_default_settings: true
+
+server:
+  bind_address: "0.0.0.0"
+  secret_key: "bettafish-localized-change-me"
+  limiter: false
+  public_instance: false
+  method: "GET"
+
+search:
+  formats:
+    - html
+    - json

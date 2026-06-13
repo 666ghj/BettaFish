@@ -80,7 +80,41 @@ class Settings(BaseSettings):
     # Tavily API（申请地址：https://www.tavily.com/）
     TAVILY_API_KEY: Optional[str] = Field(None, description="Tavily API（申请地址：https://www.tavily.com/）API密钥，用于Tavily网络搜索")
 
-    SEARCH_TOOL_TYPE: Literal["AnspireAPI", "BochaAPI"] = Field("AnspireAPI", description="网络搜索工具类型，支持BochaAPI或AnspireAPI两种，默认为AnspireAPI")
+    SEARCH_TOOL_TYPE: Literal["LocalizedAPI", "TavilyAPI", "BraveAPI", "NaverAPI", "SerperAPI", "JinaAPI", "SearxngAPI", "AnspireAPI", "BochaAPI"] = Field("LocalizedAPI", description="搜索工具类型。localized 默认使用 SEARCH_PROVIDER，并保留 Anspire/Bocha 作为 legacy/upstream 选项。")
+    SEARCH_PROVIDER: Literal["tavily", "brave", "naver", "serper", "jina", "searxng", "anspire", "bocha"] = Field("searxng", description="Localized search provider. Compose/local default is searxng; opt into brave/naver/tavily/serper/jina with keys.")
+    SEARCH_MARKET: Literal["global", "korea", "china", "japan", "developer"] = Field("global", description="검색 시장/언어 힌트. Provider별 query/source routing에 사용.")
+    SEARCH_FAIL_CLOSED: bool = Field(True, description="검색 provider 실패를 빈 성공으로 숨기지 않고 명시적으로 실패 처리한다.")
+    SEARCH_MAX_RESULTS: int = Field(10, description="기본 검색 결과 수")
+
+    # ================== MindSpider source collection ====================
+    MINDSPIDER_SOURCE_MODE: Literal["localized", "legacy_china"] = Field("localized", description="MindSpider source mode. localized uses provider/RSS sources; legacy_china enables original China platform crawlers explicitly.")
+    MINDSPIDER_SOURCE_PROVIDER: Literal["searxng", "naver", "brave", "tavily", "serper", "jina"] = Field("searxng", description="Default localized MindSpider source provider.")
+    MINDSPIDER_SOURCE_QUERIES: str = Field("AI, technology, market, public opinion", description="Comma-separated default queries for localized source discovery.")
+    MINDSPIDER_RSS_FEEDS: Optional[str] = Field(None, description="Comma-separated RSS feed URLs for localized MindSpider source collection.")
+    MINDSPIDER_REDDIT_SUBREDDITS: Optional[str] = Field(None, description="Comma-separated subreddit names for optional public Reddit search.")
+    MINDSPIDER_YOUTUBE_CHANNEL_IDS: Optional[str] = Field(None, description="Comma-separated channel IDs for YouTube channel RSS collection.")
+    REDDIT_CLIENT_ID: Optional[str] = Field(None, description="Reddit API client id for reddit-api source.")
+    REDDIT_CLIENT_SECRET: Optional[str] = Field(None, description="Reddit API client secret for reddit-api source.")
+    YOUTUBE_DATA_API_KEY: Optional[str] = Field(None, description="YouTube Data API key for youtube-data source.")
+    BLUESKY_IDENTIFIER: Optional[str] = Field(None, description="Optional Bluesky handle/email for API-backed Bluesky search.")
+    BLUESKY_APP_PASSWORD: Optional[str] = Field(None, description="Optional Bluesky app password for API-backed Bluesky search.")
+    MASTODON_INSTANCE: str = Field("mastodon.social", description="Mastodon instance hostname for mastodon source.")
+    MASTODON_ACCESS_TOKEN: Optional[str] = Field(None, description="Optional Mastodon token for instances requiring authenticated search.")
+    X_BEARER_TOKEN: Optional[str] = Field(None, description="X/Twitter API v2 bearer token for x-api source.")
+
+    # Global/Korean-friendly search providers
+    BRAVE_SEARCH_API_KEY: Optional[str] = Field(None, description="Brave Search API key. Good global default with independent web index.")
+    BRAVE_SEARCH_BASE_URL: str = Field("https://api.search.brave.com/res/v1/web/search", description="Brave Search API endpoint")
+    NAVER_CLIENT_ID: Optional[str] = Field(None, description="Naver Search API client id. Strong Korean web/blog/news/local coverage.")
+    NAVER_CLIENT_SECRET: Optional[str] = Field(None, description="Naver Search API client secret")
+    NAVER_SEARCH_BASE_URL: str = Field("https://openapi.naver.com/v1/search/news.json", description="Naver Search API endpoint; can be switched to webkr/blog/news endpoints.")
+    SERPER_API_KEY: Optional[str] = Field(None, description="Serper.dev API key. Google-result proxy style provider for broad global coverage.")
+    SERPER_BASE_URL: str = Field("https://google.serper.dev/search", description="Serper search endpoint")
+    JINA_API_KEY: Optional[str] = Field(None, description="Optional Jina API key for Search/Reader style retrieval if quota requires it.")
+    JINA_SEARCH_BASE_URL: str = Field("https://s.jina.ai/", description="Jina Search endpoint prefix")
+    SEARXNG_BASE_URL: Optional[str] = Field("http://searxng:8080", description="Self-hosted/public SearXNG base URL. In Docker Compose use http://searxng:8080; host/dev may use http://localhost:8080")
+
+    # Legacy / upstream China-focused providers
     # Bocha API（申请地址：https://open.bochaai.com/）
     BOCHA_BASE_URL: Optional[str] = Field("https://api.bocha.cn/v1/ai-search", description="Bocha AI 搜索BaseUrl或博查网页搜索BaseUrl")
     BOCHA_WEB_SEARCH_API_KEY: Optional[str] = Field(None, description="Bocha API（申请地址：https://open.bochaai.com/）API密钥，用于Bocha搜索")
