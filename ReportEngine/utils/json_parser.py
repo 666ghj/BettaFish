@@ -105,8 +105,13 @@ class RobustJSONParser:
         异常:
             JSONParseError: 多种修复策略仍无法解析合法JSON
         """
-        if not raw_text or not raw_text.strip():
-            raise JSONParseError(f"{context_name}返回空内容")
+        if not isinstance(raw_text, str):
+            raise JSONParseError(
+                f"{context_name}返回的不是文本内容: {type(raw_text).__name__}",
+                raw_text=repr(raw_text),
+            )
+        if not raw_text.strip():
+            raise JSONParseError(f"{context_name}返回空内容", raw_text=raw_text)
 
         # 原始文本用于后续日志
         original_text = raw_text
@@ -200,8 +205,12 @@ class RobustJSONParser:
         for pattern in self._THINKING_PATTERNS:
             cleaned = re.sub(pattern, "", cleaned, flags=re.DOTALL | re.IGNORECASE)
 
-        # 优先提取任意位置的```json```包裹内容
-        fenced_match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", cleaned)
+        # 模型可能先输出其他代码块；显式标记为 JSON 的代码块优先级最高。
+        fenced_match = re.search(
+            r"```json\s*([\s\S]*?)\s*```", cleaned, flags=re.IGNORECASE
+        )
+        if not fenced_match:
+            fenced_match = re.search(r"```\s*([\s\S]*?)\s*```", cleaned)
         if fenced_match:
             cleaned = fenced_match.group(1).strip()
         else:
