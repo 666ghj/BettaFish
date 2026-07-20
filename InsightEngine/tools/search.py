@@ -167,16 +167,16 @@ class MediaCrawlerDB:
             else: time_filter_sql, time_filter_param = "`create_time` >= %s", str(int(start_time.timestamp()))
 
             content_type = 'note' if table in ['weibo_note', 'xhs_note'] else 'content' if table == 'zhihu_content' else 'video'
-            query_template = "SELECT '{platform}' as p, '{type}' as t, {title} as title, {author} as author, {url} as url, {ts} as ts, {formula} as hotness_score, source_keyword, '{tbl}' as tbl FROM `{tbl}` WHERE {time_filter}"
+            query_template = "SELECT %s as p, %s as t, {title} as title, {author} as author, {url} as url, {ts} as ts, {formula} as hotness_score, source_keyword, %s as tbl FROM `{tbl}` WHERE {time_filter}"
             
-            field_subs = {'platform': table.split('_')[0], 'type': content_type, 'title': 'title', 'author': 'nickname', 'url': 'video_url', 'ts': 'create_time', 'formula': formula, 'tbl': table, 'time_filter': time_filter_sql}
+            field_subs = {'title': 'title', 'author': 'nickname', 'url': 'video_url', 'ts': 'create_time', 'formula': formula, 'tbl': table, 'time_filter': time_filter_sql}
             if table == 'weibo_note': field_subs.update({'title': 'content', 'url': 'note_url', 'ts': 'create_date_time'})
             elif table == 'xhs_note': field_subs.update({'ts': 'time', 'url': 'note_url'})
             elif table == 'zhihu_content': field_subs.update({'author': 'user_nickname', 'url': 'content_url', 'ts': 'created_time'})
             elif table == 'douyin_aweme': field_subs.update({'url': 'aweme_url'})
 
             all_queries.append(query_template.format(**field_subs))
-            params.append(time_filter_param)
+            params.extend([table.split('_')[0], content_type, table, time_filter_param])
         
         final_query = f"({' ) UNION ALL ( '.join(all_queries)}) ORDER BY hotness_score DESC LIMIT %s"
         raw_results = self._execute_query(final_query, tuple(params) + (limit,))
