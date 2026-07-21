@@ -7,6 +7,8 @@ import os
 import pandas as pd
 import torch
 import torch.nn as nn
+from safetensors import safe_open as safetensors_open
+from safetensors.torch import save_file as safetensors_save, load_file as safetensors_load
 from torch.utils.data import Dataset, DataLoader
 from transformers import BertTokenizer, BertModel
 from sklearn.metrics import accuracy_score, f1_score, classification_report, roc_auc_score
@@ -212,7 +214,7 @@ class BertModel_Custom(BaseModel):
             if kwargs.get('save_each_epoch', False):
                 epoch_model_path = f"./model/bert_epoch_{epoch+1}.pth"
                 os.makedirs(os.path.dirname(epoch_model_path), exist_ok=True)
-                torch.save(self.classifier.state_dict(), epoch_model_path)
+                safetensors_save(self.classifier.state_dict(), epoch_model_path)
                 print(f"已保存模型: {epoch_model_path}")
         
         self.is_trained = True
@@ -291,15 +293,9 @@ class BertModel_Custom(BaseModel):
         
         os.makedirs(os.path.dirname(model_path), exist_ok=True)
         
-        # 保存分类器和相关信息
-        model_data = {
-            'classifier_state_dict': self.classifier.state_dict(),
-            'model_path': self.model_path,
-            'input_size': 768,
-            'device': str(self.device)
-        }
-        
-        torch.save(model_data, model_path)
+        # 保存分类器权重（使用safetensors元数据，避免pickle任意代码执行）
+        meta = {'model_path': self.model_path, 'input_size': '768'}
+        safetensors_save(self.classifier.state_dict(), model_path, metadata=meta)
         print(f"模型已保存到: {model_path}")
     
     def load_model(self, model_path: str) -> None:
@@ -307,20 +303,23 @@ class BertModel_Custom(BaseModel):
         if not os.path.exists(model_path):
             raise FileNotFoundError(f"模型文件不存在: {model_path}")
         
-        model_data = torch.load(model_path, map_location=self.device)
+        # 从safetensors文件读取元数据（避免pickle和路径遍历）
+        with safetensors_open(model_path, framework='pt', device=str(self.device)) as f:
+            meta = f.metadata()
         
         # 设置BERT模型路径
-        self.model_path = model_data['model_path']
+        self.model_path = meta['model_path']
         
         # 加载BERT
         self._load_bert()
         
         # 重建分类器
-        input_size = model_data['input_size']
+        input_size = int(meta['input_size'])
         self.classifier = BertClassifier(input_size).to(self.device)
         
-        # 加载分类器权重
-        self.classifier.load_state_dict(model_data['classifier_state_dict'])
+        # 加载分类器权重（使用safetensors，避免pickle任意代码执行）
+        state_dict = safetensors_load(model_path, device=str(self.device))
+        self.classifier.load_state_dict(state_dict)
         
         self.is_trained = True
         print(f"已加载模型: {model_path}")
