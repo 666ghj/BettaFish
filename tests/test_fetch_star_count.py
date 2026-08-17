@@ -191,9 +191,9 @@ class FetchStarCountTests(unittest.TestCase):
             encoding="utf-8"
         )
 
-        self.assertIn("cron: '17 3 * * 1'", workflow)
+        self.assertIn("cron: '17 3 1,16 * *'", workflow)
         self.assertIn("timezone: 'UTC'", workflow)
-        self.assertNotIn("cron: '17 3 1,16 * *'", workflow)
+        self.assertNotIn("cron: '17 3 * * 1'", workflow)
         self.assertNotIn("cron: '17 3 * * *'", workflow)
         trigger_block = workflow.split("\non:\n", 1)[1].split(
             "\npermissions:\n", 1
@@ -201,7 +201,7 @@ class FetchStarCountTests(unittest.TestCase):
         self.assertEqual(
             trigger_block,
             "  schedule:\n"
-            "    - cron: '17 3 * * 1'\n"
+            "    - cron: '17 3 1,16 * *'\n"
             "      timezone: 'UTC'\n"
             "  workflow_dispatch:",
         )

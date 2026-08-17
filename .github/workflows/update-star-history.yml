@@ -2,7 +2,7 @@ name: Update Star History
 
 on:
   schedule:
-    - cron: '17 3 * * 1'
+    - cron: '17 3 1,16 * *'
       timezone: 'UTC'
   workflow_dispatch:
 permissions:

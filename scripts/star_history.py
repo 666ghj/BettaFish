@@ -31,7 +31,7 @@ from typing import Any, Mapping, Protocol, Sequence
 
 REPOSITORY = "666ghj/BettaFish"
 REPOSITORY_OWNER, REPOSITORY_NAME = REPOSITORY.split("/", 1)
-INTERVAL_DAYS = 7
+INTERVAL_DAYS = 13
 STATE_RELATIVE = Path(".github/star-history/history.json")
 LIGHT_SVG_RELATIVE = Path("static/image/star-history-light.svg")
 DARK_SVG_RELATIVE = Path("static/image/star-history-dark.svg")
@@ -400,7 +400,9 @@ def validate_state(state: Any) -> None:
         state["ongoing_interval_days"] != INTERVAL_DAYS
         or type(state["ongoing_interval_days"]) is not int
     ):
-        raise StarHistoryError("history interval must be exactly 7 days")
+        raise StarHistoryError(
+            f"history interval must be exactly {INTERVAL_DAYS} days"
+        )
 
     reconstruction = state["reconstruction"]
     if not isinstance(reconstruction, dict):
@@ -1400,14 +1402,20 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("backfill", help="reconstruct history using maintainer access")
-    subparsers.add_parser("due", help="print whether a 7-day snapshot is due")
+    subparsers.add_parser(
+        "due", help=f"print whether a {INTERVAL_DAYS}-day snapshot is due"
+    )
     record = subparsers.add_parser(
         "record", help="apply a fetched aggregate count without GitHub credentials"
     )
     record.add_argument(
         "--count-file", required=True, type=Path, help="file containing one decimal count"
     )
-    record.add_argument("--force", action="store_true", help="record before 7 days")
+    record.add_argument(
+        "--force",
+        action="store_true",
+        help=f"record before {INTERVAL_DAYS} days",
+    )
     subparsers.add_parser("check", help="verify state and deterministic SVG files")
     return parser
 

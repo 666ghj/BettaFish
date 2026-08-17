@@ -9,7 +9,7 @@ import unittest
 import xml.etree.ElementTree as ET
 from contextlib import redirect_stderr, redirect_stdout
 from copy import deepcopy
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -72,7 +72,7 @@ def state_with_snapshots(snapshots=None):
         "schema_version": 1,
         "repository": "666ghj/BettaFish",
         "timezone": "UTC",
-        "ongoing_interval_days": 7,
+        "ongoing_interval_days": 13,
         "reconstruction": {
             "method": "current_stargazers_starred_at",
             "generated_at": "2026-07-01T00:00:00Z",
@@ -256,13 +256,20 @@ class StarHistoryBehaviorTests(unittest.TestCase):
 
             self.assertTrue(state_path.is_symlink())
 
-    def test_due_boundary_is_exactly_seven_days(self):
+    def test_due_boundary_matches_configured_interval(self):
         baseline = state_with_snapshots(
             [{"at": "2026-07-20T05:00:00Z", "stars": 100}]
         )
+        latest = datetime(2026, 7, 20, 5, 0, 0, tzinfo=UTC)
+        boundary = latest + timedelta(days=star_history.INTERVAL_DAYS)
         cases = [
-            ("2026-07-27T04:59:59Z", False),
-            ("2026-07-27T05:00:00Z", True),
+            (
+                (boundary - timedelta(seconds=1)).strftime(
+                    "%Y-%m-%dT%H:%M:%SZ"
+                ),
+                False,
+            ),
+            (boundary.strftime("%Y-%m-%dT%H:%M:%SZ"), True),
         ]
         for now, expected in cases:
             with self.subTest(now=now), tempfile.TemporaryDirectory() as temporary:
@@ -321,10 +328,14 @@ class StarHistoryBehaviorTests(unittest.TestCase):
                 ),
             )
             before = tuple(path.read_bytes() for path in (state_path, light_path, dark_path))
+            latest = datetime(2026, 7, 20, 5, 0, 0, tzinfo=UTC)
+            before_due = latest + timedelta(
+                days=star_history.INTERVAL_DAYS, seconds=-1
+            )
             result = star_history.execute(
                 "record",
                 github=None,
-                clock=FixedClock("2026-07-21T05:00:00Z"),
+                clock=FixedClock(before_due.strftime("%Y-%m-%dT%H:%M:%SZ")),
                 workspace=workspace,
                 star_count=101,
             )
@@ -519,7 +530,7 @@ class StarHistoryBehaviorTests(unittest.TestCase):
             "schema_version": 1,
             "repository": "666ghj/BettaFish",
             "timezone": "UTC",
-            "ongoing_interval_days": 7,
+            "ongoing_interval_days": 13,
             "reconstruction": {
                 "method": "current_stargazers_starred_at",
                 "generated_at": "2026-01-04T00:00:00Z",
@@ -703,7 +714,7 @@ class StarHistoryBehaviorTests(unittest.TestCase):
             "schema_version": 1,
             "repository": "666ghj/BettaFish",
             "timezone": "UTC",
-            "ongoing_interval_days": 7,
+            "ongoing_interval_days": 13,
             "reconstruction": {
                 "method": "current_stargazers_starred_at",
                 "generated_at": "2026-01-02T00:00:00Z",
