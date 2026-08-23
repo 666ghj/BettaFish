@@ -320,6 +320,18 @@ docker compose up -d
 
 在完成数据库配置后，请正常配置**所有大模型相关的参数**，确保系统能够连接到您选择的大模型服务。
 
+**方式一 · 各引擎分别配置（默认）**：为每个 Agent 单独填写 `{PREFIX}_API_KEY` / `{PREFIX}_BASE_URL` / `{PREFIX}_MODEL_NAME`（Insight、Media、Query、Report、MindSpider、论坛主持人、SQL优化器共 7 处）。
+
+**方式二 · OrcaRouter 统一网关（可选，推荐）**：只需在 `.env` 中配置以下三项，全部 7 处 Agent 的 LLM 调用即统一走 [OrcaRouter](https://www.orcarouter.ai)（OpenAI 兼容 AI 网关），获得自适应路由、自动故障转移、护栏、零信任 Agent 工具治理等能力，无需改动任何 Agent 代码：
+
+```bash
+ORCAROUTER_API_KEY=你的OrcaRouter密钥
+ORCAROUTER_BASE_URL=https://api.orcarouter.ai/v1
+ORCAROUTER_MODEL=orcarouter/auto
+```
+
+> OrcaRouter 与 OpenRouter 类似，对外暴露统一的 provider/model 命名空间；设置 `ORCAROUTER_MODEL=orcarouter/auto` 时由其自适应路由自动挑选模型。若已配置 `ORCAROUTER_API_KEY`，则各引擎的 KEY、BASE_URL、MODEL_NAME 将被统一覆盖为该网关配置。
+
 完成上述所有配置并保存后，系统即可正常运行。
 
 ## 🔧 源码启动指南
@@ -590,6 +602,8 @@ SENTIMENT_CONFIG = {
 >complete_response = response.choices[0].message.content
 >print(complete_response)
 >```
+
+**统一接入 OrcaRouter 网关**：将 [OrcaRouter](https://www.orcarouter.ai) 作为一等公民 provider 接入时，同样遵循 OpenAI 调用格式——只需在 `.env` 设置 `ORCAROUTER_API_KEY`（默认端点 `https://api.orcarouter.ai/v1`、默认模型 `orcarouter/auto`），所有 Agent 的 LLM 调用便会统一路由到该网关，而无需把 OrcaRouter 当作匿名的自定义 base_url 单独配置。
 
 ### 更改情感分析模型
 

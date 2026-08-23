@@ -315,6 +315,18 @@ Configure the database connection information with the following parameters. The
 
 All LLM calls use the OpenAI API interface standard. After you finish the database configuration, continue to configure **all LLM-related parameters** so the system can connect to your selected LLM service.
 
+**Option A · Per-engine providers (default)**: fill in `{PREFIX}_API_KEY` / `{PREFIX}_BASE_URL` / `{PREFIX}_MODEL_NAME` for each Agent (Insight, Media, Query, Report, MindSpider, Forum Host, SQL Keyword Optimizer — 7 call sites).
+
+**Option B · OrcaRouter unified gateway (optional, recommended)**: add the three variables below to `.env` and all 7 Agents route their LLM calls through [OrcaRouter](https://www.orcarouter.ai), an OpenAI-compatible AI gateway — gaining adaptive routing, automatic failover, guardrails and zero-trust agent-tool governance with no Agent code changes:
+
+```bash
+ORCAROUTER_API_KEY=your_orcarouter_key
+ORCAROUTER_BASE_URL=https://api.orcarouter.ai/v1
+ORCAROUTER_MODEL=orcarouter/auto
+```
+
+> Like OpenRouter, OrcaRouter exposes a provider/model namespace over one endpoint; `orcarouter/auto` lets its adaptive router pick the model. When `ORCAROUTER_API_KEY` is set, the per-engine KEY/BASE_URL/MODEL_NAME values are overridden by the gateway config.
+
 Once you complete and save the configurations above, the system will be ready to run normally.
 
 ## 🔧 Source Code Startup Guide
@@ -585,6 +597,8 @@ The system supports any LLM provider that follows the OpenAI request format. You
 >complete_response = response.choices[0].message.content
 >print(complete_response)
 >```
+
+**Integrate the OrcaRouter gateway as a first-class provider**: [OrcaRouter](https://www.orcarouter.ai) also follows the OpenAI request format. Set `ORCAROUTER_API_KEY` in `.env` (default endpoint `https://api.orcarouter.ai/v1`, default model `orcarouter/auto`) and every Agent's LLM calls route through the gateway — no need to treat OrcaRouter as an anonymous custom base URL.
 
 ### Change Sentiment Analysis Models
 

@@ -9,7 +9,7 @@
 
 from pathlib import Path
 from pydantic_settings import BaseSettings
-from pydantic import Field, ConfigDict
+from pydantic import Field, ConfigDict, model_validator
 from typing import Optional, Literal
 from loguru import logger
 
@@ -75,7 +75,18 @@ class Settings(BaseSettings):
     KEYWORD_OPTIMIZER_API_KEY: Optional[str] = Field(None, description="SQL Keyword Optimizer（推荐 qwen-plus，官方申请地址：https://www.aliyun.com/product/bailian）API 密钥")
     KEYWORD_OPTIMIZER_BASE_URL: Optional[str] = Field(None, description="Keyword Optimizer BaseUrl，可按所选服务配置")
     KEYWORD_OPTIMIZER_MODEL_NAME: Optional[str] = Field(None, description="Keyword Optimizer LLM 模型名称，例如 qwen-plus")
-    
+
+    # ================== OrcaRouter unified LLM gateway ==================
+    # OrcaRouter (https://www.orcarouter.ai) is an OpenAI-compatible AI gateway.
+    # Setting ORCAROUTER_API_KEY turns it into a first-class provider for every
+    # engine above: a single key, endpoint and model route all 7 LLM call sites
+    # through OrcaRouter, so adaptive routing, automatic failover, guardrails
+    # and zero-trust agent-tool security apply project-wide without touching any
+    # engine code. Leave ORCAROUTER_API_KEY empty to keep per-engine providers.
+    ORCAROUTER_API_KEY: Optional[str] = Field(None, description="OrcaRouter API key. When set, every engine routes its LLM calls through OrcaRouter with a single key, endpoint and model.")
+    ORCAROUTER_BASE_URL: Optional[str] = Field("https://api.orcarouter.ai/v1", description="OrcaRouter OpenAI-compatible base URL.")
+    ORCAROUTER_MODEL: Optional[str] = Field("orcarouter/auto", description="Model used for all engines when the OrcaRouter gateway is enabled.")
+
     # ================== 网络工具配置 ====================
     # Tavily API（申请地址：https://www.tavily.com/）
     TAVILY_API_KEY: Optional[str] = Field(None, description="Tavily API（申请地址：https://www.tavily.com/）API密钥，用于Tavily网络搜索")
@@ -109,6 +120,36 @@ class Settings(BaseSettings):
         case_sensitive=False,
         extra="allow"
     )
+
+    # All engine LLM configuration pairs, in the order they are exposed as
+    # `{PREFIX}_API_KEY`, `{PREFIX}_BASE_URL` and `{PREFIX}_MODEL_NAME`.
+    _LLM_PROVIDER_PREFIXES = (
+        "INSIGHT_ENGINE",
+        "MEDIA_ENGINE",
+        "QUERY_ENGINE",
+        "REPORT_ENGINE",
+        "MINDSPIDER",
+        "FORUM_HOST",
+        "KEYWORD_OPTIMIZER",
+    )
+
+    @model_validator(mode="after")
+    def _apply_orcarouter_gateway(self) -> "Settings":
+        """
+        When OrcaRouter is enabled, point every engine's LLM calls at it.
+
+        This mirrors how the project already treats each provider (KEY, BASE_URL,
+        MODEL_NAME per engine), but collapses all seven call sites onto a single
+        OpenAI-compatible gateway so OrcaRouter becomes a first-class provider.
+        """
+        if not self.ORCAROUTER_API_KEY:
+            return self
+        for prefix in self._LLM_PROVIDER_PREFIXES:
+            setattr(self, f"{prefix}_API_KEY", self.ORCAROUTER_API_KEY)
+            setattr(self, f"{prefix}_BASE_URL", self.ORCAROUTER_BASE_URL)
+            setattr(self, f"{prefix}_MODEL_NAME", self.ORCAROUTER_MODEL)
+        logger.info("OrcaRouter gateway enabled: all engines will route LLM calls through OrcaRouter.")
+        return self
 
 
 # 创建全局配置实例
