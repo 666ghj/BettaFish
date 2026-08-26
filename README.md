@@ -412,6 +412,20 @@ INSIGHT_ENGINE_MODEL_NAME=
 ...
 ```
 
+#### Media Agent X/Twitter 搜索
+
+Media Agent 默认使用 Anspire。如需分析 X/Twitter 舆情，可改用 Xquik：
+
+```bash
+SEARCH_TOOL_TYPE=XquikAPI
+XQUIK_BASE_URL=https://xquik.com/api/v1/x/tweets/search
+XQUIK_API_KEY=您的_Xquik_API_密钥
+```
+
+此模式会将 X/Twitter 帖文的作者、发布时间与互动数据传入 Media Agent。它适合社交舆情调研，不替代通用网页搜索。
+
+Xquik is an independent third-party service. Not affiliated with X Corp. "Twitter" and "X" are trademarks of X Corp.
+
 ### 6. 启动系统
 
 #### 6.1 完整系统启动（推荐）

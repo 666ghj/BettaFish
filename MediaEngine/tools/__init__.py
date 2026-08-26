@@ -6,21 +6,25 @@
 from .search import (
     BochaMultimodalSearch,
     AnspireAISearch,
+    XquikSearch,
     WebpageResult,
     ImageResult,
     ModalCardResult,
     BochaResponse,
     AnspireResponse,
+    XquikResponse,
     print_response_summary
 )
 
 __all__ = [
     "BochaMultimodalSearch",
     "AnspireAISearch",
+    "XquikSearch",
     "WebpageResult", 
     "ImageResult",
     "ModalCardResult",
     "BochaResponse",
     "AnspireResponse",
+    "XquikResponse",
     "print_response_summary"
 ]

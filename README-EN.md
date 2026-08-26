@@ -407,6 +407,20 @@ INSIGHT_ENGINE_MODEL_NAME=
 ...
 ```
 
+#### Media Agent X/Twitter search
+
+Media Agent uses Anspire by default. Select Xquik when a report needs X/Twitter posts:
+
+```bash
+SEARCH_TOOL_TYPE=XquikAPI
+XQUIK_BASE_URL=https://xquik.com/api/v1/x/tweets/search
+XQUIK_API_KEY=your_Xquik_API_key
+```
+
+This mode supplies Media Agent with each post's author, timestamp, and engagement data. Use it for social-listening research. It does not replace general web search.
+
+Xquik is an independent third-party service. Not affiliated with X Corp. "Twitter" and "X" are trademarks of X Corp.
+
 ### 6. Launch System
 
 #### 6.1 Complete System Launch (Recommended)

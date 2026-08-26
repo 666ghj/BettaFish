@@ -56,7 +56,7 @@ def test_transient_http_error_is_retried():
     sleep.assert_called_once_with(1)
 
 
-@pytest.mark.parametrize("status_code", [408, 409, 425, 429])
+@pytest.mark.parametrize("status_code", [408, 409, 424, 425, 429])
 def test_retryable_client_errors_are_retried(status_code):
     calls = 0
     config = RetryConfig(max_retries=2, initial_delay=1)
