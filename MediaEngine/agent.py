@@ -7,7 +7,7 @@ import json
 import os
 import re
 from datetime import datetime
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 from loguru import logger
 from .llms import LLMClient
 from .nodes import (
@@ -19,12 +19,21 @@ from .nodes import (
     ReportFormattingNode
 )
 from .state import State
-from .tools import BochaMultimodalSearch, BochaResponse, AnspireAISearch, AnspireResponse
+from .tools import (
+    AnspireAISearch,
+    AnspireResponse,
+    BochaMultimodalSearch,
+    BochaResponse,
+    XquikResponse,
+    XquikSearch,
+)
 from .utils import settings, Settings, format_search_results_for_prompt
 
 
 class DeepSearchAgent:
     """Deep Search Agent主类"""
+
+    search_tool_name = "BochaMultimodalSearch (支持5种多模态搜索工具)"
     
     def __init__(self, config: Optional[Settings] = None):
         """
@@ -39,7 +48,7 @@ class DeepSearchAgent:
         self.llm_client = self._initialize_llm()
         
         # 初始化搜索工具集
-        self.search_agency = BochaMultimodalSearch(api_key=(self.config.BOCHA_API_KEY or self.config.BOCHA_WEB_SEARCH_API_KEY))
+        self.search_agency = self._initialize_search_agency()
         
         # 初始化节点
         self._initialize_nodes()
@@ -50,9 +59,18 @@ class DeepSearchAgent:
         # 确保输出目录存在
         os.makedirs(self.config.OUTPUT_DIR, exist_ok=True)
         
-        logger.info(f"Media Agent已初始化")
+        logger.info("Media Agent已初始化")
         logger.info(f"使用LLM: {self.llm_client.get_model_info()}")
-        logger.info(f"搜索工具集: BochaMultimodalSearch (支持5种多模态搜索工具)")
+        logger.info(f"搜索工具集: {self.search_tool_name}")
+
+    def _initialize_search_agency(self) -> BochaMultimodalSearch:
+        """初始化Bocha搜索工具集"""
+        return BochaMultimodalSearch(
+            api_key=(
+                getattr(self.config, "BOCHA_API_KEY", None)
+                or self.config.BOCHA_WEB_SEARCH_API_KEY
+            )
+        )
     
     def _initialize_llm(self) -> LLMClient:
         """初始化LLM客户端"""
@@ -95,7 +113,9 @@ class DeepSearchAgent:
         except ValueError:
             return False
     
-    def execute_search_tool(self, tool_name: str, query: str, **kwargs) -> BochaResponse:
+    def execute_search_tool(
+        self, tool_name: str, query: str, **kwargs
+    ) -> Union[BochaResponse, XquikResponse]:
         """
         执行指定的搜索工具
         
@@ -436,30 +456,15 @@ class DeepSearchAgent:
         self.state.save_to_file(filepath)
         logger.info(f"状态已保存到 {filepath}")
 
+
 class AnspireSearchAgent(DeepSearchAgent):
     """调用Anspire搜索引擎的Deep Search Agent"""
-    
-    def __init__(self, config: Settings | None = None):
-        self.config = config or settings
-        
-        # 初始化LLM客户端
-        self.llm_client = self._initialize_llm()
-        
-        # 初始化搜索工具集
-        self.search_agency = AnspireAISearch(api_key=self.config.ANSPIRE_API_KEY)
 
-        # 初始化节点
-        self._initialize_nodes()
-        
-        # 状态
-        self.state = State()
-        
-        # 确保输出目录存在
-        os.makedirs(self.config.OUTPUT_DIR, exist_ok=True)
-        
-        logger.info(f"Media Agent已初始化")
-        logger.info(f"使用LLM: {self.llm_client.get_model_info()}")
-        logger.info(f"搜索工具集: AnspireSearch")
+    search_tool_name = "AnspireSearch"
+
+    def _initialize_search_agency(self) -> AnspireAISearch:
+        """初始化Anspire搜索工具集"""
+        return AnspireAISearch(api_key=self.config.ANSPIRE_API_KEY)
 
     def execute_search_tool(self, tool_name: str, query: str, **kwargs) -> AnspireResponse:
         # TODO: 使用Anspire搜索工具执行搜索
@@ -491,17 +496,37 @@ class AnspireSearchAgent(DeepSearchAgent):
             return self.search_agency.comprehensive_search(query)
 
 
-def create_agent(config_file: Optional[str] = None) -> DeepSearchAgent:
+class XquikSearchAgent(DeepSearchAgent):
+    """调用Xquik搜索X/Twitter帖文的Deep Search Agent"""
+
+    search_tool_name = "XquikSearch"
+
+    def _initialize_search_agency(self) -> XquikSearch:
+        """初始化Xquik搜索工具集"""
+        return XquikSearch(
+            api_key=self.config.XQUIK_API_KEY,
+            base_url=self.config.XQUIK_BASE_URL,
+        )
+
+
+def create_agent(config_file: Optional[Union[str, Settings]] = None) -> DeepSearchAgent:
     """
     创建Deep Search Agent实例的便捷函数
     
     Args:
-        config_file: 配置文件路径
+        config_file: 配置对象或 .env 文件路径
         
     Returns:
         DeepSearchAgent实例
     """
-    settings = Settings()
-    if settings.SEARCH_TOOL_TYPE == "AnspireAPI":
-        return AnspireSearchAgent(settings)
-    return DeepSearchAgent(settings)
+    if config_file is None:
+        config = Settings()
+    elif isinstance(config_file, str):
+        config = Settings(_env_file=config_file)
+    else:
+        config = config_file
+    if config.SEARCH_TOOL_TYPE == "AnspireAPI":
+        return AnspireSearchAgent(config)
+    if config.SEARCH_TOOL_TYPE == "XquikAPI":
+        return XquikSearchAgent(config)
+    return DeepSearchAgent(config)

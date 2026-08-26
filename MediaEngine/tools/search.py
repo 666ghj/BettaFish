@@ -1,21 +1,22 @@
 """
-专为 AI Agent 设计的多模态搜索工具集 (Bocha)
+专为 AI Agent 设计的搜索工具集
 
 版本: 1.1
 最后更新: 2025-08-22
 
-此脚本将复杂的 Bocha AI Search 功能分解为一系列目标明确、参数极少的独立工具，
+此模块为 Bocha、Anspire 与 Xquik 提供统一的 Agent 搜索工具，
 专为 AI Agent 调用而设计。Agent 只需根据任务意图（如常规搜索、查找结构化数据或时效性新闻）
 选择合适的工具，无需理解复杂的参数组合。
 
 核心特性:
-- 强大多模态能力: 能同时返回网页、图片、AI总结、追问建议，以及丰富的“模态卡”结构化数据。
-- 模态卡支持: 针对天气、股票、汇率、百科、医疗等特定查询，可直接返回结构化数据卡片，便于Agent直接解析和使用。
+- 统一工具界面: 根据配置选择搜索提供商。
+- Bocha 多模态能力: 返回网页、图片、AI 总结与模态卡。
+- Xquik 舆情搜索: 返回 X/Twitter 帖文、作者、时间与互动数据。
 
 主要工具:
-- comprehensive_search: 执行全面搜索，返回网页、图片、AI总结及可能的模态卡。
-- search_for_structured_data: 专门用于查询天气、股票、汇率等可触发“模态卡”的结构化信息。
-- web_search_only: 执行纯网页搜索，不请求AI总结，速度更快。
+- comprehensive_search: 执行提供商的默认综合搜索。
+- search_for_structured_data: 返回提供商支持的结构化数据。
+- web_search_only: 返回不含额外 AI 总结的原始搜索结果。
 - search_last_24_hours: 获取过去24小时内的最新信息。
 - search_last_week: 获取过去一周内的主要报道。
 """
@@ -24,7 +25,7 @@ import os
 import json
 import sys
 import datetime
-from typing import List, Dict, Any, Optional, Literal
+from typing import List, Dict, Any, Optional, Callable
 
 from loguru import logger
 from config import settings
@@ -92,6 +93,16 @@ class AnspireResponse:
     query: str
     conversation_id: Optional[str] = None
     score: Optional[float] = None
+    webpages: List[WebpageResult] = field(default_factory=list)
+
+@dataclass
+class XquikResponse:
+    """封装 Xquik Tweet 搜索响应。"""
+
+    query: str
+    conversation_id: Optional[str] = None
+    has_next_page: bool = False
+    next_cursor: str = ""
     webpages: List[WebpageResult] = field(default_factory=list)
 
 
@@ -265,6 +276,175 @@ class BochaMultimodalSearch:
         logger.info(f"--- TOOL: 搜索本周信息 (query: {query}) ---")
         return self._search_internal(query=query, freshness='oneWeek', answer=True)
 
+
+class XquikSearch:
+    """通过 Xquik 搜索 X/Twitter 帖文。"""
+
+    XQUIK_BASE_URL = (
+        settings.XQUIK_BASE_URL or "https://xquik.com/api/v1/x/tweets/search"
+    )
+
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        base_url: Optional[str] = None,
+        request_get: Optional[Callable[..., Any]] = None,
+        now: Optional[Callable[[], datetime.datetime]] = None,
+    ):
+        api_key = api_key or settings.XQUIK_API_KEY
+        if not api_key:
+            raise ValueError("Xquik API Key未找到！请设置 XQUIK_API_KEY 环境变量")
+
+        self._headers = {
+            "x-api-key": api_key,
+            "Accept": "application/json",
+        }
+        self._base_url = base_url or self.XQUIK_BASE_URL
+        self._request_get = request_get or requests.get
+        self._now = now or (lambda: datetime.datetime.now(datetime.timezone.utc))
+
+    @staticmethod
+    def _tweet_url(tweet: Dict[str, Any], username: str) -> str:
+        url = tweet.get("url")
+        if isinstance(url, str) and url:
+            return url
+
+        tweet_id = tweet.get("id")
+        if username and tweet_id:
+            return f"https://x.com/{username}/status/{tweet_id}"
+        return "https://x.com"
+
+    @staticmethod
+    def _tweet_snippet(tweet: Dict[str, Any]) -> str:
+        text = str(tweet.get("text") or "").strip()
+        labels = (
+            ("likes", "likeCount"),
+            ("reposts", "retweetCount"),
+            ("replies", "replyCount"),
+            ("quotes", "quoteCount"),
+            ("views", "viewCount"),
+        )
+        metrics = [
+            f"{label}={tweet[field]}"
+            for label, field in labels
+            if tweet.get(field) is not None
+        ]
+        if metrics:
+            return f"{text}\nEngagement: {', '.join(metrics)}".strip()
+        return text
+
+    def _parse_search_response(
+        self, response_dict: Dict[str, Any], query: str
+    ) -> XquikResponse:
+        tweets = response_dict.get("tweets", [])
+        if not isinstance(tweets, list):
+            raise ValueError("Xquik API响应中的 tweets 必须是列表")
+
+        result = XquikResponse(
+            query=query,
+            has_next_page=bool(response_dict.get("has_next_page")),
+            next_cursor=str(response_dict.get("next_cursor") or ""),
+        )
+        for tweet in tweets:
+            if not isinstance(tweet, dict):
+                continue
+            author = tweet.get("author")
+            author = author if isinstance(author, dict) else {}
+            username = str(author.get("username") or "").strip()
+            author_name = str(author.get("name") or username or "X").strip()
+            title = f"{author_name} (@{username})" if username else author_name
+            created_at = tweet.get("createdAt")
+            result.webpages.append(
+                WebpageResult(
+                    name=title,
+                    url=self._tweet_url(tweet, username),
+                    snippet=self._tweet_snippet(tweet),
+                    display_url=f"x.com/{username}" if username else "x.com",
+                    date_last_crawled=(
+                        created_at if isinstance(created_at, str) else None
+                    ),
+                )
+            )
+        return result
+
+    def _search_internal(
+        self,
+        query: str,
+        max_results: int = 10,
+        since_time: Optional[str] = None,
+        until_time: Optional[str] = None,
+    ) -> XquikResponse:
+        if not query.strip():
+            raise ValueError("Xquik搜索关键词不能为空")
+
+        params = {
+            "q": query,
+            "limit": min(max(int(max_results), 1), 10000),
+            "queryType": "Latest",
+        }
+        if since_time:
+            params["sinceTime"] = since_time
+        if until_time:
+            params["untilTime"] = until_time
+
+        response = self._request(params)
+        if response is None:
+            return XquikResponse(query=query)
+
+        try:
+            response_dict = response.json()
+            if not isinstance(response_dict, dict):
+                raise ValueError("Xquik API响应必须是JSON对象")
+            return self._parse_search_response(response_dict, query)
+        except (TypeError, ValueError) as exc:
+            logger.warning(f"无法解析Xquik API响应: {exc}")
+            return XquikResponse(query=query)
+
+    @with_graceful_retry(SEARCH_API_RETRY_CONFIG, default_return=None)
+    def _request(self, params: Dict[str, Any]) -> Any:
+        response = self._request_get(
+            self._base_url,
+            headers=self._headers,
+            params=params,
+            timeout=settings.SEARCH_TIMEOUT,
+        )
+        response.raise_for_status()
+        return response
+
+    def comprehensive_search(self, query: str, max_results: int = 10) -> XquikResponse:
+        """搜索最新 X/Twitter 帖文。"""
+        logger.info(f"--- TOOL: 搜索X/Twitter帖子 (query: {query}) ---")
+        return self._search_internal(query=query, max_results=max_results)
+
+    def web_search_only(self, query: str, max_results: int = 15) -> XquikResponse:
+        """返回原始 X/Twitter 帖文，不生成额外摘要。"""
+        return self._search_internal(query=query, max_results=max_results)
+
+    def search_for_structured_data(self, query: str) -> XquikResponse:
+        """使用帖文、作者、时间与互动字段返回结构化结果。"""
+        return self._search_internal(query=query, max_results=5)
+
+    def _search_window(self, query: str, delta: datetime.timedelta) -> XquikResponse:
+        until_time = self._now()
+        if until_time.tzinfo is None:
+            until_time = until_time.replace(tzinfo=datetime.timezone.utc)
+        since_time = until_time - delta
+        return self._search_internal(
+            query=query,
+            max_results=10,
+            since_time=since_time.isoformat(timespec="seconds").replace("+00:00", "Z"),
+            until_time=until_time.isoformat(timespec="seconds").replace("+00:00", "Z"),
+        )
+
+    def search_last_24_hours(self, query: str) -> XquikResponse:
+        """搜索过去24小时的 X/Twitter 帖文。"""
+        return self._search_window(query, datetime.timedelta(days=1))
+
+    def search_last_week(self, query: str) -> XquikResponse:
+        """搜索过去7天的 X/Twitter 帖文。"""
+        return self._search_window(query, datetime.timedelta(weeks=1))
+
+
 class AnspireAISearch:
     """
     Anspire AI Search 客户端
@@ -371,14 +551,17 @@ class AnspireAISearch:
 # --- 3. 测试与使用示例 ---
 def load_agent_from_config():
     """根据配置文件选择并加载搜索Agent"""
-    if settings.BOCHA_WEB_SEARCH_API_KEY:
+    if settings.SEARCH_TOOL_TYPE == "XquikAPI":
+        logger.info("加载 XquikSearch Agent")
+        return XquikSearch()
+    if settings.SEARCH_TOOL_TYPE == "BochaAPI":
         logger.info("加载 BochaMultimodalSearch Agent")
         return BochaMultimodalSearch()
-    elif settings.ANSPIRE_API_KEY:
+    if settings.SEARCH_TOOL_TYPE == "AnspireAPI":
         logger.info("加载 AnspireAISearch Agent")
         return AnspireAISearch()
-    else:
-        raise ValueError("未配置有效的搜索Agent")
+    raise ValueError(f"不支持的搜索工具类型: {settings.SEARCH_TOOL_TYPE}")
+
 
 def print_response_summary(response):
     """简化的打印函数，用于展示测试结果"""
@@ -390,7 +573,7 @@ def print_response_summary(response):
     if hasattr(response, 'answer') and response.answer:
         logger.info(f"AI摘要: {response.answer[:150]}...")
 
-    logger.info(f"找到 {len(response.webpages)} 个网页")
+    logger.info(f"找到 {len(response.webpages)} 个搜索结果")
     if hasattr(response, 'images'):
         logger.info(f"找到 {len(response.images)} 张图片")
     if hasattr(response, 'modal_cards'):
@@ -402,7 +585,7 @@ def print_response_summary(response):
 
     if response.webpages:
         first_result = response.webpages[0]
-        logger.info(f"第一条网页结果: {first_result.name}")
+        logger.info(f"第一条搜索结果: {first_result.name}")
 
     if hasattr(response, 'follow_ups') and response.follow_ups:
         logger.info(f"建议追问: {response.follow_ups}")
@@ -514,6 +697,6 @@ AI摘要: 量子计算商业化正在逐步推进。
 
     except ValueError as e:
         logger.exception(f"初始化失败: {e}")
-        logger.error("请确保 BOCHA_API_KEY 环境变量已正确设置。")
+        logger.error("请检查 SEARCH_TOOL_TYPE 及对应的 API 密钥。")
     except Exception as e:
         logger.exception(f"测试过程中发生未知错误: {e}")

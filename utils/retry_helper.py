@@ -10,7 +10,7 @@ import requests
 from loguru import logger
 
 
-RETRYABLE_HTTP_STATUS_CODES = {408, 409, 425, 429}
+RETRYABLE_HTTP_STATUS_CODES = {408, 409, 424, 425, 429}
 
 
 def _get_http_status_code(exc: Exception) -> Optional[int]:

@@ -27,7 +27,7 @@ except locale.Error:
 # 添加src目录到Python路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from MediaEngine import DeepSearchAgent, AnspireSearchAgent, Settings
+from MediaEngine import DeepSearchAgent, Settings, create_agent
 from config import settings
 from utils.github_issues import error_with_issue_link
 
@@ -106,6 +106,7 @@ def main():
         engine_key = settings.MEDIA_ENGINE_API_KEY
         bocha_key = settings.BOCHA_WEB_SEARCH_API_KEY
         ansire_key = settings.ANSPIRE_API_KEY
+        xquik_key = settings.XQUIK_API_KEY
 
         # 构建 Settings（pydantic_settings风格，优先大写环境变量）
         if settings.SEARCH_TOOL_TYPE == "BochaAPI":
@@ -140,6 +141,23 @@ def main():
                 SEARCH_CONTENT_MAX_LENGTH=max_content_length,
                 OUTPUT_DIR="media_engine_streamlit_reports",
             )
+        elif settings.SEARCH_TOOL_TYPE == "XquikAPI":
+            if not xquik_key:
+                st.error("请在您的环境变量中设置XQUIK_API_KEY")
+                logger.error("请在您的环境变量中设置XQUIK_API_KEY")
+                return
+            logger.info("使用Xquik搜索API密钥")
+            config = Settings(
+                MEDIA_ENGINE_API_KEY=engine_key,
+                MEDIA_ENGINE_BASE_URL=settings.MEDIA_ENGINE_BASE_URL,
+                MEDIA_ENGINE_MODEL_NAME=model_name,
+                SEARCH_TOOL_TYPE="XquikAPI",
+                XQUIK_BASE_URL=settings.XQUIK_BASE_URL,
+                XQUIK_API_KEY=xquik_key,
+                MAX_REFLECTIONS=max_reflections,
+                SEARCH_CONTENT_MAX_LENGTH=max_content_length,
+                OUTPUT_DIR="media_engine_streamlit_reports",
+            )
         else:
             st.error(f"未知的搜索工具类型: {settings.SEARCH_TOOL_TYPE}")
             logger.error(f"未知的搜索工具类型: {settings.SEARCH_TOOL_TYPE}")
@@ -158,12 +176,7 @@ def execute_research(query: str, config: Settings):
 
         # 初始化Agent
         status_text.text("正在初始化Agent...")
-        if config.SEARCH_TOOL_TYPE == "BochaAPI":
-            agent = DeepSearchAgent(config)
-        elif config.SEARCH_TOOL_TYPE == "AnspireAPI":
-            agent = AnspireSearchAgent(config)
-        else:
-            raise ValueError(f"未知的搜索工具类型: {config.SEARCH_TOOL_TYPE}")
+        agent = create_agent(config)
         st.session_state.agent = agent
 
         progress_bar.progress(10)
