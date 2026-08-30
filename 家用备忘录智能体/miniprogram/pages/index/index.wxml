@@ -1,0 +1,101 @@
+<view class="page">
+  <!-- 未加入家庭 -->
+  <block wx:if="{{!hasFamily}}">
+    <view class="empty-state">
+      <text class="empty-icon">👨‍👩‍👧‍👦</text>
+      <text class="empty-text">请先创建或加入家庭空间</text>
+      <button class="btn-primary" bindtap="navigateTo" data-url="/pages/profile/profile">去设置</button>
+    </view>
+  </block>
+
+  <!-- 已加入家庭 -->
+  <block wx:else>
+    <!-- ① 顶部导航：搜索框 + 角色标识 -->
+    <view class="top-bar">
+      <view class="search-box">
+        <text class="search-icon">🔍</text>
+        <input class="search-input" placeholder="搜索备忘..." value="{{searchValue}}" bindinput="onSearchInput" bindconfirm="onSearch" />
+      </view>
+      <view class="role-badge" wx:if="{{roleLabel}}">
+        <text>{{roleLabel}}</text>
+      </view>
+    </view>
+
+    <!-- ② 今日待办 -->
+    <view class="card">
+      <view class="card-header">
+        <text class="card-title">📋 今日待办</text>
+        <text class="card-count">{{overdueMemos.length + todayMemos.length}}项</text>
+      </view>
+
+      <view wx:if="{{overdueMemos.length > 0}}" class="memo-list">
+        <view class="memo-item memo-overdue" wx:for="{{overdueMemos}}" wx:key="id">
+          <view class="memo-tag tag-red">逾期</view>
+          <text class="memo-content">{{item.content}}</text>
+          <text class="memo-time">{{item.due_time}}</text>
+        </view>
+      </view>
+
+      <view wx:if="{{todayMemos.length > 0}}" class="memo-list">
+        <view class="memo-item" wx:for="{{todayMemos}}" wx:key="id">
+          <view class="memo-tag tag-yellow">今日</view>
+          <text class="memo-content">{{item.content}}</text>
+          <text class="memo-time">{{item.due_time}}</text>
+        </view>
+      </view>
+
+      <view wx:if="{{overdueMemos.length === 0 && todayMemos.length === 0}}" class="empty-state">
+        <text>今天没有待办事项 🎉</text>
+      </view>
+    </view>
+
+    <!-- ③ 关注动态（时间流） -->
+    <view class="card" wx:if="{{activities.length > 0}}">
+      <view class="card-header">
+        <text class="card-title">📢 关注动态</text>
+      </view>
+      <view class="activity-list">
+        <view class="activity-item" wx:for="{{activities}}" wx:key="index">
+          <text class="activity-text">{{item.text}}</text>
+          <text class="activity-time">{{item.time}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- ④ 本月收支 -->
+    <view class="card">
+      <view class="card-header">
+        <text class="card-title">💰 本月收支</text>
+        <text class="card-more" bindtap="navigateTo" data-url="/pages/finance/finance">详情 ›</text>
+      </view>
+      <view class="finance-row">
+        <view class="finance-item">
+          <text class="finance-label">支出</text>
+          <text class="finance-value expense">¥{{monthlyExpense.toFixed(2)}}</text>
+        </view>
+        <view class="finance-item">
+          <text class="finance-label">收入</text>
+          <text class="finance-value income">¥{{monthlyIncome.toFixed(2)}}</text>
+        </view>
+        <view class="finance-item">
+          <text class="finance-label">结余</text>
+          <text class="finance-value">{{(monthlyIncome - monthlyExpense).toFixed(2)}}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- ⑤ 快捷入口 -->
+    <view class="quick-entries">
+      <view class="quick-item" wx:for="{{quickEntries}}" wx:key="name" bindtap="navigateTo" data-url="{{item.url}}">
+        <text class="quick-icon">{{item.icon}}</text>
+        <text class="quick-name">{{item.name}}</text>
+      </view>
+    </view>
+
+    <!-- ⑥ 底部对话入口 -->
+    <view class="chat-entry" bindtap="goToChat">
+      <text>💬 说句话记录事情</text>
+      <text class="arrow">›</text>
+    </view>
+  </block>
+</view>

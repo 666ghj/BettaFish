@@ -1,0 +1,105 @@
+.page {
+  padding-bottom: 40rpx;
+}
+
+.tabs {
+  display: flex;
+  background: #fff;
+  border-bottom: 1rpx solid #eee;
+}
+
+.tab {
+  flex: 1;
+  text-align: center;
+  padding: 24rpx 0;
+  font-size: 28rpx;
+  color: #666;
+  position: relative;
+}
+
+.tab.active {
+  color: #07c160;
+  font-weight: 600;
+}
+
+.tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60rpx;
+  height: 4rpx;
+  background: #07c160;
+  border-radius: 2rpx;
+}
+
+.sub-tabs {
+  display: flex;
+  padding: 16rpx 30rpx;
+  background: #fff;
+}
+
+.sub-tab {
+  padding: 8rpx 24rpx;
+  margin-right: 16rpx;
+  border-radius: 20rpx;
+  font-size: 24rpx;
+  color: #666;
+  background: #f5f5f5;
+}
+
+.sub-tab.active {
+  color: #fff;
+  background: #07c160;
+}
+
+.add-btn-wrap {
+  padding: 20rpx 30rpx;
+}
+
+.add-btn {
+  width: 100%;
+}
+
+.item-card {
+  margin: 16rpx 30rpx;
+}
+
+.item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+
+.item-name {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.item-tags {
+  display: flex;
+}
+
+.item-info {
+  font-size: 26rpx;
+  color: #666;
+  margin-bottom: 6rpx;
+}
+
+.info-label {
+  color: #999;
+}
+
+.item-actions {
+  display: flex;
+  margin-top: 16rpx;
+  gap: 16rpx;
+}
+
+.btn-sm {
+  font-size: 24rpx;
+  padding: 12rpx 24rpx;
+  flex: 1;
+}

@@ -1,0 +1,20 @@
+<view class="page">
+  <scroll-view id="chat-list" class="chat-list" scroll-y scroll-with-animation>
+    <view class="message-item {{item.role === 'user' ? 'user-msg' : 'bot-msg'}}" wx:for="{{messages}}" wx:key="index">
+      <view class="msg-bubble {{item.role}}">
+        <text class="msg-content">{{item.content}}</text>
+        <view class="msg-time" wx:if="{{item.time}}">{{item.time}}</view>
+      </view>
+    </view>
+    <view class="loading" wx:if="{{sending}}">
+      <text>思考中...</text>
+    </view>
+  </scroll-view>
+
+  <view class="input-area">
+    <input class="input-field" placeholder="说句话，比如：下周三交电费" value="{{inputValue}}" bindinput="onInput" confirm-type="send" bindconfirm="sendMessage" />
+    <button class="send-btn" bindtap="sendMessage" disabled="{{!inputValue.trim() || sending}}">
+      <text>发送</text>
+    </button>
+  </view>
+</view>

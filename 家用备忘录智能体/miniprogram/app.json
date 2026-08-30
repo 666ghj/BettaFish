@@ -1,0 +1,57 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/chat/chat",
+    "pages/shopping/shopping",
+    "pages/payment/payment",
+    "pages/finance/finance",
+    "pages/vehicle/vehicle",
+    "pages/anniversary/anniversary",
+    "pages/profile/profile"
+  ],
+  "window": {
+    "navigationBarTitleText": "家庭备忘录",
+    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f5f5f5"
+  },
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#07c160",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页",
+        "iconPath": "images/home.png",
+        "selectedIconPath": "images/home_active.png"
+      },
+      {
+        "pagePath": "pages/shopping/shopping",
+        "text": "购物",
+        "iconPath": "images/shop.png",
+        "selectedIconPath": "images/shop_active.png"
+      },
+      {
+        "pagePath": "pages/vehicle/vehicle",
+        "text": "车辆",
+        "iconPath": "images/car.png",
+        "selectedIconPath": "images/car_active.png"
+      },
+      {
+        "pagePath": "pages/chat/chat",
+        "text": "对话",
+        "iconPath": "images/chat.png",
+        "selectedIconPath": "images/chat_active.png"
+      },
+      {
+        "pagePath": "pages/profile/profile",
+        "text": "我的",
+        "iconPath": "images/me.png",
+        "selectedIconPath": "images/me_active.png"
+      }
+    ]
+  },
+  "sitemapLocation": "sitemap.json"
+}

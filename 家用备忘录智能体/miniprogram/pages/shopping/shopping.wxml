@@ -1,0 +1,63 @@
+<view class="page">
+  <!-- Tab 切换 -->
+  <view class="tabs">
+    <view class="tab {{activeTab === index ? 'active' : ''}}" wx:for="{{tabs}}" wx:key="index" data-index="{{index}}" bindtap="onTabChange">{{item}}</view>
+  </view>
+
+  <!-- 子Tab -->
+  <view class="sub-tabs">
+    <view class="sub-tab {{subActive === index ? 'active' : ''}}" wx:for="{{subTabs}}" wx:key="index" data-index="{{index}}" bindtap="onSubTabChange">{{item}}</view>
+  </view>
+
+  <!-- 添加按钮 -->
+  <view class="add-btn-wrap">
+    <button class="btn-primary add-btn" bindtap="showAddModal">+ 添加物品</button>
+  </view>
+
+  <!-- 列表 -->
+  <view class="loading" wx:if="{{loading}}"><text>加载中...</text></view>
+
+  <view wx:for="{{items}}" wx:key="id" class="card item-card">
+    <view class="item-header">
+      <text class="item-name">{{item.name}}</text>
+      <view class="item-tags">
+        <text class="tag tag-green" wx:if="{{item.status === 'bought'}}">已购买</text>
+        <text class="tag tag-yellow" wx:if="{{item.status === 'pending'}}">待购买</text>
+      </view>
+    </view>
+    <view class="item-info" wx:if="{{item.purchase_reason}}">
+      <text class="info-label">理由：</text>
+      <text>{{item.purchase_reason}}</text>
+    </view>
+    <view class="item-info" wx:if="{{item.estimated_price}}">
+      <text class="info-label">预估：</text>
+      <text>¥{{item.estimated_price}}</text>
+    </view>
+
+    <!-- 家用清单的同意按钮 -->
+    <view class="item-actions" wx:if="{{item.list_type === 'household' && item.status === 'pending'}}">
+      <button class="btn-secondary btn-sm" bindtap="onAgree" data-id="{{item.id}}" data-agreed="{{item.agreements && item.agreements.length > 0 && item.agreements[0].agreement ? 'true' : 'false'}}">
+        {{item.agreements && item.agreements.length > 0 && item.agreements[0].agreement ? '已同意 ✓' : '同意购买'}}
+      </button>
+      <button class="btn-secondary btn-sm" bindtap="onPurchase" data-id="{{item.id}}">标记已购买</button>
+    </view>
+  </view>
+
+  <view wx:if="{{!loading && items.length === 0}}" class="empty-state">
+    <text>暂无物品</text>
+  </view>
+
+  <!-- 添加弹窗 -->
+  <view wx:if="{{showAdd}}" class="modal-overlay">
+    <view class="modal">
+      <view class="modal-title">添加物品</view>
+      <input class="input-field" placeholder="物品名称" bindinput="e => this.setData({'newItem.name': e.detail.value})" />
+      <input class="input-field" placeholder="预估价格" type="digit" bindinput="e => this.setData({'newItem.estimated_price': e.detail.value})" />
+      <input class="input-field" placeholder="购买理由" bindinput="e => this.setData({'newItem.purchase_reason': e.detail.value})" />
+      <view class="modal-btns">
+        <button class="btn-secondary" bindtap="e => this.setData({showAdd: false})">取消</button>
+        <button class="btn-primary" bindtap="onAddItem">添加</button>
+      </view>
+    </view>
+  </view>
+</view>

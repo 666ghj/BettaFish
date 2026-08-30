@@ -1,0 +1,114 @@
+<view class="page">
+  <view class="tabs">
+    <view class="tab {{activeTab === index ? 'active' : ''}}" wx:for="{{tabs}}" wx:key="index" data-index="{{index}}" bindtap="onTabChange">{{item}}</view>
+  </view>
+
+  <!-- Tab 1: 车辆信息 -->
+  <block wx:if="{{activeTab === 0}}">
+    <view class="card" wx:if="{{vehicle && vehicle.brand}}">
+      <view class="vehicle-header">
+        <text class="vehicle-name">{{vehicle.brand}} {{vehicle.model}}</text>
+        <text class="vehicle-plate">{{vehicle.plate_number}}</text>
+      </view>
+      <view class="info-section">
+        <view class="info-row">
+          <text class="info-label">保险到期</text>
+          <text class="info-value {{vehicle.insurance_expire ? '' : 'gray'}}">{{vehicle.insurance_expire || '未设置'}}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">下次保养</text>
+          <text class="info-value {{vehicle.next_maintenance_date ? '' : 'gray'}}">{{vehicle.next_maintenance_date || '未设置'}}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">下次年检</text>
+          <text class="info-value {{vehicle.next_inspection_date ? '' : 'gray'}}">{{vehicle.next_inspection_date || '未设置'}}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">保险公司</text>
+          <text class="info-value gray">{{vehicle.insurance_company || '未设置'}}</text>
+        </view>
+        <view class="info-row" wx:if="{{vehicle.maintenance_shop}}">
+          <text class="info-label">保养4S店</text>
+          <text class="info-value">{{vehicle.maintenance_shop}}</text>
+        </view>
+      </view>
+      <button class="btn-primary btn-sm" bindtap="showEditModal">编辑车辆信息</button>
+    </view>
+
+    <view class="card" wx:else>
+      <view class="empty-state">
+        <text>暂无车辆信息</text>
+        <button class="btn-primary" bindtap="showEditModal">添加车辆</button>
+      </view>
+    </view>
+  </block>
+
+  <!-- Tab 2: 支出记录 -->
+  <block wx:if="{{activeTab === 1}}">
+    <view class="add-btn-wrap">
+      <button class="btn-primary add-btn" bindtap="showExpenseModal">+ 记录支出</button>
+    </view>
+    <view class="loading" wx:if="{{loading}}"><text>加载中...</text></view>
+    <view wx:for="{{expenses}}" wx:key="id" class="card expense-item">
+      <view class="expense-header">
+        <text class="expense-type">{{expenseTypeMap[item.expense_type] || item.expense_type}}</text>
+        <text class="expense-amount">¥{{item.amount}}</text>
+      </view>
+      <view class="expense-info">{{item.date}} {{item.location}}</view>
+    </view>
+    <view class="empty-state" wx:if="{{!loading && expenses.length === 0}}"><text>暂无支出记录</text></view>
+  </block>
+
+  <!-- Tab 3: 驾驶分 -->
+  <block wx:if="{{activeTab === 2}}">
+    <view class="card">
+      <view class="points-row">
+        <text class="points-label">剩余分数</text>
+        <text class="points-value">{{license.length > 0 ? license[0].remaining_points : 12}} / 12</text>
+      </view>
+    </view>
+    <view wx:for="{{license}}" wx:key="id" class="card violation-item">
+      <view class="violation-header">
+        <text>{{item.reason}}</text>
+        <text class="tag-red">-{{item.deduction}}分</text>
+      </view>
+      <view class="violation-info">{{item.violation_date}} {{item.location}}</view>
+      <view wx:if="{{item.fine}}" class="violation-info">罚款：¥{{item.fine}}</view>
+    </view>
+    <view class="empty-state" wx:if="{{license.length === 0}}"><text>暂无违章记录</text></view>
+  </block>
+
+  <!-- 编辑弹窗 -->
+  <view wx:if="{{showEdit}}" class="modal-overlay">
+    <view class="modal">
+      <view class="modal-title">车辆信息</view>
+      <input class="input-field" placeholder="品牌" value="{{editForm.brand}}" bindinput="e => this.setData({'editForm.brand': e.detail.value})" />
+      <input class="input-field" placeholder="型号" value="{{editForm.model}}" bindinput="e => this.setData({'editForm.model': e.detail.value})" />
+      <input class="input-field" placeholder="车牌号" value="{{editForm.plate_number}}" bindinput="e => this.setData({'editForm.plate_number': e.detail.value})" />
+      <input class="input-field" placeholder="保险到期日" value="{{editForm.insurance_expire}}" bindinput="e => this.setData({'editForm.insurance_expire': e.detail.value})" />
+      <input class="input-field" placeholder="下次保养日期" value="{{editForm.next_maintenance_date}}" bindinput="e => this.setData({'editForm.next_maintenance_date': e.detail.value})" />
+      <input class="input-field" placeholder="下次年检日期" value="{{editForm.next_inspection_date}}" bindinput="e => this.setData({'editForm.next_inspection_date': e.detail.value})" />
+      <view class="modal-btns">
+        <button class="btn-secondary" bindtap="e => this.setData({showEdit: false})">取消</button>
+        <button class="btn-primary" bindtap="onSaveVehicle">保存</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 支出弹窗 -->
+  <view wx:if="{{showExpense}}" class="modal-overlay">
+    <view class="modal">
+      <view class="modal-title">记录用车支出</view>
+      <picker mode="selector" range="{{['加油','充电','保险','违章','保养','其他']}}" bindchange="e => this.setData({'expenseForm.expense_type': ['fuel','charging','insurance','violation','maintenance','other'][e.detail.value]})">
+        <view class="picker">{{expenseTypeMap[expenseForm.expense_type]}}</view>
+      </picker>
+      <input class="input-field" placeholder="金额" type="digit" bindinput="e => this.setData({'expenseForm.amount': e.detail.value})" />
+      <input class="input-field" placeholder="日期" value="{{expenseForm.date}}" bindinput="e => this.setData({'expenseForm.date': e.detail.value})" />
+      <input class="input-field" placeholder="地点" bindinput="e => this.setData({'expenseForm.location': e.detail.value})" />
+      <view class="modal-btns">
+        <button class="btn-secondary" bindtap="e => this.setData({showExpense: false})">取消</button>
+        <button class="btn-primary" bindtap="onAddExpense">记录</button>
+      </view>
+    </view>
+  </view>
+</view>

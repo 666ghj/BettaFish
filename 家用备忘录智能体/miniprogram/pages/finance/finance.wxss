@@ -1,0 +1,125 @@
+.page {
+  padding-bottom: 40rpx;
+}
+
+.finance-row {
+  display: flex;
+  justify-content: space-around;
+  text-align: center;
+  padding: 20rpx 0;
+}
+
+.finance-item {
+  flex: 1;
+}
+
+.finance-label {
+  display: block;
+  font-size: 24rpx;
+  color: #999;
+  margin-bottom: 8rpx;
+}
+
+.finance-value {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #333;
+}
+
+.finance-value.expense {
+  color: #e74c3c;
+}
+
+.finance-value.income {
+  color: #07c160;
+}
+
+.category-section {
+  margin-top: 20rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx solid #f0f0f0;
+}
+
+.category-title {
+  font-size: 26rpx;
+  color: #666;
+  margin-bottom: 16rpx;
+}
+
+.category-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12rpx;
+  font-size: 24rpx;
+}
+
+.cat-name {
+  width: 100rpx;
+  color: #666;
+}
+
+.cat-bar-bg {
+  flex: 1;
+  height: 16rpx;
+  background: #f0f0f0;
+  border-radius: 8rpx;
+  margin: 0 16rpx;
+  overflow: hidden;
+}
+
+.cat-bar {
+  height: 100%;
+  background: #07c160;
+  border-radius: 8rpx;
+}
+
+.cat-amount {
+  width: 140rpx;
+  text-align: right;
+  color: #333;
+  font-weight: 500;
+}
+
+.add-btn-wrap {
+  padding: 20rpx 30rpx;
+}
+
+.add-btn {
+  width: 100%;
+}
+
+.record-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8rpx;
+}
+
+.record-category {
+  font-size: 28rpx;
+  font-weight: 500;
+}
+
+.record-amount {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.record-amount.expense {
+  color: #e74c3c;
+}
+
+.record-amount.income {
+  color: #07c160;
+}
+
+.record-info {
+  font-size: 24rpx;
+  color: #999;
+  margin-bottom: 8rpx;
+}
+
+.record-date {
+  font-size: 22rpx;
+  color: #ccc;
+}

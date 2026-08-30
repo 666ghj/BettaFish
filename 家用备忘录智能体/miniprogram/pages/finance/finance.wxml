@@ -1,0 +1,76 @@
+<view class="page">
+  <!-- 月度统计 -->
+  <view class="card" wx:if="{{stats}}">
+    <view class="card-header">
+      <text class="card-title">📊 {{stats.month}} 收支</text>
+    </view>
+    <view class="finance-row">
+      <view class="finance-item">
+        <text class="finance-label">支出</text>
+        <text class="finance-value expense">¥{{stats.total_expense.toFixed(2)}}</text>
+      </view>
+      <view class="finance-item">
+        <text class="finance-label">收入</text>
+        <text class="finance-value income">¥{{stats.total_income.toFixed(2)}}</text>
+      </view>
+    </view>
+
+    <!-- 分类支出 -->
+    <view class="category-section" wx:if="{{stats.by_category && Object.keys(stats.by_category).length > 0}}">
+      <view class="category-title">支出分类</view>
+      <view class="category-item" wx:for="{{Object.keys(stats.by_category)}}" wx:key="*this">
+        <text class="cat-name">{{item}}</text>
+        <view class="cat-bar-bg">
+          <view class="cat-bar" style="width: {{stats.by_category[item] / stats.total_expense * 100}}%"></view>
+        </view>
+        <text class="cat-amount">¥{{stats.by_category[item].toFixed(2)}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 添加按钮 -->
+  <view class="add-btn-wrap">
+    <button class="btn-primary add-btn" bindtap="showAddModal">+ 记一笔</button>
+  </view>
+
+  <!-- 记录列表 -->
+  <view class="section-header">收支明细</view>
+  <view class="loading" wx:if="{{loading}}"><text>加载中...</text></view>
+
+  <view wx:for="{{records}}" wx:key="id" class="card record-item">
+    <view class="record-header">
+      <text class="record-category">{{getCategoryName(item.category)}}</text>
+      <text class="record-amount {{item.type === 'expense' ? 'expense' : 'income'}}">
+        {{item.type === 'expense' ? '-' : '+'}}¥{{item.amount}}
+      </text>
+    </view>
+    <view class="record-info" wx:if="{{item.note}}">
+      <text>{{item.note}}</text>
+    </view>
+    <view class="record-date">{{item.record_date}}</view>
+  </view>
+
+  <view class="empty-state" wx:if="{{!loading && records.length === 0}}">
+    <text>本月暂无记录</text>
+  </view>
+
+  <!-- 添加弹窗 -->
+  <view wx:if="{{showAdd}}" class="modal-overlay">
+    <view class="modal">
+      <view class="modal-title">记一笔</view>
+      <view class="radio-group">
+        <label class="radio-label" wx:for="{{[{v:'expense',l:'支出'},{v:'income',l:'收入'}]}}" wx:key="v">
+          <radio value="{{item.v}}" checked="{{newRecord.type === item.v}}" bindtap="e => this.setData({'newRecord.type': item.v})" />
+          <text>{{item.l}}</text>
+        </label>
+      </view>
+      <input class="input-field" placeholder="金额" type="digit" bindinput="e => this.setData({'newRecord.amount': e.detail.value})" />
+      <input class="input-field" placeholder="分类（如：餐饮、交通）" bindinput="e => this.setData({'newRecord.category': e.detail.value})" />
+      <input class="input-field" placeholder="备注" bindinput="e => this.setData({'newRecord.note': e.detail.value})" />
+      <view class="modal-btns">
+        <button class="btn-secondary" bindtap="e => this.setData({showAdd: false})">取消</button>
+        <button class="btn-primary" bindtap="onAddRecord">添加</button>
+      </view>
+    </view>
+  </view>
+</view>
