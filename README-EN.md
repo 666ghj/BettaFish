@@ -5,7 +5,8 @@
 <a href="https://trendshift.io/repositories/15286" target="_blank"><img src="https://trendshift.io/api/badge/repositories/15286" alt="666ghj%2FBettaFish | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
 <a href="https://inferera.com/?aff=8Ds9" target="_blank"><img src="./static/image/logo_aihubmix.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>&ensp;
-<a href="https://open.anspire.cn/?share_code=3E1FUOUH" target="_blank"><img src="./static/image/logo_anspire.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>
+<a href="https://open.anspire.cn/?share_code=3E1FUOUH" target="_blank"><img src="./static/image/logo_anspire.png" alt="666ghj%2FBettaFish | Trendshift" height="40"/></a>&ensp;
+<a href="https://go.apimart.ai/gh-xxbettafish" target="_blank"><img src="./static/image/logo_apimart.png" alt="APIMart Logo" height="40"/></a>
 
 [![GitHub Stars](https://img.shields.io/github/stars/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/stargazers)
 [![GitHub Watchers](https://img.shields.io/github/watchers/666ghj/BettaFish?style=flat-square)](https://github.com/666ghj/BettaFish/watchers)
@@ -74,6 +75,11 @@ LLM Model API Sponsor: <a href="https://inferera.com/?aff=8Ds9" target="_blank">
 <details>
 <summary>Provider of core agent capabilities including AI web search, file parsing, and web content scraping: <span style="margin-left: 10px"><a href="https://open.anspire.cn/?share_code=3E1FUOUH" target="_blank"><img src="./static/image/logo_anspire.png" alt="666ghj%2FBettaFish | Trendshift" height="50"/></a></span></summary>
 Anspire Open is a leading infrastructure provider for the agent era. We offer developers the core capability stack needed to build powerful agents. Currently available services include AI web search (multiple versions, highly competitive pricing), file parsing (limited-time free), web content scraping (limited-time free), cloud browser automation (Anspire Browser Agent, in beta), multi-turn rewriting, and more. We continue to provide a solid foundation for agents to connect and operate in complex digital worlds. Seamlessly integrates with mainstream agent platforms such as Dify, Coze, and Yuanqi. Through a transparent credit-based billing system and modular design, we provide enterprises with efficient, low-cost customized support to accelerate intelligent transformation.
+</details>
+
+<details>
+<summary>A low-cost API platform for AI image and video generation, with GPT-Image-2 from $0.006/image:&ensp;<a href="https://go.apimart.ai/gh-xxbettafish" target="_blank"><img src="./static/image/logo_apimart.png" alt="APIMart Logo" height="50"/></a></summary>
+Thanks to APIMart for sponsoring this project! APIMart is a low-cost API platform for AI image &amp; video generation — GPT-Image-2 from $0.006/image, 160+ images per dollar. One async API covers both image and video: submit a task, get an ID, fetch results via polling or callback. Batch tens of thousands of images without timeouts, switch models without changing code. Pay-as-you-go with no monthly fee — <a href="https://go.apimart.ai/gh-xxbettafish" target="_blank">sign up here</a> to get started.
 </details>
 
 ## 🏗️ System Architecture
