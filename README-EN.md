@@ -23,13 +23,6 @@
 
 </div>
 
-> [!IMPORTANT]  
-> Check out our newly released prediction engine: [MiroFish - A Simple and Universal Swarm Intelligence Engine for Predicting Everything](https://github.com/666ghj/MiroFish)
-> 
-> <img src="static/image/MiroFish_logo_compressed.jpeg" alt="banner" width="300">
->
-> The "Data Analysis Three-Step Approach" is now fully connected: We are excited to announce the official release of MiroFish! With the final piece of the puzzle in place, we have built a complete pipeline from BettaFish (data collection and analysis) to MiroFish (panoramic prediction). The closed loop from raw data to intelligent decision-making is now complete, making it possible to foresee the future!
-
 ## ⚡ Project Overview
 
 **"BettaFish"** is an innovative multi-agent public opinion analysis system built from scratch. It helps break information cocoons, restore the original public sentiment, predict future trends, and assist decision-making. Users only need to raise analysis needs like chatting; the agents automatically analyze 30+ mainstream social platforms at home and abroad and millions of public comments.
