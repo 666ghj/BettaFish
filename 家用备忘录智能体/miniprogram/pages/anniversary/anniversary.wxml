@@ -1,0 +1,72 @@
+<view class="page">
+  <view class="section-header">
+    <text>🎉 纪念日/生日</text>
+    <text class="more" bindtap="showAddModal">+ 添加</text>
+  </view>
+
+  <view class="loading" wx:if="{{loading}}"><text>加载中...</text></view>
+
+  <view wx:for="{{anniversaries}}" wx:key="id" class="card anniversary-item">
+    <view class="anni-header">
+      <text class="anni-name">{{item.name}}</text>
+      <view class="tag tag-green" wx:if="{{item.is_active}}">剩余{{getDaysUntil(item.date)}}天</view>
+    </view>
+    <view class="anni-date">{{item.date}}</view>
+    <view class="anni-plans" wx:if="{{item.plans && item.plans.length > 0}}">
+      <text class="plan-label">安排：</text>
+      <text wx:for="{{item.plans}}" wx:key="id">{{item.content}} </text>
+    </view>
+    <view class="anni-actions">
+      <button class="btn-secondary btn-sm" bindtap="onDelete" data-id="{{item.id}}">删除</button>
+    </view>
+  </view>
+
+  <view class="empty-state" wx:if="{{!loading && anniversaries.length === 0}}">
+    <text>暂无纪念日</text>
+  </view>
+
+  <!-- 愿望清单 -->
+  <view class="section-header">
+    <text>🎁 喜好愿望</text>
+    <text class="more" bindtap="showWishModal">+ 添加</text>
+  </view>
+
+  <view wx:for="{{wishList}}" wx:key="id" class="card wish-item">
+    <view class="wish-header">
+      <text class="wish-content">{{item.content}}</text>
+      <text class="wish-category tag tag-gray">{{item.category || '其他'}}</text>
+    </view>
+    <view class="wish-source">{{item.source === 'manual' ? '手动记录' : '系统推断'}}</view>
+  </view>
+
+  <view class="empty-state" wx:if="{{wishList.length === 0}}">
+    <text>暂无愿望记录</text>
+  </view>
+
+  <!-- 添加弹窗 -->
+  <view wx:if="{{showAdd}}" class="modal-overlay">
+    <view class="modal">
+      <view class="modal-title">添加纪念日</view>
+      <input class="input-field" placeholder="名称（如：结婚纪念日）" bindinput="e => this.setData({'newAnniversary.name': e.detail.value})" />
+      <input class="input-field" placeholder="日期（如：2026-09-15）" bindinput="e => this.setData({'newAnniversary.date': e.detail.value})" />
+      <input class="input-field" placeholder="提前几天提醒（默认7天）" type="number" bindinput="e => this.setData({'newAnniversary.reminder_days': parseInt(e.detail.value) || 7})" />
+      <view class="modal-btns">
+        <button class="btn-secondary" bindtap="e => this.setData({showAdd: false})">取消</button>
+        <button class="btn-primary" bindtap="onAdd">添加</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 愿望弹窗 -->
+  <view wx:if="{{showWish}}" class="modal-overlay">
+    <view class="modal">
+      <view class="modal-title">添加愿望</view>
+      <input class="input-field" placeholder="想要什么？" bindinput="e => this.setData({'newWish.content': e.detail.value})" />
+      <input class="input-field" placeholder="分类（可选）" bindinput="e => this.setData({'newWish.category': e.detail.value})" />
+      <view class="modal-btns">
+        <button class="btn-secondary" bindtap="e => this.setData({showWish: false})">取消</button>
+        <button class="btn-primary" bindtap="onAddWish">添加</button>
+      </view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,116 @@
+.page {
+  padding-bottom: 40rpx;
+}
+
+.vehicle-header {
+  margin-bottom: 20rpx;
+}
+
+.vehicle-name {
+  font-size: 34rpx;
+  font-weight: 700;
+  display: block;
+  margin-bottom: 6rpx;
+}
+
+.vehicle-plate {
+  font-size: 28rpx;
+  color: #07c160;
+  font-weight: 600;
+}
+
+.info-section {
+  margin-bottom: 16rpx;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 12rpx 0;
+  font-size: 26rpx;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+
+.info-label {
+  color: #999;
+}
+
+.info-value {
+  color: #333;
+  font-weight: 500;
+}
+
+.info-value.gray {
+  color: #ccc;
+}
+
+.add-btn-wrap {
+  padding: 20rpx 30rpx;
+}
+
+.add-btn {
+  width: 100%;
+}
+
+.expense-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8rpx;
+}
+
+.expense-type {
+  font-size: 28rpx;
+  font-weight: 500;
+}
+
+.expense-amount {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #e74c3c;
+}
+
+.expense-info {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.points-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.points-label {
+  font-size: 28rpx;
+  color: #666;
+}
+
+.points-value {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #07c160;
+}
+
+.violation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8rpx;
+  font-size: 28rpx;
+}
+
+.violation-info {
+  font-size: 24rpx;
+  color: #999;
+  margin-bottom: 4rpx;
+}
+
+.picker {
+  padding: 20rpx;
+  background: #f8f8f8;
+  border-radius: 8rpx;
+  margin-bottom: 16rpx;
+  font-size: 28rpx;
+  border: 2rpx solid #eee;
+}

@@ -1,0 +1,34 @@
+# ===== 核心框架 =====
+fastapi==0.115.0
+uvicorn[standard]==0.30.0
+pydantic==2.9.0
+pydantic-settings==2.5.0
+
+# ===== 数据库 =====
+sqlalchemy==2.0.35
+aiomysql==0.2.0
+cryptography==43.0.0
+alembic==1.13.0
+
+# ===== 缓存/队列 =====
+redis==5.1.0
+
+# ===== LLM =====
+openai>=1.40.0
+httpx>=0.28.0
+
+# ===== 认证 =====
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+
+# ===== 工具 =====
+python-dotenv>=1.0.0
+python-dateutil>=2.9.0
+pytz>=2024.0
+loguru>=0.7.0
+tenacity>=8.5.0
+aiofiles>=24.0.0
+
+# ===== 开发 =====
+pytest>=8.0.0
+pytest-asyncio>=0.24.0

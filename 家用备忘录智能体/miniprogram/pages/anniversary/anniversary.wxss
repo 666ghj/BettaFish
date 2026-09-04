@@ -1,0 +1,59 @@
+.page {
+  padding-bottom: 40rpx;
+}
+
+.anni-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8rpx;
+}
+
+.anni-name {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.anni-date {
+  font-size: 26rpx;
+  color: #999;
+  margin-bottom: 8rpx;
+}
+
+.anni-plans {
+  font-size: 24rpx;
+  color: #666;
+  margin-bottom: 12rpx;
+}
+
+.plan-label {
+  color: #999;
+}
+
+.anni-actions {
+  display: flex;
+  gap: 16rpx;
+}
+
+.wish-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8rpx;
+}
+
+.wish-content {
+  font-size: 28rpx;
+  flex: 1;
+  margin-right: 12rpx;
+}
+
+.wish-category {
+  flex-shrink: 0;
+}
+
+.wish-source {
+  font-size: 22rpx;
+  color: #ccc;
+  margin-top: 4rpx;
+}

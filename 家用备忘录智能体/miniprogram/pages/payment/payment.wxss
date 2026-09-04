@@ -1,0 +1,28 @@
+.page {
+  padding-bottom: 40rpx;
+}
+
+.payment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
+.payment-name {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.payment-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 26rpx;
+  color: #666;
+  margin-bottom: 8rpx;
+}
+
+.payment-item .btn-sm {
+  margin-top: 16rpx;
+  width: 100%;
+}

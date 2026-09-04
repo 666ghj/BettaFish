@@ -1,0 +1,134 @@
+/* 全局样式 */
+page {
+  background-color: #f5f5f5;
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  color: #333;
+  box-sizing: border-box;
+}
+
+/* 通用卡片 */
+.card {
+  background: #fff;
+  border-radius: 12rpx;
+  padding: 30rpx;
+  margin: 20rpx 30rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.06);
+}
+
+/* 按钮 */
+.btn-primary {
+  background-color: #07c160;
+  color: #fff;
+  border-radius: 8rpx;
+  padding: 20rpx 40rpx;
+  font-size: 28rpx;
+  text-align: center;
+  border: none;
+}
+
+.btn-primary:active {
+  background-color: #06ad56;
+}
+
+.btn-secondary {
+  background-color: #fff;
+  color: #07c160;
+  border: 2rpx solid #07c160;
+  border-radius: 8rpx;
+  padding: 18rpx 38rpx;
+  font-size: 28rpx;
+  text-align: center;
+}
+
+/* 输入框 */
+.input-field {
+  background: #f8f8f8;
+  border-radius: 8rpx;
+  padding: 20rpx 24rpx;
+  font-size: 28rpx;
+  border: 2rpx solid #eee;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.input-field:focus {
+  border-color: #07c160;
+}
+
+/* 标签 */
+.tag {
+  display: inline-block;
+  padding: 4rpx 16rpx;
+  border-radius: 6rpx;
+  font-size: 22rpx;
+  margin-right: 8rpx;
+}
+
+.tag-green {
+  background: #e8f8ee;
+  color: #07c160;
+}
+
+.tag-yellow {
+  background: #fef7e0;
+  color: #f5a623;
+}
+
+.tag-red {
+  background: #fde8e8;
+  color: #e74c3c;
+}
+
+.tag-gray {
+  background: #f0f0f0;
+  color: #999;
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 100rpx 0;
+  color: #999;
+  font-size: 28rpx;
+}
+
+/* 加载 */
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40rpx;
+}
+
+/* 列表项 */
+.list-item {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 30rpx;
+  background: #fff;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.list-item:last-child {
+  border-bottom: none;
+}
+
+/* 头部标题 */
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 30rpx 16rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #333;
+}
+
+.section-header .more {
+  font-size: 24rpx;
+  color: #999;
+  font-weight: normal;
+}

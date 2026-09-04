@@ -1,0 +1,219 @@
+.page {
+  padding-bottom: 40rpx;
+}
+
+/* 顶部导航 */
+.top-bar {
+  display: flex;
+  align-items: center;
+  padding: 16rpx 30rpx;
+  background: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.search-box {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  background: #f5f5f5;
+  border-radius: 36rpx;
+  padding: 0 24rpx;
+  height: 64rpx;
+}
+
+.search-icon {
+  font-size: 28rpx;
+  margin-right: 12rpx;
+}
+
+.search-input {
+  flex: 1;
+  font-size: 26rpx;
+  height: 64rpx;
+}
+
+.role-badge {
+  background: #07c160;
+  color: #fff;
+  font-size: 22rpx;
+  padding: 6rpx 16rpx;
+  border-radius: 20rpx;
+  margin-left: 16rpx;
+  flex-shrink: 0;
+}
+
+.empty-icon {
+  font-size: 80rpx;
+  margin-bottom: 20rpx;
+}
+
+.empty-text {
+  margin-bottom: 30rpx;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+
+.card-title {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.card-count {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.card-more {
+  font-size: 24rpx;
+  color: #07c160;
+}
+
+.memo-list {
+  margin-top: 10rpx;
+}
+
+.memo-item {
+  display: flex;
+  align-items: center;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+  font-size: 28rpx;
+}
+
+.memo-item:last-child {
+  border-bottom: none;
+}
+
+.memo-overdue {
+  background: #fff5f5;
+  margin: 0 -30rpx;
+  padding: 16rpx 30rpx;
+}
+
+.memo-tag {
+  margin-right: 12rpx;
+  flex-shrink: 0;
+}
+
+.memo-content {
+  flex: 1;
+  color: #333;
+}
+
+.memo-time {
+  font-size: 24rpx;
+  color: #999;
+  margin-left: 12rpx;
+}
+
+/* 动态流 */
+.activity-list {
+  margin-top: 8rpx;
+}
+
+.activity-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+  font-size: 26rpx;
+}
+
+.activity-item:last-child {
+  border-bottom: none;
+}
+
+.activity-text {
+  flex: 1;
+  color: #333;
+}
+
+.activity-time {
+  font-size: 22rpx;
+  color: #999;
+  margin-left: 16rpx;
+  flex-shrink: 0;
+}
+
+.finance-row {
+  display: flex;
+  justify-content: space-around;
+  text-align: center;
+  padding: 10rpx 0;
+}
+
+.finance-item {
+  flex: 1;
+}
+
+.finance-label {
+  display: block;
+  font-size: 24rpx;
+  color: #999;
+  margin-bottom: 8rpx;
+}
+
+.finance-value {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #333;
+}
+
+.finance-value.expense {
+  color: #e74c3c;
+}
+
+.finance-value.income {
+  color: #07c160;
+}
+
+.quick-entries {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 0 20rpx;
+  margin: 20rpx 0;
+}
+
+.quick-item {
+  width: 33.33%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20rpx 0;
+}
+
+.quick-icon {
+  font-size: 48rpx;
+  margin-bottom: 8rpx;
+}
+
+.quick-name {
+  font-size: 24rpx;
+  color: #666;
+}
+
+.chat-entry {
+  margin: 20rpx 30rpx;
+  background: #07c160;
+  color: #fff;
+  border-radius: 48rpx;
+  padding: 24rpx 40rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 28rpx;
+  box-shadow: 0 4rpx 16rpx rgba(7, 193, 96, 0.3);
+}
+
+.chat-entry .arrow {
+  font-size: 32rpx;
+  color: rgba(255, 255, 255, 0.8);
+}

@@ -1,0 +1,92 @@
+<view class="page">
+  <!-- 未登录 -->
+  <block wx:if="{{!loggedIn}}">
+    <view class="login-container">
+      <view class="login-icon">👨‍👩‍👧‍👦</view>
+      <view class="login-title">家庭备忘录</view>
+      <view class="login-desc">记录家庭大小事，夫妻共享不遗漏</view>
+      <button class="btn-primary login-btn" bindtap="wxLogin">微信登录</button>
+    </view>
+  </block>
+
+  <!-- 已登录 -->
+  <block wx:else>
+    <!-- 用户信息 -->
+    <view class="card user-card">
+      <view class="user-avatar">{{member && member.nickname ? member.nickname[0] : '?'}}</view>
+      <view class="user-info">
+        <view class="user-name">{{member && member.nickname || '用户'}}</view>
+        <view class="user-role">{{member && member.role === 'husband' ? '老公' : '老婆'}}</view>
+      </view>
+    </view>
+
+    <!-- 家庭信息 -->
+    <view class="card">
+      <view class="section-title">家庭空间</view>
+      <view wx:if="{{family}}">
+        <view class="info-row">
+          <text class="info-label">家庭名称</text>
+          <text class="info-value">{{family.name}}</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">家庭成员</text>
+          <text class="info-value">{{family.members && family.members.length || 0}}人</text>
+        </view>
+        <view class="info-row">
+          <text class="info-label">邀请码</text>
+          <text class="info-value code">{{inviteCode}}</text>
+        </view>
+        <button class="btn-secondary btn-small" bindtap="onRefreshCode">刷新邀请码</button>
+      </view>
+      <view wx:else class="empty-state">
+        <text>暂无家庭空间</text>
+        <button class="btn-primary" bindtap="wxLogin">创建家庭</button>
+      </view>
+    </view>
+
+    <!-- 设置 -->
+    <view class="card">
+      <view class="section-title">设置</view>
+      <view class="menu-item" bindtap="logout">
+        <text>退出登录</text>
+        <text class="arrow">›</text>
+      </view>
+    </view>
+  </block>
+
+  <!-- 创建家庭弹窗 -->
+  <view wx:if="{{showCreateFamily}}" class="modal-overlay">
+    <view class="modal">
+      <view class="modal-title">创建家庭空间</view>
+      <input class="input-field" placeholder="家庭名称" value="{{familyName}}" bindinput="e => this.setData({familyName: e.detail.value})" />
+      <view class="radio-group">
+        <label class="radio-label" wx:for="{{[{v:'husband',l:'老公'},{v:'wife',l:'老婆'}]}}" wx:key="v">
+          <radio value="{{item.v}}" checked="{{role === item.v}}" bindtap="e => this.setData({role: item.v})" />
+          <text>{{item.l}}</text>
+        </label>
+      </view>
+      <view class="modal-btns">
+        <button class="btn-secondary" bindtap="e => this.setData({showCreateFamily: false})">取消</button>
+        <button class="btn-primary" bindtap="onCreateFamily">创建</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- 加入家庭弹窗 -->
+  <view wx:if="{{showJoinFamily}}" class="modal-overlay">
+    <view class="modal">
+      <view class="modal-title">加入家庭空间</view>
+      <input class="input-field" placeholder="请输入邀请码" value="{{joinCode}}" bindinput="e => this.setData({joinCode: e.detail.value})" />
+      <view class="radio-group">
+        <label class="radio-label" wx:for="{{[{v:'husband',l:'老公'},{v:'wife',l:'老婆'}]}}" wx:key="v">
+          <radio value="{{item.v}}" checked="{{joinRole === item.v}}" bindtap="e => this.setData({joinRole: item.v})" />
+          <text>{{item.l}}</text>
+        </label>
+      </view>
+      <view class="modal-btns">
+        <button class="btn-secondary" bindtap="e => this.setData({showJoinFamily: false})">取消</button>
+        <button class="btn-primary" bindtap="onJoinFamily">加入</button>
+      </view>
+    </view>
+  </view>
+</view>

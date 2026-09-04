@@ -1,0 +1,25 @@
+<view class="page">
+  <view class="section-header">缴费项目</view>
+
+  <view class="loading" wx:if="{{loading}}"><text>加载中...</text></view>
+
+  <view wx:for="{{items}}" wx:key="id" class="card payment-item">
+    <view class="payment-header">
+      <text class="payment-name">{{item.name === 'water' ? '💧 水费' : item.name === 'electric' ? '⚡ 电费' : item.name === 'gas' ? '🔥 燃气费' : '🏠 物业费'}}</text>
+      <view class="tag {{item.is_active ? 'tag-green' : 'tag-gray'}}">{{item.is_active ? '已启用' : '已停用'}}</view>
+    </view>
+    <view class="payment-info">
+      <text>频率：{{item.frequency === 'monthly' ? '每月' : '每半年'}}</text>
+      <text>提醒日：每月{{item.reminder_day}}日</text>
+    </view>
+    <view class="payment-info">
+      <text>提前{{item.advance_days}}天提醒</text>
+      <text wx:if="{{item.estimated_amount}}">预估：¥{{item.estimated_amount}}</text>
+    </view>
+    <button class="btn-primary btn-sm" bindtap="onMarkPaid" data-id="{{item.id}}">标记已缴费</button>
+  </view>
+
+  <view class="empty-state" wx:if="{{!loading && items.length === 0}}">
+    <text>暂无缴费项目</text>
+  </view>
+</view>

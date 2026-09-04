@@ -1,0 +1,175 @@
+.page {
+  min-height: 100vh;
+  padding-bottom: 20rpx;
+}
+
+.login-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 200rpx;
+}
+
+.login-icon {
+  font-size: 120rpx;
+  margin-bottom: 30rpx;
+}
+
+.login-title {
+  font-size: 48rpx;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 16rpx;
+}
+
+.login-desc {
+  font-size: 28rpx;
+  color: #999;
+  margin-bottom: 60rpx;
+}
+
+.login-btn {
+  width: 400rpx;
+}
+
+.user-card {
+  display: flex;
+  align-items: center;
+}
+
+.user-avatar {
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: 50%;
+  background: #07c160;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40rpx;
+  margin-right: 24rpx;
+}
+
+.user-info {
+  flex: 1;
+}
+
+.user-name {
+  font-size: 32rpx;
+  font-weight: 600;
+  margin-bottom: 8rpx;
+}
+
+.user-role {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.section-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  margin-bottom: 20rpx;
+  color: #333;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 16rpx 0;
+  font-size: 28rpx;
+}
+
+.info-label {
+  color: #999;
+}
+
+.info-value {
+  color: #333;
+}
+
+.info-value.code {
+  color: #07c160;
+  font-weight: 600;
+  letter-spacing: 4rpx;
+}
+
+.btn-small {
+  margin-top: 16rpx;
+  font-size: 24rpx;
+  padding: 12rpx 24rpx;
+}
+
+.menu-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 0;
+  font-size: 28rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.menu-item:last-child {
+  border-bottom: none;
+}
+
+.arrow {
+  font-size: 32rpx;
+  color: #ccc;
+}
+
+/* 模态框 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 40rpx;
+  width: 600rpx;
+}
+
+.modal-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  margin-bottom: 30rpx;
+  text-align: center;
+}
+
+.modal-btns {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 30rpx;
+}
+
+.modal-btns button {
+  flex: 1;
+  margin: 0 10rpx;
+  font-size: 28rpx;
+}
+
+.radio-group {
+  display: flex;
+  justify-content: center;
+  margin: 20rpx 0;
+}
+
+.radio-label {
+  display: flex;
+  align-items: center;
+  margin: 0 30rpx;
+  font-size: 28rpx;
+}
+
+.input-field {
+  margin-bottom: 16rpx;
+}
