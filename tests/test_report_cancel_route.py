@@ -1,5 +1,7 @@
 import importlib
+import importlib.util
 import sys
+from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
 import pytest
@@ -32,11 +34,17 @@ def report_interface(monkeypatch):
     utils_package.__path__ = []
     config_module = ModuleType("ReportEngine.utils.config")
     config_module.settings = SimpleNamespace()
+    filenames_path = Path(__file__).resolve().parents[1] / "ReportEngine" / "utils" / "filenames.py"
+    filenames_spec = importlib.util.spec_from_file_location("ReportEngine.utils.filenames", filenames_path)
+    filenames_module = importlib.util.module_from_spec(filenames_spec)
+    assert filenames_spec.loader is not None
+    filenames_spec.loader.exec_module(filenames_module)
 
     monkeypatch.setitem(sys.modules, "ReportEngine.agent", agent_module)
     monkeypatch.setitem(sys.modules, "ReportEngine.nodes", nodes_module)
     monkeypatch.setitem(sys.modules, "ReportEngine.utils", utils_package)
     monkeypatch.setitem(sys.modules, "ReportEngine.utils.config", config_module)
+    monkeypatch.setitem(sys.modules, "ReportEngine.utils.filenames", filenames_module)
 
     module = importlib.import_module("ReportEngine.flask_interface")
     flask_app = Flask(__name__)
