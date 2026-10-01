@@ -21,6 +21,7 @@ from loguru import logger
 from .agent import ReportAgent, create_agent
 from .nodes import ChapterJsonParseError
 from .utils.config import settings
+from .utils.filenames import report_export_filename
 
 
 # 创建Blueprint
@@ -228,19 +229,6 @@ def _format_sse(event: Dict[str, Any]) -> str:
     event_id = event.get('id', 0)
     event_type = event.get('type', 'message')
     return f"id: {event_id}\nevent: {event_type}\ndata: {payload}\n\n"
-
-
-def _safe_filename_segment(value: str, fallback: str = "report") -> str:
-    """
-    生成可用于文件名的安全片段，保留字母数字与常见分隔符。
-
-    参数:
-        value: 原始字符串。
-        fallback: 兜底文本，当value为空或清洗后为空时使用。
-    """
-    sanitized = "".join(c for c in str(value) if c.isalnum() or c in (" ", "-", "_")).strip()
-    sanitized = sanitized.replace(" ", "_")
-    return sanitized or fallback
 
 
 def initialize_report_engine():
@@ -1258,11 +1246,7 @@ def export_markdown(task_id: str):
         # 传入 ir_file_path，修复后的图表会自动保存到 IR 文件
         markdown_text = renderer.render(document_ir, ir_file_path=task.ir_file_path)
 
-        metadata = document_ir.get('metadata') if isinstance(document_ir, dict) else {}
-        topic = (metadata or {}).get('topic') or (metadata or {}).get('title') or (metadata or {}).get('query') or task.query
-        safe_topic = _safe_filename_segment(topic or 'report')
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f"report_{safe_topic}_{timestamp}.md"
+        filename = report_export_filename(document_ir, 'md', fallback=task.query or 'report')
 
         output_dir = Path(settings.OUTPUT_DIR)
         output_dir.mkdir(parents=True, exist_ok=True)
@@ -1357,9 +1341,8 @@ def export_pdf(task_id: str):
         # 生成PDF字节流
         pdf_bytes = renderer.render_to_bytes(document_ir, optimize_layout=optimize)
 
-        # 确定下载文件名
-        topic = document_ir.get('metadata', {}).get('topic', 'report')
-        pdf_filename = f"report_{topic}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        # 确定下载文件名，清洗 topic 避免路径穿越和 Content-Disposition 注入
+        pdf_filename = report_export_filename(document_ir, 'pdf', fallback=task.query or 'report')
 
         # 返回PDF文件
         return Response(
@@ -1434,9 +1417,8 @@ def export_pdf_from_ir():
         # 生成PDF字节流
         pdf_bytes = renderer.render_to_bytes(document_ir, optimize_layout=optimize)
 
-        # 确定下载文件名
-        topic = document_ir.get('metadata', {}).get('topic', 'report')
-        pdf_filename = f"report_{topic}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        # 确定下载文件名，清洗 topic 避免路径穿越和 Content-Disposition 注入
+        pdf_filename = report_export_filename(document_ir, 'pdf')
 
         # 返回PDF文件
         return Response(

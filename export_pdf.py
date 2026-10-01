@@ -5,7 +5,6 @@ PDF导出脚本
 import json
 import os
 import sys
-from datetime import datetime
 from pathlib import Path
 
 # 动态获取项目根目录，避免硬编码绝对路径
@@ -33,13 +32,16 @@ def export_pdf(ir_file_path):
         print("正在生成PDF...")
         pdf_bytes = renderer.render_to_bytes(document_ir, optimize_layout=True)
 
-        # 确定输出文件名
-        topic = document_ir.get('metadata', {}).get('topic', 'report')
-        output_dir = PROJECT_ROOT / 'final_reports' / 'pdf'
+        # 确定输出文件名：清洗 topic，并确保最终路径仍落在导出目录内
+        from ReportEngine.utils.filenames import report_export_filename
+
+        output_dir = (PROJECT_ROOT / 'final_reports' / 'pdf').resolve()
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        pdf_filename = f"report_{topic}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-        output_path = output_dir / pdf_filename
+        pdf_filename = report_export_filename(document_ir, 'pdf')
+        output_path = (output_dir / pdf_filename).resolve()
+        if not output_path.is_relative_to(output_dir):
+            raise ValueError('Refusing to write PDF outside the export directory')
 
         # 保存PDF文件
         print(f"正在保存PDF到: {output_path}")
