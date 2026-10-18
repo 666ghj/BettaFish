@@ -275,6 +275,7 @@ docs/.vitepress/cache
 # 日志文件
 # *.log
 logs/
+.playwright-cli/
 # */logs/
 
 # 临时文件
