@@ -380,7 +380,59 @@ def _leaf_payload_fields(block: Mapping[str, Any]) -> dict:
         "displayMode",
         "responsive",
     }
-    return {key: value for key, value in block.items() if key not in ignored}
+    fields = {key: value for key, value in block.items() if key not in ignored and not key.startswith("_")}
+    if block.get("type") == "widget" and str(block.get("widgetType", "")).startswith("chart.js"):
+        # Chart.js configuration mixes rendered prose with colours, sizes and
+        # enums.  Only its displayed text/data belongs in the evidence gate.
+        for key in ("props", "scales"):
+            if key in fields:
+                fields[key] = _chart_display_fields(fields[key])
+        if "data" in fields:
+            fields["data"] = _chart_data_fields(fields["data"])
+        fields.pop("dataRef", None)
+    return fields
+
+
+def _chart_display_fields(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        displayed = {}
+        for key, item in value.items():
+            if key in {"data", "sourceData"}:
+                displayed[key] = _chart_data_fields(item)
+            elif key in {"words", "items"}:
+                displayed[key] = item
+            elif key in {"text", "title", "subtitle", "caption", "label", "labels"}:
+                displayed[key] = _chart_display_fields(item) if isinstance(item, Mapping) else item
+            elif isinstance(item, (Mapping, list)):
+                nested = _chart_display_fields(item)
+                if nested:
+                    displayed[key] = nested
+        return displayed
+    if isinstance(value, list):
+        return [_chart_display_fields(item) for item in value if isinstance(item, Mapping)]
+    return value
+
+
+def _chart_data_fields(value: Any) -> Any:
+    if not isinstance(value, Mapping):
+        return value
+    displayed = {}
+    for key, item in value.items():
+        if key == "type":
+            continue
+        if key == "options":
+            displayed[key] = _chart_display_fields(item)
+        elif key == "datasets" and isinstance(item, list):
+            displayed[key] = [
+                {name: dataset[name] for name in ("label", "labels", "data") if name in dataset}
+                if isinstance(dataset, Mapping) else dataset
+                for dataset in item
+            ]
+        elif key == "data" and isinstance(item, Mapping):
+            displayed[key] = _chart_data_fields(item)
+        else:
+            displayed[key] = item
+    return displayed
 
 
 def _payload_parts(value: Any) -> list[str]:
@@ -410,6 +462,34 @@ def _claims_cover_leaf(block: Mapping[str, Any], claims: Sequence[ClaimRecord]) 
     return bool(parts) and all(_claims_cover_text(part, claims) for part in parts)
 
 
+def gate_chart_revision(original: Mapping[str, Any], candidate: Mapping[str, Any]) -> dict | None:
+    """Permit render-time chart changes only under the previously admitted claims.
+
+    Legacy charts without claims keep their existing repair behaviour.  Gated
+    charts, including charts inheriting container claims, carry those claims
+    on the widget so neither a fallback nor an API repair can replace them.
+    """
+    # Review state and diagnostic prose are generated locally, never by a
+    # model repair response.  In particular they must not bypass validation
+    # or supply an unverified chart-error message to the HTML renderer.
+    revised = {
+        key: copy.deepcopy(value) for key, value in candidate.items()
+        if not key.startswith("_chart_")
+    }
+    if not original.get("claims"):
+        return revised
+    if any(revised.get(field) != original.get(field) for field in ("type", "widgetType")):
+        return None
+    claims = [ClaimRecord.from_dict(item) for item in original["claims"]]
+    if not _claims_cover_leaf(revised, claims):
+        return None
+    for field in ("claims", "citation_refs", "support_status"):
+        revised.pop(field, None)
+        if field in original:
+            revised[field] = copy.deepcopy(original[field])
+    return revised
+
+
 def _sanitize_container_labels(block: dict, claims: Sequence[ClaimRecord]) -> None:
     """Containers retain supported children without laundering a new headline."""
     for field in ("title", "subtitle", "caption", "summary"):
@@ -428,6 +508,8 @@ def _sanitize_block(
     """Sanitize one block without flattening its renderable IR structure."""
     original = copy.deepcopy(dict(block))
     kind = original.get("type")
+    if kind == "widget":
+        original = {key: value for key, value in original.items() if not key.startswith("_chart_")}
     raw_claims = original.get("claims") or []
     claim_values = raw_claims if isinstance(raw_claims, list) else [raw_claims]
     valid_claim_values = [item for item in claim_values if isinstance(item, Mapping)]
@@ -530,7 +612,11 @@ def _sanitize_block(
     # their native payload only when their own or their parent's claims cover
     # that payload.  This is deliberately conservative for scalar data that
     # cannot be sanitized recursively.
-    return [original] if _claims_cover_leaf(original, effective_claims) else []
+    if not _claims_cover_leaf(original, effective_claims):
+        return []
+    if kind == "widget" and str(original.get("widgetType", "")).startswith("chart.js") and not accepted:
+        _apply_block_provenance(original, effective_claims)
+    return [original]
 
 
 def sanitize_blocks(

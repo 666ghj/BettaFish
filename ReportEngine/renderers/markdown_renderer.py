@@ -159,7 +159,7 @@ class MarkdownRenderer:
             return f"\n\n\n\n\n{heading_line}"
         return heading_line
 
-    def _render_paragraph(self, block: Dict[str, Any]) -> str:
+    def _render_paragraph(self, block: Dict[str, Any], for_table: bool = False) -> str:
         inlines = block.get("inlines", [])
         # 与 HTML/PDF 输出一致，隐藏旧 IR 中无主张、无引用的证据占位段落。
         if (
@@ -171,8 +171,8 @@ class MarkdownRenderer:
         # 检测并跳过包含文档元数据 JSON 的段落
         if self._is_metadata_paragraph(inlines):
             return ""
-        text = self._render_inlines(inlines)
-        return f"{self._render_claim_label(block)}{text}{self._render_citations(block)}"
+        text = self._render_inlines(inlines, for_table=for_table)
+        return f"{self._render_claim_label(block)}{text}{self._render_citations(block, for_table=for_table)}"
 
     @staticmethod
     def _render_claim_label(block: Dict[str, Any]) -> str:
@@ -189,16 +189,21 @@ class MarkdownRenderer:
             return "**[弱支持]** "
         return ""
 
-    def _render_citations(self, block: Dict[str, Any]) -> str:
+    def _render_citations(self, block: Dict[str, Any], for_table: bool = False) -> str:
         fragments: List[str] = []
         for detail in self.citation_service.details_for_block(block):
             number = int(detail["number"])
             url = str(detail.get("url") or "")
             title = str(detail.get("title") or "未命名来源").replace('"', "'")
+            if for_table:
+                url = url.replace("|", "%7C")
+                title = self._escape_text(title, for_table=True)
             if url.lower().startswith(("http://", "https://")):
                 fragments.append(f' [[{number}]]({url} "{title}")')
                 continue
             lineage = self.citation_service.internal_lineage_text(detail)
+            if for_table:
+                lineage = self._escape_text(lineage, for_table=True)
             fragments.append(f" [{number}]（内部数据：{lineage}）")
         return "".join(fragments)
 
@@ -691,23 +696,27 @@ class MarkdownRenderer:
             return ""
         block_type = block.get("type")
         if block_type == "paragraph":
-            return self._render_inlines(block.get("inlines", []), for_table=True)
+            return self._render_paragraph(block, for_table=True)
         if block_type == "heading":
-            return self._escape_text(block.get("text") or "", for_table=True)
-        if block_type == "list":
+            text = self._escape_text(block.get("text") or "", for_table=True)
+        elif block_type == "list":
             items = []
             for sub in block.get("items") or []:
                 items.append(self._render_blocks_as_text(sub))
-            return "; ".join(filter(None, items))
-        if block_type == "math":
-            return f"${self._normalize_math(block.get('latex', ''))}$"
-        if block_type == "code":
-            return block.get("content", "") or ""
-        if block_type == "widget":
-            return self._escape_text(block.get("title") or "图表", for_table=True)
-        if isinstance(block.get("blocks"), list):
-            return self._render_blocks_as_text(block.get("blocks"))
-        return self._escape_text(str(block), for_table=True)
+            text = "; ".join(filter(None, items))
+        elif block_type == "math":
+            text = f"${self._normalize_math(block.get('latex', ''))}$"
+        elif block_type == "code":
+            text = block.get("content", "") or ""
+        elif block_type == "widget":
+            text = self._escape_text(block.get("title") or "图表", for_table=True)
+        elif isinstance(block.get("blocks"), list):
+            text = self._render_blocks_as_text(block.get("blocks"))
+        else:
+            text = self._escape_text(str(block), for_table=True)
+        if not text:
+            return ""
+        return f"{self._render_claim_label(block)}{text}{self._render_citations(block, for_table=True)}"
 
     def _markdown_row(self, cells: List[str]) -> str:
         return "| " + " | ".join(cells) + " |"

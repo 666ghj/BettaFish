@@ -1,6 +1,43 @@
 # 溯源功能验证记录
 
-最终验证日期：2026-10-18。分支：`maven/provenance-citations`。用户已审查中文日志并批准创建本地提交；本次不推送远程。运行日志、凭证和生成产物不随源码提交。
+最终验证日期：2026-10-18。分支：`maven/provenance-citations`。本次用户明确授权修复下列五项后提交、推送并请求复审合并。运行日志、凭证和生成产物不随源码提交。以下先记录本次结果，后半部分保留此前验证基线及其执行范围。
+
+## 独立复审后的五项修复
+
+范围以用户本次选定的问题及 [#716 原评审](https://github.com/666ghj/BettaFish/pull/716#issuecomment-5608570405) 为准，接续现有 [PR #727](https://github.com/666ghj/BettaFish/pull/727)。原评审涉及结构保留、Markdown 引用、数据库血缘及过时异步响应隔离；本次不修改其他已记录问题。
+
+| 选定问题 | 本次修复与验证 |
+| --- | --- |
+| 图表门禁后补入未经证实的数字 | 公共 `gate_chart_revision()` 以原已接纳主张校验 fallback、归一化、本地及 API 修复结果；拒绝 42 证据补成 99、补零、替换主张、就地篡改及类型切换。模型及 API 返回的 `_chart_*` 内部标志在信任入口剥除，审查状态由本地生成。 |
+| 有证据的合法图表被误删 | 区分 `props.type`、颜色和布局等配置与可见标题、标签及数据值；父容器继承的主张传给图表，后续修订仍受约束。真实章节节点、装订及两个 HTML 审查路径均有覆盖。 |
+| Markdown 表格丢引用和预测标识 | 单元格复用段落及引用渲染，保留预测、建议和内部数据血缘；覆盖嵌套块、来源标题/URL 的竖线与换行，实际 Markdown 表格解析保持正确列数。 |
+| 新一轮搜索展示旧报告 | ReportTask、状态接口和 SSE 携带 `run_id`；本轮报告与全局 worker 占用分别表示。前端通过共享上下文检查 generate/status/progress/SSE/preview 及延时回调，切换轮次关闭旧流并清除下载归属；保留主动访问历史报告。 |
+| Insight 搜索历史丢新增血缘字段 | `Search.from_dict()` 统一解析嵌套 provenance 并兼容旧顶层字段，初始及反思搜索共用解析入口；真实 Agent 路径到 State JSON 再恢复后，表、主键、查询时间、条件、窗口、样本量与聚合方式均保留。 |
+
+### 本次最终验证
+
+环境：Python `D:\conda\envs\bettafish\python.exe`；Node.js 已安装，18 条前端异步行为测试全部实际执行。只装 Python 依赖但缺少 Node.js 时，这 18 条测试会显式 skip，不能将其视为已验证。
+
+```powershell
+python -m pytest -q --tb=short
+```
+
+结果：**392 passed，62 subtests passed，24 warnings，退出码 0，无失败或跳过**，47.15 秒。日志：`logs/pytest-scoped-review-final-20261018.log`。第三方弃用警告来自 Pydantic、Pyparsing 和 Eventlet。爬虫桥接仍执行原有离线集合，本次未扩展爬虫测试范围。
+
+- 五项都有修复前反例和回归测试。图表两轮复审额外拦住内部审查标志伪造，新增真实章节节点到 HTML 的反例；最终图表/Markdown/HTML 独立复核为 30 passed、11 subtests passed。
+- 新增公开接口闭环：`/api/provenance/runs` → 三个引擎 `/api/provenance/result` → `/api/report/generate` → 真实 worker、ReportAgent、本机 HTTP 模型服务 → HTML/Markdown/IR/state/sidecar。核对引用、预测标识、未经支持数字不进入可见输出、bundle 一致、新 run 不认领旧 task，以及历史结果按 ID 可访问。外部模型响应和研究引擎输出为离线固定数据；没有执行新的付费检索。
+- 完整套件首轮发现测试隔离错误：根应用夹具先恢复真实模块，随后 monkeypatch teardown 又删除该模块，导致后续 6 条取消测试导入失败。将模块缓存恢复交给夹具原有 finally 单一负责；最小失败复现成立，修复后相关 31 条通过，随后上述根套件全部通过。未因此修改取消生产逻辑。
+- Chrome 155.0.8059.80 加载本次完整页面模板，实际点击搜索和生成按钮。控制 A 预览/生成响应晚于 B 搜索返回，确认 B 的预览、任务和下载归属不被覆盖；正向发送 B 完成事件后报告显示、进度 100%、下载任务均正确。31 个网络请求全部由本地测试拦截，pageerror 与 console error 均为 0。证据：`logs/run_isolation_browser_review_20261018.json`；三张截图：`output/playwright/run-isolation-*-20261018.png`。
+- 再次使用 2026-10-16 的真实六章产物装订、门禁、渲染和保存：195 个来源、215 条证据、60 项主张，HTML/Markdown 各 76 处引用，IR/state/sidecar bundle 相等。产物 stem：`final_report_清华鹅腿阿姨_20261018_161955_781608_report-eaa140a8_2fa65349`；记录：`logs/provenance_scoped_fixes_replay_20261018.json`。这次是数据重放，禁用了外部图表模型修复，不是新一轮真实研究。
+- 本次 13 个 Python 文件 AST 检查通过，修改及新增文件为 UTF-8 无 BOM，凭证模式检查 0 命中，`git diff --check` 通过。没有增加环境变量或数据库迁移；MediaCrawler 子模块与已有无关修改均未变更。
+
+### 本次仍保留的已知边界
+
+独立审查还复现了**保存阶段取消一致性**：HTML 已写入后接受取消，运行态最终为 cancelled，但后续产物仍可能写完，落盘 state.status 为 completed。本次用户只选定上述五项，未选择这一项，因此如实保留，不能将网络主动取消验证解释为保存事务也完全一致。此前未纳入本次的 SQL/去重和取消 UI 边界亦未扩展修改。
+
+本次完整接口与浏览器验证使用本机受控响应；没有重新跑付费六章研究或真实 PostgreSQL/MySQL 服务端集成，也没有重启用户已有服务。这些结果不等同于上游 CI 或维护者已批准合并。
+
+## 此前修复与验证基线
 
 ## 修复范围
 

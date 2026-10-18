@@ -290,7 +290,7 @@ class ReportTask:
     既供后台线程更新，也供HTTP接口读取。
     """
 
-    def __init__(self, query: str, task_id: str, custom_template: str = ""):
+    def __init__(self, query: str, task_id: str, custom_template: str = "", run_id: str = ""):
         """
         初始化任务对象，记录查询词、自定义模板与运行期元数据。
 
@@ -298,8 +298,10 @@ class ReportTask:
             query: 最终需要生成的报告主题
             task_id: 任务唯一ID，通常由时间戳构造
             custom_template: 可选的自定义Markdown模板
+            run_id: 本次搜索的来源运行ID；空值兼容历史报告
         """
         self.task_id = task_id
+        self.run_id = run_id
         self.query = query
         self.custom_template = custom_template
         self.status = "pending"  # 四种状态（pending/running/completed/error）
@@ -367,6 +369,7 @@ class ReportTask:
         """转换为字典格式，方便直接返回给JSON API。"""
         return {
             'task_id': self.task_id,
+            'run_id': self.run_id,
             'query': self.query,
             'status': self.status,
             'progress': self.progress,
@@ -399,6 +402,7 @@ class ReportTask:
             'id': 0,
             'type': event_type,
             'task_id': self.task_id,
+            'run_id': self.run_id,
             'timestamp': timestamp,
             'payload': payload,
         }
@@ -619,7 +623,18 @@ def get_status():
         Response: JSON结构包含initialized/engines_ready/当前任务等。
     """
     try:
-        engines_status = check_engines_ready(request.args.get('run_id', ''))
+        run_id = request.args.get('run_id', '').strip()
+        engines_status = check_engines_ready(run_id)
+        with task_lock:
+            visible_task = current_task
+            if run_id:
+                # The worker is global, but its result belongs to exactly one run.
+                matching = [task for task in tasks_registry.values() if task.run_id == run_id]
+                if current_task and current_task.run_id == run_id and current_task not in matching:
+                    matching.append(current_task)
+                visible_task = max(matching, key=lambda task: task.created_at, default=None)
+            task_status = visible_task.to_dict() if visible_task else None
+            worker_busy = _active_worker_locked() is not None
 
         return jsonify({
             'success': True,
@@ -628,7 +643,8 @@ def get_status():
             'files_found': engines_status.get('files_found', []),
             'missing_files': engines_status.get('missing_files', []),
             'failed_engines': engines_status.get('failed', {}),
-            'current_task': current_task.to_dict() if current_task else None
+            'current_task': task_status,
+            'worker_busy': worker_busy,
         })
     except Exception as e:
         logger.exception(f"获取Report Engine状态失败: {str(e)}")
@@ -721,7 +737,7 @@ def generate_report():
 
         # 创建新任务
         task_id = f"report_{time.time_ns()}_{uuid4().hex[:8]}"
-        task = ReportTask(query, task_id, custom_template)
+        task = ReportTask(query, task_id, custom_template, run_id=run_id)
 
         with task_lock:
             active_worker = _active_worker_locked()

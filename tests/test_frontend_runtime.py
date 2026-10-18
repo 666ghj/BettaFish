@@ -1,5 +1,41 @@
 from pathlib import Path
+import shutil
+import subprocess
 import unittest
+
+import pytest
+
+
+@pytest.mark.parametrize("scenario", [
+    "search_is_single_flight",
+    "switching_search_releases_old_ui",
+    "old_generate_success_cannot_claim_new_run",
+    "old_generate_error_cannot_clear_new_task",
+    "old_progress_cannot_replace_new_report",
+    "old_sse_cannot_close_or_replace_new_task",
+    "old_status_cannot_unlock_or_render_new_run",
+    "old_preview_cannot_overwrite_new_search",
+    "old_preview_error_cannot_overwrite_current_preview",
+    "completed_stream_timer_cannot_close_next_task",
+    "same_run_current_events_complete_report",
+    "delayed_auto_generate_cannot_follow_new_search",
+    "generate_is_single_flight",
+    "same_run_latest_preview_wins",
+    "foreign_worker_does_not_claim_current_run",
+    "worker_occupied_before_auto_timer_prevents_generate",
+    "current_run_status_can_recover_own_task",
+    "foreign_task_event_on_current_stream_is_ignored",
+])
+def test_report_run_behavior(scenario):
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("Node.js is required for frontend asynchronous behavior tests")
+    script = Path(__file__).with_name("frontend_runtime_behavior.cjs")
+    result = subprocess.run(
+        [node, str(script), scenario], capture_output=True, text=True,
+        encoding="utf-8", timeout=15,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
 
 
 class FrontendRuntimeTests(unittest.TestCase):

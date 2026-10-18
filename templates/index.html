@@ -4482,10 +4482,14 @@ function getConsoleContainer() {
         let autoGenerateTriggered = false; // 防止重复触发
         
         function checkReportLockStatus() {
+            const context = captureReportContext();
             fetch(`/api/report/status?run_id=${encodeURIComponent(provenanceRunId)}`)
             .then(response => response.json())
             .then(data => {
+                if (!isReportContextCurrent(context)) return;
                 const reportButton = document.querySelector('[data-app="report"]');
+                reportWorkerBusy = !!data.worker_busy;
+                setGenerateButtonState();
                 
                 if (data.success && data.engines_ready) {
                     // 文件准备就绪，解锁按钮
@@ -4497,10 +4501,11 @@ function getConsoleContainer() {
                     const hasReport = reportPreview && reportPreview.querySelector('iframe');
                     
                     // 如果当前在report页面且还没有触发自动生成且没有正在进行的任务且没有已显示的报告，则自动生成报告
-                    if (currentApp === 'report' && !autoGenerateTriggered && !reportTaskId && !hasReport) {
+                    if (currentApp === 'report' && !autoGenerateTriggered && !reportTaskId && !reportGenerationPending && !reportWorkerBusy && !data.current_task && !hasReport) {
                         autoGenerateTriggered = true;
                         console.log('检测到锁消失且无现有报告，自动开始生成报告');
                         setTimeout(() => {
+                            if (!isReportContextCurrent(context)) return;
                             generateReport();
                         }, 1000); // 延迟1秒开始生成
                     }
@@ -4713,7 +4718,31 @@ function getConsoleContainer() {
         let reportTaskId = null;
         const provenanceRunStorageKey = 'bettafish.provenanceRunId';
         let provenanceRunId = sessionStorage.getItem(provenanceRunStorageKey) || '';
+        let reportContextVersion = 0;
+        let reportGenerationPending = false;
+        let reportWorkerBusy = false;
+        let reportPreviewSequence = 0;
+        function captureReportContext() {
+            return { version: reportContextVersion, runId: provenanceRunId };
+        }
+        function isReportContextCurrent(context) {
+            return context.version === reportContextVersion && context.runId === provenanceRunId;
+        }
         function setProvenanceRunId(runId) {
+            if (provenanceRunId !== (runId || '')) {
+                // In-flight requests may finish after the user starts another search.
+                reportContextVersion++;
+                stopProgressPolling();
+                safeCloseReportStream();
+                reportTaskId = null;
+                reportGenerationPending = false;
+                reportWorkerBusy = false;
+                lastCompletedReportTask = null;
+                reportAutoPreviewLoaded = false;
+                autoGenerateTriggered = false;
+                updateDownloadButtonState(null);
+                setGenerateButtonState(false);
+            }
             provenanceRunId = runId || '';
             if (provenanceRunId) {
                 sessionStorage.setItem(provenanceRunStorageKey, provenanceRunId);
@@ -4735,11 +4764,13 @@ function getConsoleContainer() {
         // 加载报告界面
         function loadReportInterface() {
             const reportContent = document.getElementById('reportContent');
+            const context = captureReportContext();
             
             // 检查ReportEngine状态
             fetch(`/api/report/status?run_id=${encodeURIComponent(provenanceRunId)}`)
             .then(response => response.json())
             .then(data => {
+                if (!isReportContextCurrent(context)) return;
                 if (data.success) {
                     // 更新ReportEngine状态指示器
                     const indicator = document.getElementById('status-report');
@@ -4769,6 +4800,7 @@ function getConsoleContainer() {
                 }
             })
             .catch(error => {
+                if (!isReportContextCurrent(context)) return;
                 console.error('加载报告界面失败:', error);
                 reportContent.innerHTML = `
                     <div class="report-status error">
@@ -4781,6 +4813,7 @@ function getConsoleContainer() {
         // 渲染报告界面
         function renderReportInterface(statusData) {
             const reportContent = document.getElementById('reportContent');
+            reportWorkerBusy = !!statusData.worker_busy;
             
             let interfaceHTML = `
                 <!-- 固定的状态信息块 -->
@@ -4893,12 +4926,13 @@ function getConsoleContainer() {
             const generateButton = document.getElementById('generateReportButton');
             if (!generateButton) return;
 
-            if (forceLoading || reportTaskId) {
+            if (forceLoading || reportTaskId || reportGenerationPending || reportWorkerBusy) {
                 if (!generateButton.dataset.originalText) {
                     generateButton.dataset.originalText = generateButton.textContent || '生成最终报告';
                 }
                 generateButton.disabled = true;
-                generateButton.textContent = '生成中...';
+                generateButton.textContent = reportWorkerBusy && !reportTaskId && !reportGenerationPending
+                    ? '等待报告生成资源释放...' : '生成中...';
             } else {
                 const originalText = generateButton.dataset.originalText || '生成最终报告';
                 generateButton.disabled = false;
@@ -5194,8 +5228,13 @@ function getConsoleContainer() {
 
         // 生成报告
         function generateReport() {
-            if (reportTaskId) {
+            if (reportTaskId || reportGenerationPending) {
                 showMessage('已有报告生成任务在运行', 'info');
+                return;
+            }
+            if (reportWorkerBusy) {
+                autoGenerateTriggered = false;
+                showMessage('上一报告任务尚未释放生成资源，请稍后重试', 'info');
                 return;
             }
 
@@ -5211,6 +5250,8 @@ function getConsoleContainer() {
             }
 
             const query = document.getElementById('searchInput').value.trim() || '智能舆情分析报告';
+            const context = captureReportContext();
+            reportGenerationPending = true;
 
             // 【修复】先停止现有的日志轮询，避免与后端清空日志的竞态条件
             reportLogManager.stop();
@@ -5243,6 +5284,8 @@ function getConsoleContainer() {
             })
             .then(response => response.json())
             .then(data => {
+                if (!isReportContextCurrent(context)) return;
+                reportGenerationPending = false;
                 if (data.success) {
                     reportTaskId = data.task_id;
                     showMessage('报告生成已启动', 'success');
@@ -5287,6 +5330,8 @@ function getConsoleContainer() {
                 }
             })
             .catch(error => {
+                if (!isReportContextCurrent(context)) return;
+                reportGenerationPending = false;
                 console.error('生成报告失败:', error);
                 updateTaskProgressStatus(null, 'error', '生成报告失败: ' + error.message);
                 // 重置标志允许重新尝试
@@ -5313,19 +5358,23 @@ function getConsoleContainer() {
 
         function startProgressPolling(taskId) {
             if (!taskId) return;
+            const context = captureReportContext();
             stopProgressPolling();
             // 先立即拉取一次，避免长时间停留在5%
             checkTaskProgress(taskId);
             reportPollingInterval = setInterval(() => {
+                if (!isReportContextCurrent(context) || reportTaskId !== taskId) return;
                 checkTaskProgress(taskId);
             }, 2000);
         }
 
         // 检查任务进度
         function checkTaskProgress(taskId) {
+            const context = captureReportContext();
             fetch(`/api/report/progress/${taskId}`)
             .then(response => response.json())
             .then(data => {
+                if (!isReportContextCurrent(context) || reportTaskId !== taskId) return;
                 if (data.success) {
                     updateProgressDisplay(data.task);
 
@@ -5356,6 +5405,7 @@ function getConsoleContainer() {
                 }
             })
             .catch(error => {
+                if (!isReportContextCurrent(context) || reportTaskId !== taskId) return;
                 console.error('检查进度失败:', error);
             });
         }
@@ -5534,9 +5584,13 @@ function getConsoleContainer() {
                 { badge: 'SSE', force: true }
             );
 
-            reportEventSource = new EventSource(`/api/report/stream/${taskId}`);
-            reportEventSource.__taskId = taskId;
-            reportEventSource.onopen = () => {
+            const context = captureReportContext();
+            const source = new EventSource(`/api/report/stream/${taskId}`);
+            reportEventSource = source;
+            source.__taskId = taskId;
+            const isCurrentStream = () => isReportContextCurrent(context) && reportEventSource === source;
+            source.onopen = () => {
+                if (!isCurrentStream()) return;
                 reportStreamRetryDelay = 3000;
                 updateReportStreamStatus('connected');
                 appendReportStreamLine(isRetry ? 'SSE重连成功' : 'Report Engine流式连接已建立', 'success', { badge: 'SSE' });
@@ -5546,7 +5600,8 @@ function getConsoleContainer() {
                 reportLogManager.reset();
                 startStreamHeartbeat();
             };
-            reportEventSource.onerror = () => {
+            source.onerror = () => {
+                if (!isCurrentStream()) return;
                 appendReportStreamLine('检测到网络抖动，SSE正在等待自动重连...', 'warn', { badge: 'SSE' });
                 updateReportStreamStatus('reconnecting');
                 clearStreamHeartbeat();
@@ -5560,10 +5615,14 @@ function getConsoleContainer() {
             };
 
             const events = ['status', 'stage', 'chapter_status', 'chapter_chunk', 'warning', 'error', 'debug', 'html_ready', 'completed', 'heartbeat', 'log'];
+            const dispatch = (eventType, event) => {
+                if (!isCurrentStream()) return;
+                dispatchReportStreamEvent(eventType, event, taskId, context.runId);
+            };
             events.forEach(evt => {
-                reportEventSource.addEventListener(evt, (event) => dispatchReportStreamEvent(evt, event));
+                source.addEventListener(evt, (event) => dispatch(evt, event));
             });
-            reportEventSource.onmessage = (event) => dispatchReportStreamEvent(event.type || 'message', event);
+            source.onmessage = (event) => dispatch(event.type || 'message', event);
         }
 
         // 关闭SSE连接，可根据场景选择是否立即重置指示灯
@@ -5596,19 +5655,27 @@ function getConsoleContainer() {
             if (!taskId || reportStreamReconnectTimer) {
                 return;
             }
-            reportStreamReconnectTimer = setTimeout(() => {
+            const context = captureReportContext();
+            const timer = setTimeout(() => {
+                if (!isReportContextCurrent(context) || reportStreamReconnectTimer !== timer) return;
                 reportStreamReconnectTimer = null;
                 if (reportTaskId === taskId) {
                     openReportStream(taskId, true);
                 }
             }, reportStreamRetryDelay);
+            reportStreamReconnectTimer = timer;
             reportStreamRetryDelay = Math.min(reportStreamRetryDelay * 2, 15000);
         }
 
         // 统一的事件派发入口，负责解析JSON并交给业务处理
-        function dispatchReportStreamEvent(eventType, event) {
+        function dispatchReportStreamEvent(eventType, event, taskId, runId) {
             try {
                 const data = JSON.parse(event.data);
+                const task = data.payload && data.payload.task;
+                if (data.task_id && data.task_id !== taskId) return;
+                if (task && task.task_id !== taskId) return;
+                if (data.run_id && data.run_id !== runId) return;
+                if (task && task.run_id && task.run_id !== runId) return;
                 handleReportStreamEvent(eventType, data);
             } catch (error) {
                 console.warn('解析流式事件失败:', error);
@@ -5721,8 +5788,12 @@ function getConsoleContainer() {
                     }
 
                     // 延迟500ms后关闭SSE，确保最后一次日志刷新完成
+                    const completedContext = captureReportContext();
+                    const completedSource = reportEventSource;
                     setTimeout(() => {
-                        safeCloseReportStream();
+                        if (isReportContextCurrent(completedContext) && reportEventSource === completedSource) {
+                            safeCloseReportStream();
+                        }
                     }, 500);
 
                     reportTaskId = null;
@@ -5787,6 +5858,9 @@ function getConsoleContainer() {
         // 查看报告
         function viewReport(taskId) {
             const reportPreview = document.getElementById('reportPreview');
+            const context = captureReportContext();
+            const previewSequence = ++reportPreviewSequence;
+            const isCurrentPreview = () => isReportContextCurrent(context) && previewSequence === reportPreviewSequence;
             reportPreview.innerHTML = '<div class="report-loading"><span class="report-loading-spinner"></span>加载报告中...</div>';
             
             fetch(`/api/report/result/${taskId}`)
@@ -5798,6 +5872,7 @@ function getConsoleContainer() {
                 }
             })
             .then(rawContent => {
+                if (!isCurrentPreview()) return;
                 let htmlContent = rawContent;
                 
                 // 检查是否是JSON格式的响应（包含html_content字段）
@@ -5870,6 +5945,7 @@ function getConsoleContainer() {
                 // 等待内容加载完成后调整iframe高度
                 iframe.onload = function() {
                     setTimeout(() => {
+                        if (!isCurrentPreview()) return;
                         try {
                             // 获取iframe内容的实际高度
                             const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
@@ -5915,6 +5991,7 @@ function getConsoleContainer() {
                 
                 // 备用方案：如果onload没有触发，延迟调整高度
                 setTimeout(() => {
+                    if (!isCurrentPreview()) return;
                     if (iframe.style.height === 'auto' || iframe.style.height === '') {
                         iframe.style.height = '1200px';
                         reportPreview.style.minHeight = '1200px';
@@ -5923,6 +6000,7 @@ function getConsoleContainer() {
                 }, 3000);
             })
             .catch(error => {
+                if (!isCurrentPreview()) return;
                 console.error('查看报告失败:', error);
                 reportPreview.innerHTML = `
                     <div class="report-loading">
@@ -5934,11 +6012,15 @@ function getConsoleContainer() {
 
         // 检查报告状态（不重新加载整个界面）
         function checkReportStatus() {
+            const context = captureReportContext();
             // 只更新状态信息，不重新渲染整个界面
             fetch(`/api/report/status?run_id=${encodeURIComponent(provenanceRunId)}`)
             .then(response => response.json())
             .then(data => {
+                if (!isReportContextCurrent(context)) return;
                 if (data.success) {
+                    reportWorkerBusy = !!data.worker_busy;
+                    setGenerateButtonState();
                     // 更新ReportEngine状态指示器
                     const indicator = document.getElementById('status-report');
                     if (indicator) {
@@ -5960,6 +6042,7 @@ function getConsoleContainer() {
                 }
             })
             .catch(error => {
+                if (!isReportContextCurrent(context)) return;
                 console.error('检查报告状态失败:', error);
                 showMessage('状态检查失败: ' + error.message, 'error');
             });

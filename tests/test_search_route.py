@@ -67,11 +67,15 @@ def root_app(monkeypatch, tmp_path):
     socketio_module.SocketIO = DummySocketIO
     socketio_module.emit = lambda *args, **kwargs: None
 
-    monkeypatch.setitem(sys.modules, "MindSpider", mindspider_package)
-    monkeypatch.setitem(sys.modules, "MindSpider.main", mindspider_main)
-    monkeypatch.setitem(sys.modules, "ReportEngine", report_package)
-    monkeypatch.setitem(sys.modules, "ReportEngine.flask_interface", report_interface)
-    monkeypatch.setitem(sys.modules, "flask_socketio", socketio_module)
+    # This fixture owns module restoration in its finally block. A later
+    # monkeypatch undo would delete the real modules restored there.
+    sys.modules.update({
+        "MindSpider": mindspider_package,
+        "MindSpider.main": mindspider_main,
+        "ReportEngine": report_package,
+        "ReportEngine.flask_interface": report_interface,
+        "flask_socketio": socketio_module,
+    })
     monkeypatch.chdir(tmp_path)
 
     source_path = Path(__file__).resolve().parents[1] / "app.py"

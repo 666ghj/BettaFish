@@ -31,6 +31,7 @@ from ReportEngine.utils.chart_validator import (
 from ReportEngine.utils.chart_repair_api import create_llm_repair_functions
 from ReportEngine.utils.chart_review_service import get_chart_review_service
 from common.provenance.citation_service import CitationService
+from common.provenance.validators import gate_chart_revision
 
 
 class HTMLRenderer:
@@ -2606,6 +2607,8 @@ class HTMLRenderer:
         if not (isinstance(widget_type, str) and widget_type.startswith("chart.js")):
             return
 
+        original = copy.deepcopy(block)
+
         # 确保props存在
         props = block.get("props")
         if not isinstance(props, dict):
@@ -2656,6 +2659,10 @@ class HTMLRenderer:
 
                     if labels_from_data:
                         data_ref["labels"] = labels_from_data
+
+        if gate_chart_revision(original, block) is None:
+            block.clear()
+            block.update(original)
 
     def _ensure_chart_reviewed(
         self,
@@ -2722,11 +2729,15 @@ class HTMLRenderer:
                 f"图表 {block.get('widgetId', 'unknown')} 验证失败: {validation_result.errors}"
             )
 
-            repair_result = self.chart_repairer.repair(block, validation_result)
+            original = copy.deepcopy(block)
+            repair_result = self.chart_repairer.repair(copy.deepcopy(original), validation_result)
 
-            if repair_result.success and repair_result.repaired_block:
+            repaired_block = (
+                gate_chart_revision(original, repair_result.repaired_block)
+                if repair_result.success and repair_result.repaired_block else None
+            )
+            if repaired_block is not None:
                 # 修复成功，回写修复后的数据
-                repaired_block = repair_result.repaired_block
                 block.clear()
                 block.update(repaired_block)
                 method = repair_result.method or "local"

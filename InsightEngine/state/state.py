@@ -4,6 +4,7 @@ Deep Search Agent状态管理
 """
 
 from dataclasses import dataclass, field
+from collections.abc import Mapping
 from typing import List, Dict, Any, Optional
 import json
 from datetime import datetime
@@ -50,18 +51,21 @@ class Search:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Search":
         """从字典创建Search对象"""
+        lineage = data.get("provenance")
+        if not isinstance(lineage, Mapping):
+            lineage = {}
         return cls(
             query=data.get("query", ""),
             url=data.get("url", ""),
             title=data.get("title", ""),
             content=data.get("content", ""),
-            source_table=data.get("source_table", ""),
-            record_id=str(data.get("record_id", data.get("primary_key", "")) or ""),
-            query_time=data.get("query_time", ""),
-            filters=data.get("filters", {}) or {},
-            time_window=data.get("time_window", {}) or {},
-            sample_size=int(data.get("sample_size", 0) or 0),
-            aggregation_method=data.get("aggregation_method", ""),
+            source_table=lineage.get("table", data.get("source_table", "")),
+            record_id=str(lineage.get("primary_key", data.get("record_id", data.get("primary_key", ""))) or ""),
+            query_time=lineage.get("query_time", data.get("query_time", "")),
+            filters=lineage.get("filters", data.get("filters", {})) or {},
+            time_window=lineage.get("time_window", data.get("time_window", {})) or {},
+            sample_size=int(lineage.get("sample_size", data.get("sample_size", 0)) or 0),
+            aggregation_method=lineage.get("aggregation_method", data.get("aggregation_method", "")),
             score=data.get("score"),
             timestamp=data.get("timestamp", datetime.now().isoformat())
         )
@@ -82,21 +86,7 @@ class Research:
     def add_search_results(self, query: str, results: List[Dict[str, Any]]):
         """批量添加搜索结果"""
         for result in results:
-            search = Search(
-                query=query,
-                url=result.get("url", ""),
-                title=result.get("title", ""),
-                content=result.get("content", ""),
-                source_table=result.get("source_table", ""),
-                record_id=str(result.get("record_id", result.get("primary_key", "")) or ""),
-                query_time=result.get("query_time", ""),
-                filters=result.get("filters", {}) or {},
-                time_window=result.get("time_window", {}) or {},
-                sample_size=int(result.get("sample_size", 0) or 0),
-                aggregation_method=result.get("aggregation_method", ""),
-                score=result.get("score")
-            )
-            self.add_search(search)
+            self.add_search(Search.from_dict({**result, "query": query}))
     
     def get_search_count(self) -> int:
         """获取搜索次数"""
