@@ -4,13 +4,17 @@
 """
 
 import time
+from concurrent.futures import CancelledError
+from collections.abc import Mapping
 from functools import wraps
 from typing import Any, Callable, Optional
 import requests
 from loguru import logger
+from common.cancellation import check_cancelled, current_cancellation_token
 
 
 RETRYABLE_HTTP_STATUS_CODES = {408, 409, 425, 429}
+NON_RETRYABLE_API_ERROR_CODES = {"insufficient_quota"}
 
 
 def _get_http_status_code(exc: Exception) -> Optional[int]:
@@ -26,12 +30,45 @@ def _get_http_status_code(exc: Exception) -> Optional[int]:
         return None
 
 
+def _get_api_error_code(exc: Exception) -> Optional[str]:
+    """Extract a provider error code without depending on one SDK shape."""
+    for attribute in ("code", "type"):
+        value = getattr(exc, attribute, None)
+        if value:
+            return str(value).strip().lower()
+
+    body = getattr(exc, "body", None)
+    if isinstance(body, Mapping):
+        error = body.get("error")
+        if isinstance(error, Mapping):
+            body = error
+        for field in ("code", "type"):
+            value = body.get(field)
+            if value:
+                return str(value).strip().lower()
+    return None
+
+
 def _should_retry_exception(exc: Exception) -> bool:
     """Return whether an exception represents a transient failure."""
+    if isinstance(exc, CancelledError):
+        return False
+    if _get_api_error_code(exc) in NON_RETRYABLE_API_ERROR_CODES:
+        return False
     status_code = _get_http_status_code(exc)
     if status_code is None:
         return True
     return status_code in RETRYABLE_HTTP_STATUS_CODES or 500 <= status_code <= 599
+
+
+def _wait_before_retry(delay: float) -> None:
+    """Report cancellation interrupts backoff; other callers retain sleep."""
+    token = current_cancellation_token()
+    if token is None:
+        time.sleep(delay)
+    else:
+        token.wait(delay)
+        token.raise_if_cancelled()
 
 
 # 配置日志
@@ -99,12 +136,17 @@ def with_retry(config: RetryConfig = None):
             
             for attempt in range(config.max_retries + 1):  # +1 因为第一次不算重试
                 try:
+                    check_cancelled()
                     result = func(*args, **kwargs)
+                    check_cancelled()
                     if attempt > 0:
                         logger.info(f"函数 {func.__name__} 在第 {attempt + 1} 次尝试后成功")
                     return result
                     
+                except CancelledError:
+                    raise
                 except config.retry_on_exceptions as e:
+                    check_cancelled()
                     last_exception = e
 
                     if not _should_retry_exception(e):
@@ -129,9 +171,10 @@ def with_retry(config: RetryConfig = None):
                     logger.warning(f"函数 {func.__name__} 第 {attempt + 1} 次尝试失败: {str(e)}")
                     logger.info(f"将在 {delay:.1f} 秒后进行第 {attempt + 2} 次尝试...")
                     
-                    time.sleep(delay)
+                    _wait_before_retry(delay)
                 
                 except Exception as e:
+                    check_cancelled()
                     # 不在重试列表中的异常，直接抛出
                     logger.error(f"函数 {func.__name__} 遇到不可重试的异常: {str(e)}")
                     raise e
@@ -192,12 +235,17 @@ def with_graceful_retry(config: RetryConfig = None, default_return=None):
             
             for attempt in range(config.max_retries + 1):  # +1 因为第一次不算重试
                 try:
+                    check_cancelled()
                     result = func(*args, **kwargs)
+                    check_cancelled()
                     if attempt > 0:
                         logger.info(f"非关键API {func.__name__} 在第 {attempt + 1} 次尝试后成功")
                     return result
                     
+                except CancelledError:
+                    raise
                 except config.retry_on_exceptions as e:
+                    check_cancelled()
                     last_exception = e
 
                     if not _should_retry_exception(e):
@@ -223,9 +271,10 @@ def with_graceful_retry(config: RetryConfig = None, default_return=None):
                     logger.warning(f"非关键API {func.__name__} 第 {attempt + 1} 次尝试失败: {str(e)}")
                     logger.info(f"将在 {delay:.1f} 秒后进行第 {attempt + 2} 次尝试...")
                     
-                    time.sleep(delay)
+                    _wait_before_retry(delay)
                 
                 except Exception as e:
+                    check_cancelled()
                     # 不在重试列表中的异常，返回默认值
                     logger.warning(f"非关键API {func.__name__} 遇到不可重试的异常: {str(e)}")
                     logger.info(f"返回默认值以保证系统继续运行: {default_return}")

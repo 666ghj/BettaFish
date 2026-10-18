@@ -4,3 +4,6 @@
 
 *.html linguist-vendored
 *.js linguist-vendored
+
+# Unified patches retain whitespace from the files they match.
+test_support/*.patch -whitespace

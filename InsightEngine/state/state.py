@@ -4,9 +4,13 @@ Deep Search Agent状态管理
 """
 
 from dataclasses import dataclass, field
+from collections.abc import Mapping
 from typing import List, Dict, Any, Optional
 import json
 from datetime import datetime
+
+from common.provenance.io import restore_engine_state, serialize_engine_state
+from common.provenance.models import ProvenanceBundle
 
 
 @dataclass
@@ -16,6 +20,13 @@ class Search:
     url: str = ""                      # 搜索结果的链接
     title: str = ""                    # 搜索结果标题
     content: str = ""                  # 搜索返回的内容
+    source_table: str = ""             # 内部数据表
+    record_id: str = ""                # 行级稳定定位
+    query_time: str = ""               # 本次查询时间
+    filters: Dict[str, Any] = field(default_factory=dict)
+    time_window: Dict[str, Any] = field(default_factory=dict)
+    sample_size: int = 0
+    aggregation_method: str = ""
     score: Optional[float] = None      # 相关度评分
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
     
@@ -26,6 +37,13 @@ class Search:
             "url": self.url,
             "title": self.title,
             "content": self.content,
+            "source_table": self.source_table,
+            "record_id": self.record_id,
+            "query_time": self.query_time,
+            "filters": self.filters,
+            "time_window": self.time_window,
+            "sample_size": self.sample_size,
+            "aggregation_method": self.aggregation_method,
             "score": self.score,
             "timestamp": self.timestamp
         }
@@ -33,11 +51,21 @@ class Search:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Search":
         """从字典创建Search对象"""
+        lineage = data.get("provenance")
+        if not isinstance(lineage, Mapping):
+            lineage = {}
         return cls(
             query=data.get("query", ""),
             url=data.get("url", ""),
             title=data.get("title", ""),
             content=data.get("content", ""),
+            source_table=lineage.get("table", data.get("source_table", "")),
+            record_id=str(lineage.get("primary_key", data.get("record_id", data.get("primary_key", ""))) or ""),
+            query_time=lineage.get("query_time", data.get("query_time", "")),
+            filters=lineage.get("filters", data.get("filters", {})) or {},
+            time_window=lineage.get("time_window", data.get("time_window", {})) or {},
+            sample_size=int(lineage.get("sample_size", data.get("sample_size", 0)) or 0),
+            aggregation_method=lineage.get("aggregation_method", data.get("aggregation_method", "")),
             score=data.get("score"),
             timestamp=data.get("timestamp", datetime.now().isoformat())
         )
@@ -58,14 +86,7 @@ class Research:
     def add_search_results(self, query: str, results: List[Dict[str, Any]]):
         """批量添加搜索结果"""
         for result in results:
-            search = Search(
-                query=query,
-                url=result.get("url", ""),
-                title=result.get("title", ""),
-                content=result.get("content", ""),
-                score=result.get("score")
-            )
-            self.add_search(search)
+            self.add_search(Search.from_dict({**result, "query": query}))
     
     def get_search_count(self) -> int:
         """获取搜索次数"""
@@ -146,6 +167,7 @@ class State:
     report_title: str = ""                                         # 报告标题
     paragraphs: List[Paragraph] = field(default_factory=list)     # 段落列表
     final_report: str = ""                                         # 最终报告内容
+    provenance_bundle: ProvenanceBundle = field(default_factory=lambda: ProvenanceBundle(agent="insight_engine"))
     is_completed: bool = False                                     # 是否完成
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
     updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
@@ -210,15 +232,7 @@ class State:
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典格式"""
-        return {
-            "query": self.query,
-            "report_title": self.report_title,
-            "paragraphs": [p.to_dict() for p in self.paragraphs],
-            "final_report": self.final_report,
-            "is_completed": self.is_completed,
-            "created_at": self.created_at,
-            "updated_at": self.updated_at
-        }
+        return serialize_engine_state(self)
     
     def to_json(self, indent: int = 2) -> str:
         """转换为JSON字符串"""
@@ -227,17 +241,7 @@ class State:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "State":
         """从字典创建State对象"""
-        paragraphs = [Paragraph.from_dict(p_data) for p_data in data.get("paragraphs", [])]
-        
-        return cls(
-            query=data.get("query", ""),
-            report_title=data.get("report_title", ""),
-            paragraphs=paragraphs,
-            final_report=data.get("final_report", ""),
-            is_completed=data.get("is_completed", False),
-            created_at=data.get("created_at", datetime.now().isoformat()),
-            updated_at=data.get("updated_at", datetime.now().isoformat())
-        )
+        return restore_engine_state(cls, Paragraph, data)
     
     @classmethod
     def from_json(cls, json_str: str) -> "State":

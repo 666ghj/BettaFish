@@ -24,9 +24,11 @@ from __future__ import annotations
 import copy
 import json
 import hashlib
+from concurrent.futures import CancelledError
 from typing import Any, Dict, List, Optional, Tuple, Callable
 from dataclasses import dataclass
 from loguru import logger
+from common.cancellation import check_cancelled
 
 
 @dataclass
@@ -684,9 +686,11 @@ class ChartRepairer:
         logger.info(f"图表 {widget_id} 开始API修复，共 {len(self.llm_repair_fns)} 个Engine可用")
 
         for idx, repair_fn in enumerate(self.llm_repair_fns):
+            check_cancelled()
             try:
                 logger.info(f"尝试使用Engine {idx + 1}/{len(self.llm_repair_fns)} 修复图表 {widget_id}")
                 repaired = repair_fn(widget_block, validation_result.errors)
+                check_cancelled()
 
                 if repaired and isinstance(repaired, dict):
                     # 验证修复结果
@@ -706,7 +710,10 @@ class ChartRepairer:
                         )
                 else:
                     logger.warning(f"图表 {widget_id} Engine {idx + 1} 返回空或无效响应")
+            except CancelledError:
+                raise
             except Exception as e:
+                check_cancelled()
                 # 使用 exception 记录完整堆栈
                 logger.exception(f"图表 {widget_id} Engine {idx + 1} 修复过程中发生异常: {e}")
                 continue

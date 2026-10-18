@@ -110,6 +110,46 @@ paragraph_block: Dict[str, Any] = {
     "additionalProperties": True,
 }
 
+claim_record_schema: Dict[str, Any] = {
+    "type": "object",
+    "required": ["claim_id", "text", "claim_type", "evidence_ids", "support_status"],
+    "properties": {
+        "claim_id": {"type": "string"},
+        "text": {"type": "string"},
+        "claim_type": {
+            "type": "string",
+            "enum": ["fact", "metric", "inference", "prediction", "recommendation"],
+        },
+        "text_span": {
+            "type": "object",
+            "properties": {
+                "start": {"type": "integer", "minimum": 0},
+                "end": {"type": "integer", "minimum": 0},
+            },
+            "additionalProperties": True,
+        },
+        "evidence_ids": {"type": "array", "items": {"type": "string"}},
+        "support_status": {
+            "type": "string",
+            "enum": ["supported", "weak", "unsupported", "predicted"],
+        },
+        "scope": {"type": "object"},
+    },
+    "additionalProperties": True,
+}
+
+block_provenance_properties: Dict[str, Any] = {
+    "claims": {
+        "type": "array",
+        "items": {"$ref": "#/definitions/claimRecord"},
+    },
+    "citation_refs": {"type": "array", "items": {"type": "string"}},
+    "support_status": {
+        "type": "string",
+        "enum": ["supported", "weak", "unsupported", "predicted"],
+    },
+}
+
 list_block: Dict[str, Any] = {
     "title": "ListBlock",
     "type": "object",
@@ -498,6 +538,9 @@ block_variants: List[Dict[str, Any]] = [
     pest_block,
 ]
 
+for _block_schema in block_variants:
+    _block_schema.setdefault("properties", {}).update(block_provenance_properties)
+
 CHAPTER_JSON_SCHEMA: Dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "ReportEngineChapterIR",
@@ -525,6 +568,7 @@ CHAPTER_JSON_SCHEMA: Dict[str, Any] = {
         "inlineRun": inline_run_schema,
         "swotItem": swot_item_schema,
         "pestItem": pest_item_schema,
+        "claimRecord": claim_record_schema,
         "block": {"oneOf": block_variants},
     },
 }
@@ -542,4 +586,5 @@ __all__ = [
     "CHAPTER_JSON_SCHEMA",
     "CHAPTER_JSON_SCHEMA_TEXT",
     "ENGINE_AGENT_TITLES",
+    "claim_record_schema",
 ]

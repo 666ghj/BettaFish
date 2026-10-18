@@ -12,7 +12,7 @@
 
 import json
 import unittest
-from json_parser import RobustJSONParser, JSONParseError
+from ReportEngine.utils.json_parser import RobustJSONParser, JSONParseError
 
 
 class TestRobustJSONParser(unittest.TestCase):

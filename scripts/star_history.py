@@ -538,6 +538,14 @@ def _read_limited(path: Path, limit: int, label: str) -> bytes:
 def load_star_count_file(path: Path) -> int:
     """Read a tiny, symlink-safe decimal count produced by the fetch-only step."""
 
+    # ``O_NOFOLLOW`` is unavailable on Windows. Check the path before opening
+    # it so the same symlink policy applies on every supported platform.
+    try:
+        if Path(path).is_symlink():
+            raise StarHistoryError("Star count file cannot be a symbolic link")
+    except OSError as exc:
+        raise StarHistoryError("Star count file is missing or unsafe") from exc
+
     flags = os.O_RDONLY
     if hasattr(os, "O_NOFOLLOW"):
         flags |= os.O_NOFOLLOW

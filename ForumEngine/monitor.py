@@ -9,9 +9,104 @@ from pathlib import Path
 from datetime import datetime
 import re
 import json
-from typing import Dict, Optional, List
+from dataclasses import dataclass, field
+from typing import Any, Dict, Optional, List
 from threading import Lock
 from loguru import logger
+
+
+ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+_MAX_EVIDENCE_IDS = 200
+_MAX_EVIDENCE_ID_LENGTH = 256
+
+
+def _normalize_evidence_ids(value) -> List[str]:
+    """Normalize structured evidence IDs without treating a string as a list."""
+    if isinstance(value, (str, bytes, dict)) or not isinstance(
+        value, (list, tuple, set, frozenset)
+    ):
+        return []
+    result: List[str] = []
+    for item in value:
+        candidate = str(item or "").strip()
+        if not candidate or len(candidate) > _MAX_EVIDENCE_ID_LENGTH:
+            continue
+        if candidate not in result:
+            result.append(candidate)
+        if len(result) >= _MAX_EVIDENCE_IDS:
+            break
+    return result
+
+
+@dataclass
+class ForumMessage:
+    """Structured forum message; its text is context, never evidence itself."""
+
+    content: str = ""
+    source: str = ""
+    timestamp: str = ""
+    referenced_evidence_ids: List[str] = field(default_factory=list)
+    meta: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "content": self.content,
+            "source": self.source,
+            "timestamp": self.timestamp,
+            "referenced_evidence_ids": list(self.referenced_evidence_ids),
+            "meta": dict(self.meta),
+        }
+
+    def to_log_line(self) -> str:
+        timestamp = self.timestamp or datetime.now().strftime('%H:%M:%S')
+        source = self.source.strip().upper()
+        content = self.content.replace('\n', '\\n').replace('\r', '\\r')
+        refs = _normalize_evidence_ids(self.referenced_evidence_ids)
+        evidence_prefix = (
+            f"[EVIDENCE_IDS:{json.dumps(refs, ensure_ascii=False)}] " if refs else ""
+        )
+        source_prefix = f" [{source}]" if source else ""
+        return f"[{timestamp}]{source_prefix} {evidence_prefix}{content}"
+
+    @classmethod
+    def from_dict(cls, data: Optional[Dict[str, Any]]) -> "ForumMessage":
+        data = data or {}
+        refs = _normalize_evidence_ids(data.get("referenced_evidence_ids") or [])
+        return cls(
+            content=str(data.get("content") or ""),
+            source=str(data.get("source") or ""),
+            timestamp=str(data.get("timestamp") or ""),
+            referenced_evidence_ids=refs,
+            meta=dict(data.get("meta") or {}),
+        )
+
+    @classmethod
+    def from_log_line(cls, line: str) -> Optional["ForumMessage"]:
+        match = re.match(
+            r'^\[(\d{2}:\d{2}:\d{2})\]\s*(?:\[([^\]]+)\]\s*)?(.*)$',
+            str(line or '').rstrip('\n\r'),
+        )
+        if not match:
+            return None
+        timestamp, source, content = match.groups()
+        refs: List[str] = []
+        evidence_match = re.match(
+            r'^\[EVIDENCE_IDS:(\[[^\]]*\])\]\s*(.*)$', content
+        )
+        if evidence_match:
+            try:
+                decoded = json.loads(evidence_match.group(1))
+                if isinstance(decoded, list):
+                    refs = _normalize_evidence_ids(decoded)
+            except (TypeError, ValueError, json.JSONDecodeError):
+                refs = []
+            content = evidence_match.group(2)
+        return cls(
+            content=content.replace('\\n', '\n').replace('\\r', '').strip(),
+            source=str(source or '').strip().upper(),
+            timestamp=timestamp,
+            referenced_evidence_ids=refs,
+        )
 
 # 导入论坛主持人模块
 try:
@@ -103,19 +198,22 @@ class LogMonitor:
         except Exception as e:
             logger.exception(f"ForumEngine: 清空forum.log失败: {e}")
    
-    def write_to_forum_log(self, content: str, source: str = None):
+    def write_to_forum_log(
+        self,
+        content: str,
+        source: str = None,
+        referenced_evidence_ids: Optional[List[str]] = None,
+    ):
         """写入内容到forum.log（线程安全）"""
         try:
             with self.write_lock:  # 使用锁确保线程安全
                 with open(self.forum_log_file, 'a', encoding='utf-8') as f:
-                    timestamp = datetime.now().strftime('%H:%M:%S')
-                    # 将内容中的实际换行符转换为\n字符串，确保整个记录在一行
-                    content_one_line = content.replace('\n', '\\n').replace('\r', '\\r')
-                    # 如果提供了来源标签，则在时间戳后添加
-                    if source:
-                        f.write(f"[{timestamp}] [{source}] {content_one_line}\n")
-                    else:
-                        f.write(f"[{timestamp}] {content_one_line}\n")
+                    message = ForumMessage(
+                        content=str(content or ''),
+                        source=str(source or ''),
+                        referenced_evidence_ids=referenced_evidence_ids or [],
+                    )
+                    f.write(message.to_log_line() + '\n')
                     f.flush()
         except Exception as e:
             logger.exception(f"ForumEngine: 写入forum.log失败: {e}")
@@ -128,6 +226,7 @@ class LogMonitor:
         Returns:
             'INFO', 'ERROR', 'WARNING', 'DEBUG' 或 None（无法识别）
         """
+        line = self._strip_ansi(line)
         # 检查loguru格式：YYYY-MM-DD HH:mm:ss.SSS | LEVEL | ...
         # 匹配模式：| LEVEL | 或 | LEVEL     |
         match = re.search(r'\|\s*(INFO|ERROR|WARNING|DEBUG|TRACE|CRITICAL)\s*\|', line)
@@ -148,6 +247,7 @@ class LogMonitor:
         - ERROR 级别的日志（错误日志不应被识别为目标节点）
         - 包含错误关键词的日志（JSON解析失败、JSON修复失败等）
         """
+        line = self._strip_ansi(line)
         # 排除 ERROR 级别的日志
         log_level = self.get_log_level(line)
         if log_level == 'ERROR':
@@ -171,6 +271,7 @@ class LogMonitor:
     
     def is_valuable_content(self, line: str) -> bool:
         """判断是否是有价值的内容（排除短小的提示信息和错误信息）"""
+        line = self._strip_ansi(line)
         # 如果包含"清理后的输出"，则认为是有价值的
         if "清理后的输出" in line:
             return True
@@ -209,32 +310,34 @@ class LogMonitor:
     
     def is_json_start_line(self, line: str) -> bool:
         """判断是否是JSON开始行"""
-        return "清理后的输出: {" in line
+        return "清理后的输出: {" in self._strip_ansi(line)
     
     def is_json_end_line(self, line: str) -> bool:
-        """判断是否是JSON结束行
-        
-        只判断纯粹的结束标记行，不包含任何日志格式信息（时间戳等）。
-        如果行包含时间戳，应该先清理再判断，但这里返回False表示需要进一步处理。
-        """
-        stripped = line.strip()
-        
-        # 如果行包含时间戳（旧格式或新格式），说明不是纯粹的结束行
-        # 旧格式：[HH:MM:SS]
-        if re.match(r'^\[\d{2}:\d{2}:\d{2}\]', stripped):
-            return False
-        # 新格式：YYYY-MM-DD HH:mm:ss.SSS
-        if re.match(r'^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}', stripped):
-            return False
-        
-        # 不包含时间戳的行，检查是否是纯结束标记
-        if stripped == "}" or stripped == "] }":
-            return True
-        return False
+        """判断已剥离日志前缀的内容是否是JSON结束行。"""
+        return self._strip_ansi(line).strip() in {"}", "] }"}
+
+    @staticmethod
+    def _strip_ansi(line: str) -> str:
+        """移除终端输出中的ANSI控制序列。"""
+        return ANSI_ESCAPE_RE.sub("", str(line or ""))
+
+    @classmethod
+    def _strip_log_prefix(cls, line: str) -> str:
+        """统一移除前端转发时间戳与可选的loguru前缀。"""
+        clean_line = cls._strip_ansi(line).strip()
+        clean_line = re.sub(r'^\[\d{2}:\d{2}:\d{2}\]\s*', '', clean_line)
+        clean_line = re.sub(
+            r'^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}\s*'
+            r'\|\s*[A-Z]+\s*\|\s*[^|]+?\s*-\s*',
+            '',
+            clean_line,
+        )
+        return clean_line
     
     def extract_json_content(self, json_lines: List[str]) -> Optional[str]:
         """从多行中提取并解析JSON内容"""
         try:
+            json_lines = [self._strip_ansi(line) for line in json_lines]
             # 找到JSON开始的位置
             json_start_idx = -1
             for i, line in enumerate(json_lines):
@@ -272,12 +375,7 @@ class LogMonitor:
             # 处理多行JSON
             json_text = json_part
             for line in json_lines[json_start_idx + 1:]:
-                # 移除时间戳：支持旧格式 [HH:MM:SS] 和新格式 loguru (YYYY-MM-DD HH:mm:ss.SSS | LEVEL | ...)
-                # 旧格式：[HH:MM:SS]
-                clean_line = re.sub(r'^\[\d{2}:\d{2}:\d{2}\]\s*', '', line)
-                # 新格式：移除 loguru 格式的时间戳和级别信息
-                # 格式: YYYY-MM-DD HH:mm:ss.SSS | LEVEL | module:function:line -
-                clean_line = re.sub(r'^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}\s*\|\s*[A-Z]+\s*\|\s*[^|]+?\s*-\s*', '', clean_line)
+                clean_line = self._strip_log_prefix(line)
                 json_text += clean_line
             
             # 尝试解析JSON
@@ -323,7 +421,7 @@ class LogMonitor:
 
     def extract_node_content(self, line: str) -> Optional[str]:
         """提取节点内容，去除时间戳、节点名称等前缀"""
-        content = line
+        content = self._strip_ansi(line)
         
         # 移除时间戳部分：支持旧格式和新格式
         # 旧格式: [HH:MM:SS]
@@ -437,6 +535,7 @@ class LogMonitor:
             self.in_error_block[app_name] = False
         
         for line in lines:
+            line = self._strip_ansi(line)
             if not line.strip():
                 continue
             
@@ -497,17 +596,7 @@ class LogMonitor:
                 # 正在捕获JSON的后续行
                 self.json_buffer[app_name].append(line)
                 
-                # 检查是否是JSON结束
-                # 先清理时间戳，然后判断清理后的行是否是结束标记
-                cleaned_line = line.strip()
-                # 清理旧格式时间戳：[HH:MM:SS]
-                cleaned_line = re.sub(r'^\[\d{2}:\d{2}:\d{2}\]\s*', '', cleaned_line)
-                # 清理新格式时间戳：YYYY-MM-DD HH:mm:ss.SSS | LEVEL | module:function:line -
-                cleaned_line = re.sub(r'^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}\s*\|\s*[A-Z]+\s*\|\s*[^|]+?\s*-\s*', '', cleaned_line)
-                cleaned_line = cleaned_line.strip()
-                
-                # 清理后判断是否是结束标记
-                if cleaned_line == "}" or cleaned_line == "] }":
+                if self.is_json_end_line(self._strip_log_prefix(line)):
                     # JSON结束，处理完整的JSON
                     content = self.extract_json_content(self.json_buffer[app_name])
                     if content:  # 只有成功解析的内容才会被记录

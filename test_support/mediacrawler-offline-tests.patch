@@ -1,0 +1,160 @@
+diff --git a/pyproject.toml b/pyproject.toml
+index 6329f4c..0e2484a 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -44,3 +44,9 @@ dependencies = [
+ [[tool.uv.index]]
+ url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+ default = true
++
++[tool.pytest.ini_options]
++testpaths = ["tests"]
++required_plugins = ["pytest-asyncio>=1.3,<2"]
++asyncio_default_fixture_loop_scope = "function"
++addopts = "-p no:cacheprovider"
+diff --git a/tests/test_excel_store.py b/tests/test_excel_store.py
+index 63fd818..b1371bc 100644
+--- a/tests/test_excel_store.py
++++ b/tests/test_excel_store.py
+@@ -22,21 +22,11 @@ Unit tests for Excel export functionality
+ 
+ import pytest
+ import asyncio
+-import os
+-from pathlib import Path
+-import tempfile
+-import shutil
+-
+-try:
+-    import openpyxl
+-    EXCEL_AVAILABLE = True
+-except ImportError:
+-    EXCEL_AVAILABLE = False
++import openpyxl
+ 
+ from store.excel_store_base import ExcelStoreBase
+ 
+ 
+-@pytest.mark.skipif(not EXCEL_AVAILABLE, reason="openpyxl not installed")
+ class TestExcelStoreBase:
+     """Test cases for ExcelStoreBase"""
+ 
+@@ -48,18 +38,10 @@ class TestExcelStoreBase:
+         ExcelStoreBase._instances.clear()
+ 
+     @pytest.fixture
+-    def temp_dir(self):
+-        """Create temporary directory for test files"""
+-        temp_path = tempfile.mkdtemp()
+-        yield temp_path
+-        # Cleanup
+-        shutil.rmtree(temp_path, ignore_errors=True)
+-
+-    @pytest.fixture
+-    def excel_store(self, temp_dir, monkeypatch):
++    def excel_store(self, tmp_path, monkeypatch):
+         """Create ExcelStoreBase instance for testing"""
+         # Monkey patch data directory
+-        monkeypatch.chdir(temp_dir)
++        monkeypatch.chdir(tmp_path)
+         store = ExcelStoreBase(platform="test", crawler_type="search")
+         yield store
+         # Cleanup is handled by temp_dir fixture
+@@ -187,15 +169,21 @@ class TestExcelStoreBase:
+         wb.close()
+ 
+ 
+-@pytest.mark.skipif(not EXCEL_AVAILABLE, reason="openpyxl not installed")
+-def test_excel_import_availability():
+-    """Test that openpyxl is available"""
+-    assert EXCEL_AVAILABLE is True
+-    import openpyxl
+-    assert openpyxl is not None
++def test_excel_export_round_trip(tmp_path, monkeypatch):
++    """Exported column names and values survive a workbook reload."""
++    monkeypatch.chdir(tmp_path)
++    store = ExcelStoreBase(platform="test", crawler_type="search")
++    asyncio.run(store.store_content({"note_id": "offline-note", "title": "离线测试"}))
++    store.flush()
++    workbook = openpyxl.load_workbook(store.filename)
++    try:
++        assert list(workbook["Contents"].values) == [
++            ("note_id", "title"), ("offline-note", "离线测试")
++        ]
++    finally:
++        workbook.close()
+ 
+ 
+-@pytest.mark.skipif(not EXCEL_AVAILABLE, reason="openpyxl not installed")
+ class TestSingletonPattern:
+     """Test singleton pattern for Excel store"""
+ 
+diff --git a/tests/test_store_factory.py b/tests/test_store_factory.py
+index ada123b..39335da 100644
+--- a/tests/test_store_factory.py
++++ b/tests/test_store_factory.py
+@@ -4,7 +4,7 @@ Unit tests for Store Factory functionality
+ """
+ 
+ import pytest
+-from unittest.mock import patch, MagicMock
++from unittest.mock import patch
+ 
+ from store.xhs import XhsStoreFactory
+ from store.xhs._store_impl import (
+@@ -13,12 +13,19 @@ from store.xhs._store_impl import (
+     XhsDbStoreImplement,
+     XhsSqliteStoreImplement,
+     XhsMongoStoreImplement,
+-    XhsExcelStoreImplement
+ )
++from store.excel_store_base import ExcelStoreBase
+ 
+ 
+ class TestXhsStoreFactory:
+     """Test cases for XhsStoreFactory"""
++
++    @pytest.fixture(autouse=True)
++    def isolated_storage(self, tmp_path, monkeypatch):
++        monkeypatch.chdir(tmp_path)
++        ExcelStoreBase._instances.clear()
++        yield
++        ExcelStoreBase._instances.clear()
+     
+     @patch('config.SAVE_DATA_OPTION', 'csv')
+     def test_create_csv_store(self):
+@@ -37,6 +44,12 @@ class TestXhsStoreFactory:
+         """Test creating database store"""
+         store = XhsStoreFactory.create_store()
+         assert isinstance(store, XhsDbStoreImplement)
++
++    @patch('config.SAVE_DATA_OPTION', 'postgres')
++    def test_create_postgres_store(self):
++        """Postgres uses the same session-backed store without connecting here."""
++        store = XhsStoreFactory.create_store()
++        assert isinstance(store, XhsDbStoreImplement)
+     
+     @patch('config.SAVE_DATA_OPTION', 'sqlite')
+     def test_create_sqlite_store(self):
+@@ -53,9 +66,10 @@ class TestXhsStoreFactory:
+     @patch('config.SAVE_DATA_OPTION', 'excel')
+     def test_create_excel_store(self):
+         """Test creating Excel store"""
+-        # ContextVar cannot be mocked, so we test with actual value
+         store = XhsStoreFactory.create_store()
+-        assert isinstance(store, XhsExcelStoreImplement)
++        assert isinstance(store, ExcelStoreBase)
++        assert store.platform == 'xhs'
++        assert XhsStoreFactory.create_store() is store
+     
+     @patch('config.SAVE_DATA_OPTION', 'invalid')
+     def test_invalid_store_option(self):
+@@ -67,7 +81,7 @@ class TestXhsStoreFactory:
+     
+     def test_all_stores_registered(self):
+         """Test that all store types are registered"""
+-        expected_stores = ['csv', 'json', 'db', 'sqlite', 'mongodb', 'excel']
++        expected_stores = ['csv', 'json', 'db', 'postgres', 'sqlite', 'mongodb', 'excel']
+         
+         for store_type in expected_stores:
+             assert store_type in XhsStoreFactory.STORES

@@ -25,6 +25,7 @@ V3.0 核心更新:
 
 import os
 import json
+import copy
 from loguru import logger
 import asyncio
 from typing import List, Dict, Any, Optional, Literal
@@ -32,6 +33,70 @@ from dataclasses import dataclass, field
 from ..utils.db import fetch_all
 from datetime import datetime, timedelta, date
 from InsightEngine.utils.config import settings
+
+
+SEARCH_TABLE_CONFIGS: Dict[str, Dict[str, Any]] = {
+    'bilibili_video': {'fields': ['title', 'desc', 'source_keyword'], 'type': 'video', 'time_col': 'create_time', 'time_type': 'sec'},
+    'bilibili_video_comment': {'fields': ['content'], 'type': 'comment', 'time_col': 'create_time', 'time_type': 'sec'},
+    'douyin_aweme': {'fields': ['title', 'desc', 'source_keyword'], 'type': 'video', 'time_col': 'create_time', 'time_type': 'sec'},
+    'douyin_aweme_comment': {'fields': ['content'], 'type': 'comment', 'time_col': 'create_time', 'time_type': 'sec'},
+    'kuaishou_video': {'fields': ['title', 'desc', 'source_keyword'], 'type': 'video', 'time_col': 'create_time', 'time_type': 'ms'},
+    'kuaishou_video_comment': {'fields': ['content'], 'type': 'comment', 'time_col': 'create_time', 'time_type': 'ms'},
+    'weibo_note': {'fields': ['content', 'source_keyword'], 'type': 'note', 'time_col': 'create_date_time', 'time_type': 'str'},
+    'weibo_note_comment': {'fields': ['content'], 'type': 'comment', 'time_col': 'create_date_time', 'time_type': 'str'},
+    'xhs_note': {'fields': ['title', 'desc', 'tag_list', 'source_keyword'], 'type': 'note', 'time_col': 'time', 'time_type': 'ms'},
+    'xhs_note_comment': {'fields': ['content'], 'type': 'comment', 'time_col': 'create_time', 'time_type': 'ms'},
+    'zhihu_content': {'fields': ['title', 'desc', 'content_text', 'source_keyword'], 'type': 'content', 'time_col': 'created_time', 'time_type': 'sec_str'},
+    'zhihu_comment': {'fields': ['content'], 'type': 'comment', 'time_col': 'publish_time', 'time_type': 'sec_str'},
+    'tieba_note': {'fields': ['title', 'desc', 'source_keyword'], 'type': 'note', 'time_col': 'publish_time', 'time_type': 'str'},
+    'tieba_comment': {'fields': ['content'], 'type': 'comment', 'time_col': 'publish_time', 'time_type': 'str'},
+    'daily_news': {'fields': ['title'], 'type': 'news', 'time_col': 'crawl_date', 'time_type': 'date_str'},
+}
+
+DATE_SEARCH_TABLES = (
+    'bilibili_video',
+    'douyin_aweme',
+    'kuaishou_video',
+    'weibo_note',
+    'xhs_note',
+    'zhihu_content',
+    'tieba_note',
+    'daily_news',
+)
+
+PLATFORM_SEARCH_TABLES = {
+    'bilibili': ('bilibili_video', 'bilibili_video_comment'),
+    'douyin': ('douyin_aweme', 'douyin_aweme_comment'),
+    'kuaishou': ('kuaishou_video', 'kuaishou_video_comment'),
+    'weibo': ('weibo_note', 'weibo_note_comment'),
+    'xhs': ('xhs_note', 'xhs_note_comment'),
+    'zhihu': ('zhihu_content', 'zhihu_comment'),
+    'tieba': ('tieba_note', 'tieba_comment'),
+}
+
+
+def _parse_date_window(
+    start_date: Optional[str],
+    end_date: Optional[str],
+    *,
+    allow_unbounded: bool,
+):
+    """Parse an inclusive date pair into an exclusive-end datetime window."""
+    start_value = str(start_date or '').strip()
+    end_value = str(end_date or '').strip()
+    if not start_value and not end_value and allow_unbounded:
+        return None, None, None
+    if not start_value or not end_value:
+        return None, None, "开始日期和结束日期必须同时提供。"
+    try:
+        start_dt = datetime.strptime(start_value, '%Y-%m-%d')
+        end_dt = datetime.strptime(end_value, '%Y-%m-%d') + timedelta(days=1)
+    except ValueError:
+        return None, None, "日期格式错误，请使用 'YYYY-MM-DD' 格式。"
+    if start_dt >= end_dt:
+        return None, None, "开始日期不能晚于结束日期。"
+    return start_dt, end_dt, None
+
 
 # --- 1. 数据结构定义 ---
 
@@ -48,6 +113,8 @@ class QueryResult:
     source_keyword: Optional[str] = None
     hotness_score: float = 0.0
     source_table: str = ""
+    record_id: str = ""
+    provenance: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class DBResponse:
@@ -57,6 +124,23 @@ class DBResponse:
     results: List[QueryResult] = field(default_factory=list)
     results_count: int = 0
     error_message: Optional[str] = None
+    query_time: str = field(default_factory=lambda: datetime.now().isoformat())
+    time_window: Dict[str, Any] = field(default_factory=dict)
+    tables: List[str] = field(default_factory=list)
+    aggregation_method: str = "record_lookup"
+
+    def __post_init__(self):
+        # Attach lineage before keyword expansion, deduplication or sampling can discard it.
+        if not self.query_time or not self.time_window or not self.aggregation_method:
+            return
+        for row in self.results:
+            if not row.provenance and row.source_table and row.record_id:
+                row.provenance = {
+                    "query_time": self.query_time, "table": row.source_table,
+                    "filters": copy.deepcopy(self.parameters), "time_window": dict(self.time_window),
+                    "sample_size": len(self.results), "aggregation_method": self.aggregation_method,
+                    "row_ids": [row.record_id], "primary_key": row.record_id,
+                }
 
 # --- 2. 核心客户端与专用工具集 ---
 
@@ -167,7 +251,7 @@ class MediaCrawlerDB:
             else: time_filter_sql, time_filter_param = "`create_time` >= %s", str(int(start_time.timestamp()))
 
             content_type = 'note' if table in ['weibo_note', 'xhs_note'] else 'content' if table == 'zhihu_content' else 'video'
-            query_template = "SELECT '{platform}' as p, '{type}' as t, {title} as title, {author} as author, {url} as url, {ts} as ts, {formula} as hotness_score, source_keyword, '{tbl}' as tbl FROM `{tbl}` WHERE {time_filter}"
+            query_template = "SELECT id as record_id, '{platform}' as p, '{type}' as t, {title} as title, {author} as author, {url} as url, {ts} as ts, {formula} as hotness_score, source_keyword, '{tbl}' as tbl FROM `{tbl}` WHERE {time_filter}"
             
             field_subs = {'platform': table.split('_')[0], 'type': content_type, 'title': 'title', 'author': 'nickname', 'url': 'video_url', 'ts': 'create_time', 'formula': formula, 'tbl': table, 'time_filter': time_filter_sql}
             if table == 'weibo_note': field_subs.update({'title': 'content', 'url': 'note_url', 'ts': 'create_date_time'})
@@ -181,14 +265,37 @@ class MediaCrawlerDB:
         final_query = f"({' ) UNION ALL ( '.join(all_queries)}) ORDER BY hotness_score DESC LIMIT %s"
         raw_results = self._execute_query(final_query, tuple(params) + (limit,))
 
-        formatted_results = [QueryResult(platform=r['p'], content_type=r['t'], title_or_content=r['title'], author_nickname=r.get('author'), url=r['url'], publish_time=self._to_datetime(r['ts']), engagement=self._extract_engagement(r), hotness_score=r.get('hotness_score', 0.0), source_keyword=r.get('source_keyword'), source_table=r['tbl']) for r in raw_results]
-        return DBResponse("search_hot_content", params_for_log, results=formatted_results, results_count=len(formatted_results))    
+        formatted_results = [QueryResult(platform=r['p'], content_type=r['t'], title_or_content=r['title'], author_nickname=r.get('author'), url=r['url'], publish_time=self._to_datetime(r['ts']), engagement=self._extract_engagement(r), hotness_score=r.get('hotness_score', 0.0), source_keyword=r.get('source_keyword'), source_table=r['tbl'], record_id=str(r.get('record_id') or '')) for r in raw_results]
+        return DBResponse(
+            "search_hot_content",
+            params_for_log,
+            results=formatted_results,
+            results_count=len(formatted_results),
+            time_window={"start": start_time.isoformat(), "end": now.isoformat()},
+            tables=list(hotness_formulas),
+            aggregation_method="weighted_engagement_rank",
+        )
 
     def _wrap_query_field_with_dialect(self, field: str) -> str:
         """根据数据库方言包装SQL查询"""
         if settings.DB_DIALECT == 'postgresql':
             return f'"{field}"'
         return f'`{field}`'
+
+    def _date_predicate(self, config, start_dt, end_dt):
+        field = self._wrap_query_field_with_dialect(config['time_col'])
+        kind = config['time_type']
+        if kind in {'sec', 'sec_str', 'ms'}:
+            multiplier = 1000 if kind == 'ms' else 1
+            bounds = (int(start_dt.timestamp() * multiplier), int(end_dt.timestamp() * multiplier))
+            if kind == 'sec_str':
+                cast_type = 'BIGINT' if settings.DB_DIALECT == 'postgresql' else 'SIGNED'
+                field = f'CAST({field} AS {cast_type})'
+        elif kind == 'date_str':
+            bounds = (start_dt.date(), end_dt.date())
+        else:
+            bounds = (start_dt.strftime('%Y-%m-%d'), end_dt.strftime('%Y-%m-%d'))
+        return f'{field} >= :window_start AND {field} < :window_end', {'window_start': bounds[0], 'window_end': bounds[1]}
 
     def search_topic_globally(self, topic: str, limit_per_table: int = 100) -> DBResponse:
         """
@@ -205,7 +312,7 @@ class MediaCrawlerDB:
         logger.info(f"--- TOOL: 全局话题搜索 (params: {params_for_log}) ---")
         
         search_term, all_results = f"%{topic}%", []
-        search_configs = { 'bilibili_video': {'fields': ['title', 'desc', 'source_keyword'], 'type': 'video'}, 'bilibili_video_comment': {'fields': ['content'], 'type': 'comment'}, 'douyin_aweme': {'fields': ['title', 'desc', 'source_keyword'], 'type': 'video'}, 'douyin_aweme_comment': {'fields': ['content'], 'type': 'comment'}, 'kuaishou_video': {'fields': ['title', 'desc', 'source_keyword'], 'type': 'video'}, 'kuaishou_video_comment': {'fields': ['content'], 'type': 'comment'}, 'weibo_note': {'fields': ['content', 'source_keyword'], 'type': 'note'}, 'weibo_note_comment': {'fields': ['content'], 'type': 'comment'}, 'xhs_note': {'fields': ['title', 'desc', 'tag_list', 'source_keyword'], 'type': 'note'}, 'xhs_note_comment': {'fields': ['content'], 'type': 'comment'}, 'zhihu_content': {'fields': ['title', 'desc', 'content_text', 'source_keyword'], 'type': 'content'}, 'zhihu_comment': {'fields': ['content'], 'type': 'comment'}, 'tieba_note': {'fields': ['title', 'desc', 'source_keyword'], 'type': 'note'}, 'tieba_comment': {'fields': ['content'], 'type': 'comment'}, 'daily_news': {'fields': ['title'], 'type': 'news'}, }
+        search_configs = SEARCH_TABLE_CONFIGS
         
         for table, config in search_configs.items():
             param_dict = {}
@@ -220,7 +327,7 @@ class MediaCrawlerDB:
             raw_results = self._execute_query(query, param_dict)
             for row in raw_results:
                 content = (row.get('title') or row.get('content') or row.get('desc') or row.get('content_text', ''))
-                time_key = row.get('create_time') or row.get('time') or row.get('created_time') or row.get('publish_time') or row.get('crawl_date')
+                time_key = row.get(config['time_col'])
                 all_results.append(QueryResult(
                     platform=table.split('_')[0], content_type=config['type'],
                     title_or_content=content if content else '',
@@ -229,9 +336,10 @@ class MediaCrawlerDB:
                     publish_time=self._to_datetime(time_key),
                     engagement=self._extract_engagement(row),
                     source_keyword=row.get('source_keyword'),
-                    source_table=table
+                    source_table=table,
+                    record_id=str(row.get('id') or '')
                 ))
-        return DBResponse("search_topic_globally", params_for_log, results=all_results, results_count=len(all_results))
+        return DBResponse("search_topic_globally", params_for_log, results=all_results, results_count=len(all_results), tables=list(search_configs), time_window={"kind": "unbounded"}, aggregation_method="record_lookup")
 
     def search_topic_by_date(self, topic: str, start_date: str, end_date: str, limit_per_table: int = 100) -> DBResponse:
         """
@@ -249,17 +357,18 @@ class MediaCrawlerDB:
         params_for_log = {'topic': topic, 'start_date': start_date, 'end_date': end_date, 'limit_per_table': limit_per_table}
         logger.info(f"--- TOOL: 按日期搜索话题 (params: {params_for_log}) ---")
         
-        try:
-            start_dt, end_dt = datetime.strptime(start_date, '%Y-%m-%d'), datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
-        except ValueError:
-            return DBResponse("search_topic_by_date", params_for_log, error_message="日期格式错误，请使用 'YYYY-MM-DD' 格式。")
+        start_dt, end_dt, date_error = _parse_date_window(
+            start_date,
+            end_date,
+            allow_unbounded=False,
+        )
+        if date_error:
+            return DBResponse("search_topic_by_date", params_for_log, error_message=date_error)
         
         search_term, all_results = f"%{topic}%", []
         search_configs = {
-            'bilibili_video': {'fields': ['title', 'desc', 'source_keyword'], 'type': 'video', 'time_col': 'create_time', 'time_type': 'sec'}, 'douyin_aweme': {'fields': ['title', 'desc', 'source_keyword'], 'type': 'video', 'time_col': 'create_time', 'time_type': 'ms'},
-            'kuaishou_video': {'fields': ['title', 'desc', 'source_keyword'], 'type': 'video', 'time_col': 'create_time', 'time_type': 'ms'}, 'weibo_note': {'fields': ['content', 'source_keyword'], 'type': 'note', 'time_col': 'create_date_time', 'time_type': 'str'},
-            'xhs_note': {'fields': ['title', 'desc', 'tag_list', 'source_keyword'], 'type': 'note', 'time_col': 'time', 'time_type': 'ms'}, 'zhihu_content': {'fields': ['title', 'desc', 'content_text', 'source_keyword'], 'type': 'content', 'time_col': 'created_time', 'time_type': 'sec_str'},
-            'tieba_note': {'fields': ['title', 'desc', 'source_keyword'], 'type': 'note', 'time_col': 'publish_time', 'time_type': 'str'}, 'daily_news': {'fields': ['title'], 'type': 'news', 'time_col': 'crawl_date', 'time_type': 'date_str'},
+            table: SEARCH_TABLE_CONFIGS[table]
+            for table in DATE_SEARCH_TABLES
         }
 
         for table, config in search_configs.items():
@@ -271,11 +380,13 @@ class MediaCrawlerDB:
                 param_dict[pname] = search_term
             param_dict['limit'] = limit_per_table
             where_clause = ' OR '.join(where_clauses)
-            query = f'SELECT * FROM {self._wrap_query_field_with_dialect(table)} WHERE {where_clause} ORDER BY id DESC LIMIT :limit'
+            time_clause, time_params = self._date_predicate(config, start_dt, end_dt)
+            param_dict.update(time_params)
+            query = f'SELECT * FROM {self._wrap_query_field_with_dialect(table)} WHERE ({where_clause}) AND ({time_clause}) ORDER BY id DESC LIMIT :limit'
             raw_results = self._execute_query(query, param_dict)
             for row in raw_results:
                 content = (row.get('title') or row.get('content') or row.get('desc') or row.get('content_text', ''))
-                time_key = row.get('create_time') or row.get('time') or row.get('created_time') or row.get('publish_time') or row.get('crawl_date')
+                time_key = row.get(config['time_col'])
                 all_results.append(QueryResult(
                     platform=table.split('_')[0], content_type=config['type'],
                     title_or_content=content if content else '',
@@ -284,9 +395,18 @@ class MediaCrawlerDB:
                     publish_time=self._to_datetime(time_key),
                     engagement=self._extract_engagement(row),
                     source_keyword=row.get('source_keyword'),
-                    source_table=table
+                    source_table=table,
+                    record_id=str(row.get('id') or '')
                 ))
-        return DBResponse("search_topic_by_date", params_for_log, results=all_results, results_count=len(all_results))
+        return DBResponse(
+            "search_topic_by_date",
+            params_for_log,
+            results=all_results,
+            results_count=len(all_results),
+            time_window={"start": start_dt.isoformat(), "end": end_dt.isoformat()},
+            tables=list(search_configs),
+            aggregation_method="record_lookup",
+        )
         
     def get_comments_for_topic(self, topic: str, limit: int = 500) -> DBResponse:
         """
@@ -313,7 +433,7 @@ class MediaCrawlerDB:
             time_col = 'publish_time' if 'publish_time' in cols else 'create_date_time' if 'create_date_time' in cols else 'create_time'
             like_select = f"`{like_col}` as likes" if like_col else "'0' as likes"
             
-            query = (f"SELECT '{table.split('_')[0]}' as platform, `content`, `{author_col}` as author, "
+            query = (f"SELECT `id` as record_id, '{table.split('_')[0]}' as platform, `content`, `{author_col}` as author, "
                      f"`{time_col}` as ts, {like_select}, '{table}' as source_table "
                      f"FROM `{table}` WHERE `content` LIKE %s")
             all_queries.append(query)
@@ -322,8 +442,8 @@ class MediaCrawlerDB:
         params = (search_term,) * len(comment_tables) + (limit,)
         raw_results = self._execute_query(final_query, params)
         
-        formatted = [QueryResult(platform=r['platform'], content_type='comment', title_or_content=r['content'], author_nickname=r['author'], publish_time=self._to_datetime(r['ts']), engagement={'likes': int(r['likes']) if str(r['likes']).isdigit() else 0}, source_table=r['source_table']) for r in raw_results]
-        return DBResponse("get_comments_for_topic", params_for_log, results=formatted, results_count=len(formatted))
+        formatted = [QueryResult(platform=r['platform'], content_type='comment', title_or_content=r['content'], author_nickname=r['author'], publish_time=self._to_datetime(r['ts']), engagement={'likes': int(r['likes']) if str(r['likes']).isdigit() else 0}, source_table=r['source_table'], record_id=str(r.get('record_id') or '')) for r in raw_results]
+        return DBResponse("get_comments_for_topic", params_for_log, results=formatted, results_count=len(formatted), tables=comment_tables, time_window={"kind": "unbounded"}, aggregation_method="record_lookup")
 
     def search_topic_on_platform(
         self,
@@ -349,52 +469,66 @@ class MediaCrawlerDB:
         params_for_log = {'platform': platform, 'topic': topic, 'start_date': start_date, 'end_date': end_date, 'limit': limit}
         logger.info(f"--- TOOL: 平台定向搜索 (params: {params_for_log}) ---")
 
-        all_configs = { 'bilibili': [{'table': 'bilibili_video', 'fields': ['title', 'desc', 'source_keyword'], 'type': 'video', 'time_col': 'create_time', 'time_type': 'sec'}, {'table': 'bilibili_video_comment', 'fields': ['content'], 'type': 'comment'}], 'douyin': [{'table': 'douyin_aweme', 'fields': ['title', 'desc', 'source_keyword'], 'type': 'video', 'time_col': 'create_time', 'time_type': 'ms'}, {'table': 'douyin_aweme_comment', 'fields': ['content'], 'type': 'comment'}], 'kuaishou': [{'table': 'kuaishou_video', 'fields': ['title', 'desc', 'source_keyword'], 'type': 'video', 'time_col': 'create_time', 'time_type': 'ms'}, {'table': 'kuaishou_video_comment', 'fields': ['content'], 'type': 'comment'}], 'weibo': [{'table': 'weibo_note', 'fields': ['content', 'source_keyword'], 'type': 'note', 'time_col': 'create_date_time', 'time_type': 'str'}, {'table': 'weibo_note_comment', 'fields': ['content'], 'type': 'comment'}], 'xhs': [{'table': 'xhs_note', 'fields': ['title', 'desc', 'tag_list', 'source_keyword'], 'type': 'note', 'time_col': 'time', 'time_type': 'ms'}, {'table': 'xhs_note_comment', 'fields': ['content'], 'type': 'comment'}], 'zhihu': [{'table': 'zhihu_content', 'fields': ['title', 'desc', 'content_text', 'source_keyword'], 'type': 'content', 'time_col': 'created_time', 'time_type': 'sec_str'}, {'table': 'zhihu_comment', 'fields': ['content'], 'type': 'comment'}], 'tieba': [{'table': 'tieba_note', 'fields': ['title', 'desc', 'source_keyword'], 'type': 'note', 'time_col': 'publish_time', 'time_type': 'str'}, {'table': 'tieba_comment', 'fields': ['content'], 'type': 'comment'}] }
-        
-        if platform not in all_configs:
+        if platform not in PLATFORM_SEARCH_TABLES:
             return DBResponse("search_topic_on_platform", params_for_log, error_message=f"不支持的平台: {platform}")
 
         search_term, all_results = f"%{topic}%", []
-        platform_configs = all_configs[platform]
+        platform_configs = [
+            {"table": table, **SEARCH_TABLE_CONFIGS[table]}
+            for table in PLATFORM_SEARCH_TABLES[platform]
+        ]
 
-        time_clause, time_params_tuple = "", ()
-        if start_date and end_date:
-            try:
-                start_dt, end_dt = datetime.strptime(start_date, '%Y-%m-%d'), datetime.strptime(end_date, '%Y-%m-%d') + timedelta(days=1)
-            except ValueError:
-                return DBResponse("search_topic_on_platform", params_for_log, error_message="日期格式错误，请使用 'YYYY-MM-DD' 格式。")
-        else:
-            start_dt, end_dt = None, None
+        start_dt, end_dt, date_error = _parse_date_window(
+            start_date,
+            end_date,
+            allow_unbounded=True,
+        )
+        if date_error:
+            return DBResponse("search_topic_on_platform", params_for_log, error_message=date_error)
 
         for config in platform_configs:
             table = config['table']
-            topic_clause = " OR ".join([f"`{field}` LIKE %s" for field in config['fields']])
-            query = f"SELECT * FROM `{table}` WHERE {topic_clause}"
-            params = [search_term] * len(config['fields'])
+            topic_params = {
+                f"term_{index}": search_term
+                for index, _field in enumerate(config['fields'])
+            }
+            topic_clause = " OR ".join(
+                f"{self._wrap_query_field_with_dialect(field)} LIKE :term_{index}"
+                for index, field in enumerate(config['fields'])
+            )
+            query = (
+                f"SELECT * FROM {self._wrap_query_field_with_dialect(table)} "
+                f"WHERE ({topic_clause})"
+            )
+            params = dict(topic_params)
 
-            if start_dt and end_dt and 'time_col' in config:
-                time_col, time_type = config['time_col'], config['time_type']
-                if time_type == 'sec': t_params = (int(start_dt.timestamp()), int(end_dt.timestamp()))
-                elif time_type == 'ms': t_params = (int(start_dt.timestamp() * 1000), int(end_dt.timestamp() * 1000))
-                elif time_type in ['str', 'date_str']: t_params = (start_dt.strftime('%Y-%m-%d'), end_dt.strftime('%Y-%m-%d'))
-                else: t_params = (str(int(start_dt.timestamp())), str(int(end_dt.timestamp())))
-                
-                t_clause = f"`{time_col}` >= %s AND `{time_col}` < %s"
-                if table == 'zhihu_content': t_clause = f"CAST(`{time_col}` AS UNSIGNED) >= %s AND CAST(`{time_col}` AS UNSIGNED) < %s"
-                
+            if start_dt and end_dt:
+                t_clause, t_params = self._date_predicate(config, start_dt, end_dt)
                 query += f" AND ({t_clause})"
-                params.extend(t_params)
+                params.update(t_params)
 
-            query += f" ORDER BY id DESC LIMIT %s"
-            params.append(limit)
+            query += f" ORDER BY {self._wrap_query_field_with_dialect('id')} DESC LIMIT :limit"
+            params['limit'] = limit
 
-            raw_results = self._execute_query(query, tuple(params))
+            raw_results = self._execute_query(query, params)
             for row in raw_results:
                 content = (row.get('title') or row.get('content') or row.get('desc') or row.get('content_text', ''))
                 time_key = config.get('time_col') and row.get(config.get('time_col'))
-                all_results.append(QueryResult(platform=platform, content_type=config['type'], title_or_content=content if content else '', author_nickname=row.get('nickname') or row.get('user_nickname'), url=row.get('video_url') or row.get('note_url') or row.get('content_url') or row.get('url') or row.get('aweme_url'), publish_time=self._to_datetime(time_key), engagement=self._extract_engagement(row), source_keyword=row.get('source_keyword'), source_table=table))
+                all_results.append(QueryResult(platform=platform, content_type=config['type'], title_or_content=content if content else '', author_nickname=row.get('nickname') or row.get('user_nickname'), url=row.get('video_url') or row.get('note_url') or row.get('content_url') or row.get('url') or row.get('aweme_url'), publish_time=self._to_datetime(time_key), engagement=self._extract_engagement(row), source_keyword=row.get('source_keyword'), source_table=table, record_id=str(row.get('id') or '')))
         
-        return DBResponse("search_topic_on_platform", params_for_log, results=all_results, results_count=len(all_results))
+        return DBResponse(
+            "search_topic_on_platform",
+            params_for_log,
+            results=all_results,
+            results_count=len(all_results),
+            time_window=(
+                {"start": start_dt.isoformat(), "end": end_dt.isoformat()}
+                if start_dt and end_dt
+                else {"kind": "unbounded"}
+            ),
+            tables=[item["table"] for item in platform_configs],
+            aggregation_method="record_lookup",
+        )
 
 # --- 3. 测试与使用示例 ---
 def print_response_summary(response: DBResponse):

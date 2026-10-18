@@ -8,6 +8,9 @@ from typing import List, Dict, Any, Optional
 import json
 from datetime import datetime
 
+from common.provenance.io import restore_engine_state, serialize_engine_state
+from common.provenance.models import ProvenanceBundle
+
 
 @dataclass
 class Search:
@@ -16,6 +19,9 @@ class Search:
     url: str = ""                      # 搜索结果的链接
     title: str = ""                    # 搜索结果标题
     content: str = ""                  # 搜索返回的内容
+    raw_content: str = ""              # 正文或OCR片段
+    publish_time: str = ""             # 来源发布时间
+    locator: Dict[str, Any] = field(default_factory=dict)
     score: Optional[float] = None      # 相关度评分
     paragraph_title: str = ""          # 段落标题，便于展示归属
     search_tool: str = ""              # 使用的搜索工具
@@ -29,6 +35,9 @@ class Search:
             "url": self.url,
             "title": self.title,
             "content": self.content,
+            "raw_content": self.raw_content,
+            "publish_time": self.publish_time,
+            "locator": self.locator,
             "score": self.score,
             "paragraph_title": self.paragraph_title,
             "search_tool": self.search_tool,
@@ -44,6 +53,9 @@ class Search:
             url=data.get("url", ""),
             title=data.get("title", ""),
             content=data.get("content", ""),
+            raw_content=data.get("raw_content", ""),
+            publish_time=data.get("publish_time", data.get("published_date", "")),
+            locator=data.get("locator", {}) or {},
             score=data.get("score"),
             paragraph_title=data.get("paragraph_title", ""),
             search_tool=data.get("search_tool", ""),
@@ -94,6 +106,9 @@ class Research:
                     url=url,
                     title=title,
                     content=content,
+                    raw_content=result.get("raw_content", ""),
+                    publish_time=result.get("publish_time", result.get("published_date", "")),
+                    locator=result.get("locator", {}) or {},
                     score=result.get("score"),
                     paragraph_title=paragraph_title or result.get("paragraph_title", ""),
                     search_tool=search_tool or result.get("search_tool", ""),
@@ -180,6 +195,7 @@ class State:
     report_title: str = ""                                         # 报告标题
     paragraphs: List[Paragraph] = field(default_factory=list)     # 段落列表
     final_report: str = ""                                         # 最终报告内容
+    provenance_bundle: ProvenanceBundle = field(default_factory=lambda: ProvenanceBundle(agent="media_engine"))
     is_completed: bool = False                                     # 是否完成
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
     updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
@@ -244,15 +260,7 @@ class State:
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典格式"""
-        return {
-            "query": self.query,
-            "report_title": self.report_title,
-            "paragraphs": [p.to_dict() for p in self.paragraphs],
-            "final_report": self.final_report,
-            "is_completed": self.is_completed,
-            "created_at": self.created_at,
-            "updated_at": self.updated_at
-        }
+        return serialize_engine_state(self)
     
     def to_json(self, indent: int = 2) -> str:
         """转换为JSON字符串"""
@@ -261,17 +269,7 @@ class State:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "State":
         """从字典创建State对象"""
-        paragraphs = [Paragraph.from_dict(p_data) for p_data in data.get("paragraphs", [])]
-        
-        return cls(
-            query=data.get("query", ""),
-            report_title=data.get("report_title", ""),
-            paragraphs=paragraphs,
-            final_report=data.get("final_report", ""),
-            is_completed=data.get("is_completed", False),
-            created_at=data.get("created_at", datetime.now().isoformat()),
-            updated_at=data.get("updated_at", datetime.now().isoformat())
-        )
+        return restore_engine_state(cls, Paragraph, data)
     
     @classmethod
     def from_json(cls, json_str: str) -> "State":

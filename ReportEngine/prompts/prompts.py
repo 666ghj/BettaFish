@@ -76,6 +76,15 @@ chapter_generation_input_schema = {
             "type": "array",
             "items": {"type": "object"}
         },
+        "selectedEvidence": {
+            "type": "object",
+            "properties": {
+                "sources": {"type": "array", "items": {"type": "object"}},
+                "evidence": {"type": "array", "items": {"type": "object"}},
+                "claims": {"type": "array", "items": {"type": "object"}}
+            }
+        },
+        "provenancePolicy": {"type": "object"},
         "constraints": {
             "type": "object",
             "properties": {
@@ -88,7 +97,7 @@ chapter_generation_input_schema = {
             }
         }
     },
-    "required": ["section", "globalContext", "reports"]
+    "required": ["section", "globalContext", "reports", "selectedEvidence", "provenancePolicy"]
 }
 
 # HTML报告生成输出Schema - 已简化，不再使用JSON格式
@@ -325,7 +334,7 @@ SYSTEM_PROMPT_CHAPTER_JSON = f"""
    - **特别注意：trend 字段只允许填写趋势评估（"正面利好"/"负面影响"/"中性"/"不确定"/"持续观察"）；任何关于趋势的文字叙述、详细说明、来源或扩展描述必须写入 detail 字段，禁止在 trend 字段中混入描述性文字。**
 8. 如需引用图表/交互组件，统一用widgetType表示（例如chart.js/line、chart.js/doughnut）。
 9. 鼓励结合outline中列出的子标题，生成多层heading与细粒度内容，同时可补充callout、blockquote等。
-10. engineQuote 仅用于呈现单Agent的原话：使用 block.type="engineQuote"，engine 取值 insight/media/query，title 必须固定为对应Agent名字（insight->Insight Agent，media->Media Agent，query->Query Agent，不可自定义），内部 blocks 只允许 paragraph，paragraph.inlines 的 marks 仅可使用 bold/italic（可留空），禁止在 engineQuote 中放表格/图表/引用/公式等；当 reports 或 forumLogs 中有明确的文字段落、结论、数字/时间等可直接引用时，优先分别从 Query/Media/Insight 三个 Agent 摘出关键原文或文字版数据放入 engineQuote，尽量覆盖三类 Agent 而非只用单一来源，严禁臆造内容或把表格/图表改写进 engineQuote。
+10. engineQuote 仅用于呈现能绑定 selectedEvidence.evidence 中 evidence_id 的 Agent 原话：使用 block.type="engineQuote"，engine 取值 insight/media/query，title 必须固定为对应Agent名字（insight->Insight Agent，media->Media Agent，query->Query Agent，不可自定义），内部 blocks 只允许 paragraph；reports 与 forumLogs 只能帮助理解讨论语境，绝不能单独作为证据。
 11. 如果chapterPlan中包含target/min/max或sections细分预算，请尽量贴合，必要时在notes允许的范围内突破，同时在结构上体现详略；
 12. 一级标题需使用中文数字（“一、二、三”），二级标题使用阿拉伯数字（“1.1、1.2”），heading.text中直接写好编号，与outline顺序对应；
 13. 严禁输出外部图片/AI生图链接，仅可使用Chart.js图表、表格、色块、callout等HTML原生组件；如需视觉辅助请改为文字描述或数据表；
@@ -337,6 +346,12 @@ SYSTEM_PROMPT_CHAPTER_JSON = f"""
 19. 所有widget块必须在顶层提供`data`或`dataRef`（可将props中的`data`上移），确保Chart.js能够直接渲染；缺失数据时宁可输出表格或段落，绝不留空。
 20. 任何block都必须声明合法`type`（heading/paragraph/list/...）；若需要普通文本请使用`paragraph`并给出`inlines`，禁止返回`type:null`或未知值。
 21. blockquote内容限制：blockquote块内部的blocks只允许包含paragraph类型的block，严禁在blockquote内嵌套表格（table）、列表（list）、图表（widget）、标题（heading）、代码块（code）、公式（math）、嵌套引用（blockquote）等任何非paragraph块；如果引用内容需要用表格/列表等复杂结构呈现，必须将其移到blockquote外部。
+22. 事实来源只能使用 selectedEvidence.evidence，本章不得引用完整 provenance 池，也不得编造 evidence_id。每个包含事实、数字、排名、涨跌、比例、时间或论据的block必须填写 claims、citation_refs、support_status。
+23. claims 中每项必须包含 claim_id、text、claim_type、text_span、evidence_ids、support_status、scope。claim_type=fact/metric 时至少绑定1个当前 selectedEvidence 中的 evidence_id；否则不要写入正文。
+24. claim_type=inference 至少绑定2条不同证据；只有1条时必须标为 weak 并使用审慎措辞，没有证据时删除。claim_type=prediction/recommendation 必须标为 predicted，并单独放在预测/建议段落，不得与 fact/metric 混在同一block。
+25. citation_refs 是该block全部有效 claim 的 evidence_ids 去重并集。scope 尽量包含 subject、time_range、platform、condition；数据库证据还应保留 table、filters、time_window、sample_size、aggregation_method、row_ids。
+26. forumLogs 中的消息本身不是证据；只有其中显式 referenced_evidence_ids 指向 selectedEvidence 的条目才可帮助定位证据，仍须直接引用对应 evidence_id。旧纯文本论坛日志不得推断引用。
+27. selectedEvidence.evidence 为空时，不得生成具体事实、数字、比例、排名、涨跌、指标或“未检索到证据”之类的占位文案，只保留章节 heading。
 
 <CHAPTER JSON SCHEMA>
 {CHAPTER_JSON_SCHEMA_TEXT}

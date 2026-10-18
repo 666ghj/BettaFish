@@ -6,8 +6,6 @@ Streamlit Web界面
 import os
 import sys
 import streamlit as st
-from datetime import datetime
-import json
 import locale
 from loguru import logger
 
@@ -29,7 +27,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from MediaEngine import DeepSearchAgent, AnspireSearchAgent, Settings
 from config import settings
-from utils.github_issues import error_with_issue_link
+from SingleEngineApp.research_runner import (
+    read_launch_params,
+    report_launch_failure,
+    run_streamlit_research,
+    should_start_research,
+)
 
 
 def main():
@@ -46,16 +49,7 @@ def main():
     st.markdown("使用现代化搜索引擎提供的诸如日历卡、天气卡、股票卡等多模态结构化信息进一步增强能力")
 
     # 检查URL参数
-    try:
-        # 尝试使用新版本的query_params
-        query_params = st.query_params
-        auto_query = query_params.get('query', '')
-        auto_search = query_params.get('auto_search', 'false').lower() == 'true'
-    except AttributeError:
-        # 兼容旧版本
-        query_params = st.experimental_get_query_params()
-        auto_query = query_params.get('query', [''])[0]
-        auto_search = query_params.get('auto_search', ['false'])[0].lower() == 'true'
+    query_params, auto_query, auto_search, run_id = read_launch_params(st)
 
     # ----- 配置被硬编码 -----
     # 强制使用 Gemini
@@ -80,26 +74,26 @@ def main():
     )
 
     # 自动搜索逻辑
-    start_research = False
     query = auto_query
-
-    if auto_search and auto_query and 'auto_search_executed' not in st.session_state:
-        st.session_state.auto_search_executed = True
-        start_research = True
-    elif auto_query and not auto_search:
-        st.warning("等待搜索启动信号...")
+    start_research = should_start_research(st, query, auto_search, run_id)
 
     # 验证配置
     if start_research:
         if not query.strip():
-            st.error("请输入研究查询")
-            logger.error("请输入研究查询")
+            report_launch_failure(
+                st, run_id=run_id, engine="media", query=query, message="请输入研究查询"
+            )
             return
 
         # 由于强制使用Gemini，检查相关的API密钥
         if not settings.MEDIA_ENGINE_API_KEY:
-            st.error("请在您的环境变量中设置MEDIA_ENGINE_API_KEY")
-            logger.error("请在您的环境变量中设置MEDIA_ENGINE_API_KEY")
+            report_launch_failure(
+                st,
+                run_id=run_id,
+                engine="media",
+                query=query,
+                message="请在您的环境变量中设置MEDIA_ENGINE_API_KEY",
+            )
             return
 
         # 自动使用配置文件中的API密钥
@@ -110,8 +104,13 @@ def main():
         # 构建 Settings（pydantic_settings风格，优先大写环境变量）
         if settings.SEARCH_TOOL_TYPE == "BochaAPI":
             if not bocha_key:
-                st.error("请在您的环境变量中设置BOCHA_WEB_SEARCH_API_KEY")
-                logger.error("请在您的环境变量中设置BOCHA_WEB_SEARCH_API_KEY")
+                report_launch_failure(
+                    st,
+                    run_id=run_id,
+                    engine="media",
+                    query=query,
+                    message="请在您的环境变量中设置BOCHA_WEB_SEARCH_API_KEY",
+                )
                 return
             logger.info("使用Bocha搜索API密钥")
             config = Settings(
@@ -126,8 +125,13 @@ def main():
             )
         elif settings.SEARCH_TOOL_TYPE == "AnspireAPI":
             if not ansire_key:
-                st.error("请在您的环境变量中设置ANSPIRE_API_KEY")
-                logger.error("请在您的环境变量中设置ANSPIRE_API_KEY")
+                report_launch_failure(
+                    st,
+                    run_id=run_id,
+                    engine="media",
+                    query=query,
+                    message="请在您的环境变量中设置ANSPIRE_API_KEY",
+                )
                 return
             logger.info("使用Anspire搜索API密钥")
             config = Settings(
@@ -141,82 +145,38 @@ def main():
                 OUTPUT_DIR="media_engine_streamlit_reports",
             )
         else:
-            st.error(f"未知的搜索工具类型: {settings.SEARCH_TOOL_TYPE}")
-            logger.error(f"未知的搜索工具类型: {settings.SEARCH_TOOL_TYPE}")
+            report_launch_failure(
+                st,
+                run_id=run_id,
+                engine="media",
+                query=query,
+                message=f"未知的搜索工具类型: {settings.SEARCH_TOOL_TYPE}",
+            )
             return
 
         # 执行研究
-        execute_research(query, config)
+        execute_research(query, config, run_id)
 
 
-def execute_research(query: str, config: Settings):
+def execute_research(query: str, config: Settings, run_id: str = ''):
     """执行研究"""
-    try:
-        # 创建进度条
-        progress_bar = st.progress(0)
-        status_text = st.empty()
+    def build_agent(media_config):
+        if media_config.SEARCH_TOOL_TYPE == "BochaAPI":
+            return DeepSearchAgent(media_config)
+        if media_config.SEARCH_TOOL_TYPE == "AnspireAPI":
+            return AnspireSearchAgent(media_config)
+        raise ValueError(f"未知的搜索工具类型: {media_config.SEARCH_TOOL_TYPE}")
 
-        # 初始化Agent
-        status_text.text("正在初始化Agent...")
-        if config.SEARCH_TOOL_TYPE == "BochaAPI":
-            agent = DeepSearchAgent(config)
-        elif config.SEARCH_TOOL_TYPE == "AnspireAPI":
-            agent = AnspireSearchAgent(config)
-        else:
-            raise ValueError(f"未知的搜索工具类型: {config.SEARCH_TOOL_TYPE}")
-        st.session_state.agent = agent
-
-        progress_bar.progress(10)
-
-        # 生成报告结构
-        status_text.text("正在生成报告结构...")
-        agent._generate_report_structure(query)
-        progress_bar.progress(20)
-
-        # 处理段落
-        total_paragraphs = len(agent.state.paragraphs)
-        for i in range(total_paragraphs):
-            status_text.text(f"正在处理段落 {i + 1}/{total_paragraphs}: {agent.state.paragraphs[i].title}")
-
-            # 初始搜索和总结
-            agent._initial_search_and_summary(i)
-            progress_value = 20 + (i + 0.5) / total_paragraphs * 60
-            progress_bar.progress(int(progress_value))
-
-            # 反思循环
-            agent._reflection_loop(i)
-            agent.state.paragraphs[i].research.mark_completed()
-
-            progress_value = 20 + (i + 1) / total_paragraphs * 60
-            progress_bar.progress(int(progress_value))
-
-        # 生成最终报告
-        status_text.text("正在生成最终报告...")
-        logger.info("正在生成最终报告...")
-        final_report = agent._generate_final_report()
-        progress_bar.progress(90)
-
-        # 保存报告
-        status_text.text("正在保存报告...")
-        logger.info("正在保存报告...")
-        agent._save_report(final_report)
-        progress_bar.progress(100)
-
-        status_text.text("研究完成！")
-        logger.info("研究完成！")
-        # 显示结果
-        display_results(agent, final_report)
-
-    except Exception as e:
-        import traceback
-        error_traceback = traceback.format_exc()
-        error_display = error_with_issue_link(
-            f"研究过程中发生错误: {str(e)}",
-            error_traceback,
-            app_name="Media Engine Streamlit App"
-        )
-        st.error(error_display)
-        logger.exception(f"研究过程中发生错误: {str(e)}")
+    return run_streamlit_research(
+        st_module=st,
+        query=query,
+        config=config,
+        run_id=run_id,
+        engine="media",
+        agent_factory=build_agent,
+        display_results=display_results,
+        app_name="Media Engine Streamlit App",
+    )
 
 
 def display_results(agent: DeepSearchAgent, final_report: str):

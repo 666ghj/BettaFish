@@ -18,6 +18,13 @@ class ResponseStatusError(Exception):
         self.response = type("Response", (), {"status_code": status_code})()
 
 
+class APIStatusError(HTTPStatusError):
+    def __init__(self, status_code, *, code=None, body=None):
+        super().__init__(status_code)
+        self.code = code
+        self.body = body
+
+
 @pytest.mark.parametrize("status_code", [400, 401, 403, 404, 422])
 def test_permanent_http_errors_fail_without_retry(status_code):
     calls = 0
@@ -74,6 +81,31 @@ def test_retryable_client_errors_are_retried(status_code):
 
     assert calls == 2
     sleep.assert_called_once_with(1)
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        APIStatusError(429, code="insufficient_quota"),
+        APIStatusError(429, body={"error": {"type": "insufficient_quota"}}),
+    ],
+)
+def test_insufficient_quota_fails_without_retry(error):
+    calls = 0
+    config = RetryConfig(max_retries=3, initial_delay=1)
+
+    @with_retry(config)
+    def request():
+        nonlocal calls
+        calls += 1
+        raise error
+
+    with patch("utils.retry_helper.time.sleep") as sleep:
+        with pytest.raises(APIStatusError):
+            request()
+
+    assert calls == 1
+    sleep.assert_not_called()
 
 
 def test_status_code_is_read_from_exception_response():

@@ -29,6 +29,7 @@ from ReportEngine.utils.chart_validator import (
     create_chart_repairer
 )
 from ReportEngine.utils.chart_repair_api import create_llm_repair_functions
+from common.provenance.validators import gate_chart_revision
 
 
 @dataclass
@@ -329,11 +330,15 @@ class ChartReviewService:
         # 验证失败，尝试修复
         logger.warning(f"图表 {widget_id} 验证失败: {validation_result.errors}")
 
-        repair_result = self.repairer.repair(block, validation_result)
+        original = copy.deepcopy(block)
+        repair_result = self.repairer.repair(copy.deepcopy(original), validation_result)
 
-        if repair_result.success and repair_result.repaired_block:
+        repaired_block = (
+            gate_chart_revision(original, repair_result.repaired_block)
+            if repair_result.success and repair_result.repaired_block else None
+        )
+        if repaired_block is not None:
             # 修复成功，覆盖原始 block 数据
-            repaired_block = repair_result.repaired_block
             # 保留原始的一些元信息
             original_widget_id = block.get("widgetId")
             block.clear()
@@ -391,6 +396,8 @@ class ChartReviewService:
         if not (isinstance(widget_type, str) and widget_type.startswith("chart.js")):
             return
 
+        original = copy.deepcopy(block)
+
         # 确保 props 存在
         props = block.get("props")
         if not isinstance(props, dict):
@@ -441,6 +448,10 @@ class ChartReviewService:
 
                     if labels_from_data:
                         data_ref["labels"] = labels_from_data
+
+        if gate_chart_revision(original, block) is None:
+            block.clear()
+            block.update(original)
 
     @staticmethod
     def _is_chart_data_empty(data: Dict[str, Any] | None) -> bool:

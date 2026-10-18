@@ -8,6 +8,9 @@ from typing import Dict, Any, Optional
 import json
 from datetime import datetime
 
+from common.provenance.io import atomic_write_text
+from common.provenance.models import ProvenanceBundle
+
 
 @dataclass
 class ReportMetadata:
@@ -44,6 +47,7 @@ class ReportState:
     media_engine_report: str = ""        # MediaEngine报告  
     insight_engine_report: str = ""      # InsightEngine报告
     forum_logs: str = ""                 # 论坛日志
+    provenance_bundle: ProvenanceBundle = field(default_factory=lambda: ProvenanceBundle(agent="report_engine"))
     
     # 处理结果
     selected_template: str = ""          # 选择的模板
@@ -100,20 +104,19 @@ class ReportState:
             "selected_template": self.selected_template,
             "has_html_content": bool(self.html_content),
             "html_content_length": len(self.html_content) if self.html_content else 0,
+            "provenance_bundle": self.provenance_bundle.to_dict(),
             "metadata": self.metadata.to_dict()
         }
     
     def save_to_file(self, file_path: str):
         """保存状态到文件，排除HTML正文以控制体积。"""
-        try:
-            state_data = self.to_dict()
-            # 不保存完整的HTML内容到状态文件（太大）
-            state_data.pop("html_content", None)
-            
-            with open(file_path, 'w', encoding='utf-8') as f:
-                json.dump(state_data, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            print(f"保存状态文件失败: {str(e)}")
+        state_data = self.to_dict()
+        # 不保存完整的HTML内容到状态文件（太大）
+        state_data.pop("html_content", None)
+        atomic_write_text(
+            file_path,
+            json.dumps(state_data, ensure_ascii=False, indent=2),
+        )
     
     @classmethod
     def load_from_file(cls, file_path: str) -> Optional["ReportState"]:
@@ -129,6 +132,7 @@ class ReportState:
                 status=data.get("status", "pending"),
                 selected_template=data.get("selected_template", "")
             )
+            state.provenance_bundle = ProvenanceBundle.from_dict(data.get("provenance_bundle"))
             
             # 设置元数据
             metadata_data = data.get("metadata", {})

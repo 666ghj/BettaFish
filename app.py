@@ -4,6 +4,13 @@ Flask主应用 - 统一管理三个Streamlit应用
 
 import os
 import sys
+import json
+import secrets
+import hmac
+from common.provenance.runtime import (
+    RuntimeCapacityError,
+    runtime_store,
+)
 
 # 【修复】尽早设置环境变量，确保所有模块都使用无缓冲模式
 os.environ['PYTHONIOENCODING'] = 'utf-8'
@@ -33,6 +40,7 @@ except ImportError as e:
     REPORT_ENGINE_AVAILABLE = False
 
 app = Flask(__name__)
+PROVENANCE_TOKEN = secrets.token_urlsafe(32)
 app.config['SECRET_KEY'] = 'Dedicated-to-creating-a-concise-and-versatile-public-opinion-analysis-platform'
 socketio = SocketIO(app, cors_allowed_origins="*")
 
@@ -386,17 +394,13 @@ def stop_forum_engine():
 
 def parse_forum_log_line(line):
     """解析forum.log行内容，提取对话信息"""
-    import re
-    
-    # 匹配格式: [时间] [来源] 内容（来源允许大小写及空格）
-    pattern = r'\[(\d{2}:\d{2}:\d{2})\]\s*\[([^\]]+)\]\s*(.*)'
-    match = re.match(pattern, line)
-    
-    if not match:
-        return None
+    from ForumEngine.monitor import ForumMessage
 
-    timestamp, raw_source, content = match.groups()
-    source = raw_source.strip().upper()
+    message = ForumMessage.from_log_line(line)
+    if message is None:
+        return None
+    source = message.source
+    content = message.content
 
     # 过滤掉系统消息和空内容
     if source == 'SYSTEM' or not content.strip():
@@ -405,9 +409,6 @@ def parse_forum_log_line(line):
     # 支持三个Agent和主持人
     if source not in ['QUERY', 'INSIGHT', 'MEDIA', 'HOST']:
         return None
-    
-    # 解码日志中的转义换行，保留多行格式
-    cleaned_content = content.replace('\\n', '\n').replace('\\r', '').strip()
     
     # 根据来源确定消息类型和发送者
     if source == 'HOST':
@@ -420,14 +421,14 @@ def parse_forum_log_line(line):
     return {
         'type': message_type,
         'sender': sender,
-        'content': cleaned_content,
-        'timestamp': timestamp,
-        'source': source
+        'content': content,
+        'timestamp': message.timestamp,
+        'source': source,
+        'referenced_evidence_ids': message.referenced_evidence_ids,
     }
 
 # Forum日志监听器
 # 存储每个客户端的历史日志发送位置
-forum_log_positions = {}
 
 def monitor_forum_log():
     """监听forum.log文件变化并推送到前端"""
@@ -495,11 +496,41 @@ def monitor_forum_log():
 forum_monitor_thread = threading.Thread(target=monitor_forum_log, daemon=True)
 forum_monitor_thread.start()
 
+STREAMLIT_PORT_CONFIG = {
+    'insight': ('INSIGHT_ENGINE_PORT', 8501),
+    'media': ('MEDIA_ENGINE_PORT', 8502),
+    'query': ('QUERY_ENGINE_PORT', 8503),
+}
+
+
+def _load_streamlit_ports():
+    """从配置读取子应用端口，并在启动前拒绝无效或重复端口。"""
+    config_module = _load_config_module()
+    configured_settings = getattr(config_module, 'settings', None)
+    ports = {}
+
+    for app_name, (field_name, default_port) in STREAMLIT_PORT_CONFIG.items():
+        raw_port = getattr(configured_settings, field_name, default_port)
+        try:
+            port = int(raw_port)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f'{field_name} 必须是整数端口') from exc
+        if not 1 <= port <= 65535:
+            raise ValueError(f'{field_name} 必须在 1 到 65535 之间')
+        ports[app_name] = port
+
+    if len(set(ports.values())) != len(ports):
+        raise ValueError('Insight、Media、Query 的 Streamlit 端口不能重复')
+    return ports
+
+
+STREAMLIT_PORTS = _load_streamlit_ports()
+
 # 全局变量存储进程信息
 processes = {
-    'insight': {'process': None, 'port': 8501, 'status': 'stopped', 'output': [], 'log_file': None, 'healthcheck_started_at': None},
-    'media': {'process': None, 'port': 8502, 'status': 'stopped', 'output': [], 'log_file': None, 'healthcheck_started_at': None},
-    'query': {'process': None, 'port': 8503, 'status': 'stopped', 'output': [], 'log_file': None, 'healthcheck_started_at': None},
+    'insight': {'process': None, 'port': STREAMLIT_PORTS['insight'], 'status': 'stopped', 'output': [], 'log_file': None, 'healthcheck_started_at': None},
+    'media': {'process': None, 'port': STREAMLIT_PORTS['media'], 'status': 'stopped', 'output': [], 'log_file': None, 'healthcheck_started_at': None},
+    'query': {'process': None, 'port': STREAMLIT_PORTS['query'], 'status': 'stopped', 'output': [], 'log_file': None, 'healthcheck_started_at': None},
     'forum': {'process': None, 'port': None, 'status': 'stopped', 'output': [], 'log_file': None}  # 启动后标记为 running
 }
 
@@ -664,6 +695,8 @@ def start_streamlit_app(app_name, script_path, port):
         # 设置环境变量确保UTF-8编码和减少缓冲
         env = os.environ.copy()
         env.update({
+            'BETTAFISH_PROVENANCE_ENDPOINT': f"http://127.0.0.1:{_load_config_module().settings.PORT}/api/provenance/result",
+            'BETTAFISH_PROVENANCE_TOKEN': PROVENANCE_TOKEN,
             'PYTHONIOENCODING': 'utf-8',
             'PYTHONUTF8': '1',
             'LANG': 'en_US.UTF-8',
@@ -929,7 +962,10 @@ atexit.register(cleanup_processes)
 @app.route('/')
 def index():
     """主页"""
-    return render_template('index.html')
+    return render_template(
+        'index.html',
+        app_ports={name: processes[name]['port'] for name in STREAMLIT_SCRIPTS},
+    )
 
 @app.route('/api/status')
 def get_status():
@@ -1149,6 +1185,39 @@ def get_forum_log_history():
     except Exception as e:
         return jsonify({'success': False, 'message': f'读取forum历史失败: {str(e)}'})
 
+@app.route('/api/provenance/runs', methods=['POST'])
+def begin_provenance_run():
+    data = request.get_json(silent=True) or {}
+    try:
+        run_id = runtime_store.begin(
+            str(data.get('query', '')),
+            data.get('engines'),
+        )
+        return jsonify({'success': True, 'run_id': run_id})
+    except RuntimeCapacityError as exc:
+        return jsonify({'success': False, 'error': str(exc)}), 429
+    except (ValueError, TypeError, AttributeError) as exc:
+        return jsonify({'success': False, 'error': str(exc)}), 400
+
+
+@app.route('/api/provenance/result', methods=['POST'])
+def receive_provenance_result():
+    token = request.headers.get('X-Provenance-Token', '')
+    if request.remote_addr not in {'127.0.0.1', '::1'} or not hmac.compare_digest(token, PROVENANCE_TOKEN):
+        return jsonify({'success': False, 'error': 'unauthorized'}), 403
+    data = request.get_json(silent=True) or {}
+    try:
+        if data.get('status') == 'failed':
+            runtime_store.fail(
+                data['run_id'], data['engine'], data['query'], data.get('error', '')
+            )
+        else:
+            runtime_store.publish(data['run_id'], data['engine'], data['query'], data.get('report', ''), data.get('bundle'))
+        return jsonify({'success': True})
+    except (KeyError, ValueError, TypeError, AttributeError) as exc:
+        return jsonify({'success': False, 'error': str(exc)}), 400
+
+
 @app.route('/api/search', methods=['POST'])
 def search():
     """统一搜索接口"""
@@ -1170,13 +1239,12 @@ def search():
     
     # 向运行中的应用发送搜索请求
     results = {}
-    api_ports = {'insight': 8501, 'media': 8502, 'query': 8503}
-
     for app_name in running_apps:
-        if app_name not in api_ports:
+        app_info = processes.get(app_name, {})
+        api_port = app_info.get('port')
+        if app_name not in STREAMLIT_SCRIPTS or not api_port:
             continue
         try:
-            api_port = api_ports[app_name]
             # 调用Streamlit应用的API端点
             response = requests.post(
                 f"http://localhost:{api_port}/api/search",
