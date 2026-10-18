@@ -30,6 +30,7 @@ from typing import Dict, Any, Optional
 
 from loguru import logger
 
+from common.provenance.identity import validate_engine_bundles
 from common.provenance.io import load_sidecar
 from common.provenance.models import ProvenanceBundle
 from common.provenance.normalizer import merge_bundles
@@ -203,17 +204,39 @@ def load_engine_reports(latest_files: Dict[str, str]) -> list[str]:
     return reports
 
 
-def load_provenance_bundle(latest_files: Dict[str, str]) -> ProvenanceBundle:
-    """Load audit sidecars only for CLI/replay compatibility."""
-    bundles = []
+def load_provenance_bundle(
+    latest_files: Dict[str, str],
+    *,
+    expected_query: Optional[str] = None,
+) -> ProvenanceBundle:
+    """Load one query-consistent set of audit sidecars for CLI replay.
+
+    A filename is not a reliable query identity.  Every selected report must
+    therefore have a sidecar with ``meta.query`` and all sidecars must agree
+    before their evidence is merged.
+    """
+    bundles: Dict[str, ProvenanceBundle] = {}
     for engine in ('query', 'media', 'insight'):
         file_path = latest_files.get(engine)
         if not file_path:
             continue
         bundle = load_sidecar(file_path)
-        if bundle.evidence:
-            bundles.append(bundle)
-    return merge_bundles(bundles)
+        bundles[engine] = bundle
+
+    identity = validate_engine_bundles(
+        bundles,
+        expected_query=expected_query or "",
+        require_query=True,
+        require_consistent_run=True,
+    )
+    merged = merge_bundles(bundles.values())
+    if identity["query"]:
+        merged.meta["query"] = identity["query"]
+        merged.meta["queries"] = [identity["query"]]
+    if identity["run_id"]:
+        merged.meta["run_id"] = identity["run_id"]
+        merged.meta["run_ids"] = [identity["run_id"]]
+    return merged
 
 
 def extract_query_from_reports(latest_files: Dict[str, str]) -> str:
@@ -515,14 +538,21 @@ def main():
 
     # 加载报告内容
     reports = load_engine_reports(latest_files)
-    provenance_bundle = load_provenance_bundle(latest_files)
+    provenance_bundle = load_provenance_bundle(
+        latest_files,
+        expected_query=args.query,
+    )
 
     if not reports:
         logger.error("❌ 未能加载任何报告内容")
         sys.exit(1)
 
     # 提取或使用指定的查询主题
-    query = args.query if args.query else extract_query_from_reports(latest_files)
+    query = (
+        str(args.query or "").strip()
+        or str(provenance_bundle.meta.get("query") or "").strip()
+        or extract_query_from_reports(latest_files)
+    )
     logger.info(f"使用报告主题: {query}")
 
     # 步骤 3: 生成报告

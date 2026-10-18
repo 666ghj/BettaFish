@@ -8,6 +8,7 @@ from typing import List, Dict, Any, Optional
 import json
 from datetime import datetime
 
+from common.provenance.io import restore_engine_state, serialize_engine_state
 from common.provenance.models import ProvenanceBundle
 
 
@@ -241,16 +242,7 @@ class State:
     
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典格式"""
-        return {
-            "query": self.query,
-            "report_title": self.report_title,
-            "paragraphs": [p.to_dict() for p in self.paragraphs],
-            "final_report": self.final_report,
-            "provenance_bundle": self.provenance_bundle.to_dict(),
-            "is_completed": self.is_completed,
-            "created_at": self.created_at,
-            "updated_at": self.updated_at
-        }
+        return serialize_engine_state(self)
     
     def to_json(self, indent: int = 2) -> str:
         """转换为JSON字符串"""
@@ -259,18 +251,7 @@ class State:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "State":
         """从字典创建State对象"""
-        paragraphs = [Paragraph.from_dict(p_data) for p_data in data.get("paragraphs", [])]
-        
-        return cls(
-            query=data.get("query", ""),
-            report_title=data.get("report_title", ""),
-            paragraphs=paragraphs,
-            final_report=data.get("final_report", ""),
-            provenance_bundle=ProvenanceBundle.from_dict(data.get("provenance_bundle")),
-            is_completed=data.get("is_completed", False),
-            created_at=data.get("created_at", datetime.now().isoformat()),
-            updated_at=data.get("updated_at", datetime.now().isoformat())
-        )
+        return restore_engine_state(cls, Paragraph, data)
     
     @classmethod
     def from_json(cls, json_str: str) -> "State":

@@ -456,6 +456,7 @@ class HTMLRenderer:
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>{self._escape_html(title)}</title>
+  <link rel="icon" href="data:," />
   {chartjs_tag}
   {sankey_tag}
   {wordcloud_tag}
@@ -465,11 +466,11 @@ class HTMLRenderer:
     window.MathJax = {{
       tex: {{
         inlineMath: [['$', '$'], ['\\\\(', '\\\\)']],
-        displayMath: [['$$','$$'], ['\\\\[','\\\\]']]
+        displayMath: [['$$','$$'], ['\\\\[','\\\\]']],
+        processEscapes: true
       }},
       options: {{
-        skipHtmlTags: ['script','noscript','style','textarea','pre','code'],
-        processEscapes: true
+        skipHtmlTags: ['script','noscript','style','textarea','pre','code']
       }}
     }};
   </script>
@@ -1141,6 +1142,7 @@ class HTMLRenderer:
         handler = handlers.get(block_type)
         if handler:
             html_fragment = handler(block)
+            html_fragment = self._append_block_provenance(html_fragment, block)
             return self._wrap_error_block(html_fragment, block)
         # 兼容旧格式：缺少type但包含inlines时按paragraph处理
         if isinstance(block, dict) and block.get("inlines"):
@@ -1154,7 +1156,22 @@ class HTMLRenderer:
             html_fragment = self._render_blocks(block["blocks"])
             return self._wrap_error_block(html_fragment, block)
         fallback = f'<pre class="unknown-block">{self._escape_html(json.dumps(block, ensure_ascii=False, indent=2))}</pre>'
+        fallback = self._append_block_provenance(fallback, block)
         return self._wrap_error_block(fallback, block)
+
+    def _append_block_provenance(self, html_fragment: str, block: Dict[str, Any]) -> str:
+        """Show parent-level claim labels and citations for non-paragraph blocks."""
+        if not html_fragment or block.get("type") == "paragraph":
+            return html_fragment
+        label = self._render_claim_type_label(block)
+        citations = self._render_citations(block)
+        if not label and not citations:
+            return html_fragment
+        status = self._escape_attr(str(block.get("support_status") or "supported"))
+        return (
+            f'{html_fragment}<div class="block-provenance support-{status}">'
+            f'{label}{citations}</div>'
+        )
 
     def _wrap_error_block(self, html_fragment: str, block: Dict[str, Any]) -> str:
         """若block标记了error元数据，则包裹提示容器并注入tooltip。"""
@@ -1249,9 +1266,8 @@ class HTMLRenderer:
         return ""
 
     def _render_citations(self, block: Dict[str, Any]) -> str:
-        evidence_ids = self.citation_service.evidence_ids_for_block(block)
         fragments = []
-        for detail in self.citation_service.details_for_ids(evidence_ids):
+        for detail in self.citation_service.details_for_block(block):
             evidence_id = self._escape_attr(detail["evidence_id"])
             title = self._escape_html(detail.get("title") or "未命名来源")
             platform = self._escape_html(detail.get("platform") or "未知平台")
@@ -1259,17 +1275,31 @@ class HTMLRenderer:
             snippet = self._escape_html(detail.get("snippet") or "无证据片段")
             reason = self._escape_html(detail.get("selection_reason") or "与本段主张直接关联")
             raw_url = str(detail.get("url") or "")
-            safe_url = raw_url if re.match(r"^https?://", raw_url, re.IGNORECASE) else f"#citation-{evidence_id}"
-            href = self._escape_attr(safe_url)
             number = int(detail["number"])
+            if re.match(r"^https?://", raw_url, re.IGNORECASE):
+                reference = (
+                    f'<a href="{self._escape_attr(raw_url)}" target="_blank" '
+                    f'rel="noopener noreferrer" aria-label="查看来源 {number}">[{number}]</a>'
+                )
+                lineage = ""
+            else:
+                reference = (
+                    f'<span class="citation-internal" tabindex="0" '
+                    f'aria-label="查看内部来源 {number}">[{number}]</span>'
+                )
+                lineage_text = self.citation_service.internal_lineage_text(detail)
+                lineage = (
+                    f'<span class="citation-lineage">内部数据定位：'
+                    f'{self._escape_html(lineage_text)}</span>'
+                )
             fragments.append(
-                f'<sup class="citation-ref" id="citation-{evidence_id}" data-evidence-id="{evidence_id}">'
-                f'<a href="{href}" target="_blank" rel="noopener noreferrer" '
-                f'aria-label="查看来源 {number}">[{number}]</a>'
+                f'<sup class="citation-ref" data-evidence-id="{evidence_id}">'
+                f'{reference}'
                 f'<span class="citation-tooltip" role="tooltip">'
                 f'<strong>{title}</strong><span>{platform} · {publish_time}</span>'
                 f'<span class="citation-snippet">{snippet}</span>'
                 f'<span class="citation-reason">引用理由：{reason}</span>'
+                f'{lineage}'
                 f'</span></sup>'
             )
         return "".join(fragments)
@@ -1278,9 +1308,10 @@ class HTMLRenderer:
     def _citation_css() -> str:
         return """
 .report-paragraph { position: relative; }
+.block-provenance { clear: both; margin: .35rem 0 .85rem; color: var(--text-secondary, #5d6d7e); font-size: .86rem; }
 .citation-ref { position: relative; display: inline-block; margin-left: .18rem; font-size: .72em; line-height: 1; }
-.citation-ref > a { color: var(--primary, #0b6b57); font-weight: 700; text-decoration: none; }
-.citation-ref > a:hover, .citation-ref > a:focus { text-decoration: underline; }
+.citation-ref > a, .citation-ref > .citation-internal { color: var(--primary, #0b6b57); font-weight: 700; text-decoration: none; cursor: pointer; }
+.citation-ref > a:hover, .citation-ref > a:focus, .citation-ref > .citation-internal:hover, .citation-ref > .citation-internal:focus { text-decoration: underline; }
 .citation-tooltip { position: absolute; z-index: 30; left: 50%; bottom: calc(100% + .55rem); width: min(22rem, 78vw); transform: translateX(-50%) translateY(.25rem); padding: .8rem .9rem; border: 1px solid rgba(20, 55, 48, .18); border-radius: .65rem; background: #fffdf7; color: #18352f; box-shadow: 0 12px 34px rgba(14, 42, 36, .18); font-size: .78rem; font-weight: 400; line-height: 1.45; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .16s ease, transform .16s ease; }
 .citation-tooltip > span { display: block; margin-top: .3rem; }
 .citation-tooltip .citation-snippet { max-height: 7.5rem; overflow: auto; }

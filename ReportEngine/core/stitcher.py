@@ -73,18 +73,38 @@ class DocumentComposer:
         if isinstance(provenance_bundle, list):
             merged_bundle = merge_bundles(provenance_bundle)
         elif isinstance(provenance_bundle, ProvenanceBundle):
-            merged_bundle = merge_bundles([provenance_bundle])
+            merged_bundle = copy.deepcopy(provenance_bundle)
         elif isinstance(provenance_bundle, Mapping):
-            merged_bundle = merge_bundles([provenance_bundle])
+            merged_bundle = ProvenanceBundle.from_dict(copy.deepcopy(provenance_bundle))
         else:
             merged_bundle = ProvenanceBundle(agent="report_engine")
 
         merged_bundle = filter_valid_evidence(merged_bundle)
         if provenance_bundle is not None:
+            # This overview is built by the server from TemplateSection values,
+            # before chapter generation.  Model-written headings have no such
+            # authority and must pass the normal claim gate.
+            template_sections = {
+                str(section.get("chapterId")): section
+                for section in (metadata.get("templateOverview") or {}).get("chapters", [])
+                if isinstance(section, Mapping) and section.get("chapterId")
+            }
             for chapter in ordered:
-                chapter["blocks"] = sanitize_blocks(chapter.get("blocks", []), merged_bundle)
+                # Provenance is rendered and indexed at block level.  Model
+                # output occasionally puts the same fields on the chapter
+                # root, where they are neither rendered nor collected into
+                # claimIndex; retaining them would create dangling claims.
+                for field in ("claims", "citation_refs", "support_status"):
+                    chapter.pop(field, None)
+                section = template_sections.get(str(chapter.get("chapterId")), {})
+                trusted_headings = (section.get("title", ""), *(section.get("outline") or []))
+                chapter["blocks"] = sanitize_blocks(
+                    chapter.get("blocks", []), merged_bundle,
+                    trusted_headings=trusted_headings,
+                )
                 if not chapter["blocks"]:
                     self._ensure_heading_block(chapter)
+        self._normalize_duplicate_claim_ids(ordered)
         chapter_claims: List[ClaimRecord] = []
         for chapter in ordered:
             self._collect_nested_claims(chapter.get("blocks", []), chapter_claims)
@@ -113,6 +133,45 @@ class DocumentComposer:
             "provenanceEnforced": provenance_bundle is not None,
         }
         return document
+
+    def _normalize_duplicate_claim_ids(self, chapters: List[Dict[str, object]]) -> None:
+        """Namespace repeated model-generated IDs and mutate the owning blocks."""
+        seen: Set[str] = set()
+
+        def visit(blocks: Any, chapter_id: str) -> None:
+            if not isinstance(blocks, list):
+                return
+            for block in blocks:
+                if not isinstance(block, dict):
+                    continue
+                for claim in block.get("claims", []) or []:
+                    if not isinstance(claim, dict):
+                        continue
+                    claim_id = str(claim.get("claim_id") or "")
+                    if not claim_id:
+                        continue
+                    candidate = claim_id
+                    if candidate in seen:
+                        base = f"{chapter_id}--{claim_id}"
+                        candidate = base
+                        suffix = 2
+                        while candidate in seen:
+                            candidate = f"{base}-{suffix}"
+                            suffix += 1
+                        claim["claim_id"] = candidate
+                    seen.add(candidate)
+                visit(block.get("blocks"), chapter_id)
+                for item in block.get("items", []) or []:
+                    visit(item, chapter_id)
+                for row in block.get("rows", []) or []:
+                    if not isinstance(row, dict):
+                        continue
+                    for cell in row.get("cells", []) or []:
+                        if isinstance(cell, dict):
+                            visit(cell.get("blocks"), chapter_id)
+
+        for chapter in chapters:
+            visit(chapter.get("blocks"), str(chapter.get("chapterId") or "chapter"))
 
 
     def _collect_nested_claims(self, blocks: Any, claims: List[ClaimRecord]) -> None:

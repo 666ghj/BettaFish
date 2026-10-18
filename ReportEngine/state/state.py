@@ -8,6 +8,7 @@ from typing import Dict, Any, Optional
 import json
 from datetime import datetime
 
+from common.provenance.io import atomic_write_text
 from common.provenance.models import ProvenanceBundle
 
 
@@ -109,15 +110,13 @@ class ReportState:
     
     def save_to_file(self, file_path: str):
         """保存状态到文件，排除HTML正文以控制体积。"""
-        try:
-            state_data = self.to_dict()
-            # 不保存完整的HTML内容到状态文件（太大）
-            state_data.pop("html_content", None)
-            
-            with open(file_path, 'w', encoding='utf-8') as f:
-                json.dump(state_data, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            print(f"保存状态文件失败: {str(e)}")
+        state_data = self.to_dict()
+        # 不保存完整的HTML内容到状态文件（太大）
+        state_data.pop("html_content", None)
+        atomic_write_text(
+            file_path,
+            json.dumps(state_data, ensure_ascii=False, indent=2),
+        )
     
     @classmethod
     def load_from_file(cls, file_path: str) -> Optional["ReportState"]:

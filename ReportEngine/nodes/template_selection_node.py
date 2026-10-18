@@ -7,8 +7,10 @@
 
 import os
 import json
+from concurrent.futures import CancelledError
 from typing import Dict, Any, List, Optional
 from loguru import logger
+from common.cancellation import check_cancelled
 
 from .base_node import BaseNode
 from ..prompts import SYSTEM_PROMPT_TEMPLATE_SELECTION
@@ -54,6 +56,7 @@ class TemplateSelectionNode(BaseNode):
             选择的模板信息，包含名称、内容与选择理由
         """
         logger.info("开始模板选择...")
+        check_cancelled()
         
         query = input_data.get('query', '')
         reports = input_data.get('reports', [])
@@ -69,12 +72,17 @@ class TemplateSelectionNode(BaseNode):
         # 使用LLM进行模板选择
         try:
             llm_result = self._llm_template_selection(query, reports, forum_logs, available_templates)
+            check_cancelled()
             if llm_result:
                 return llm_result
+        except CancelledError:
+            raise
         except Exception as e:
+            check_cancelled()
             logger.exception(f"LLM模板选择失败: {str(e)}")
         
         # 如果LLM选择失败，使用备选方案
+        check_cancelled()
         return self._get_fallback_template()
     
 

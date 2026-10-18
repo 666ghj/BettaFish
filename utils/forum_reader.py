@@ -4,9 +4,27 @@ Forum日志读取工具
 """
 
 import re
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Optional, List, Dict
 from loguru import logger
+
+
+_GLOBAL_FORUM_READS_SUPPRESSED: ContextVar[bool] = ContextVar(
+    "bettafish_global_forum_reads_suppressed",
+    default=False,
+)
+
+
+@contextmanager
+def suppress_global_forum_context():
+    """Keep one provenance run from consuming another run's global forum log."""
+    token = _GLOBAL_FORUM_READS_SUPPRESSED.set(True)
+    try:
+        yield
+    finally:
+        _GLOBAL_FORUM_READS_SUPPRESSED.reset(token)
 
 def get_latest_host_speech(log_dir: str = "logs") -> Optional[str]:
     """
@@ -18,6 +36,9 @@ def get_latest_host_speech(log_dir: str = "logs") -> Optional[str]:
     Returns:
         最新的HOST发言内容，如果没有则返回None
     """
+    if _GLOBAL_FORUM_READS_SUPPRESSED.get():
+        return None
+
     try:
         forum_log_path = Path(log_dir) / "forum.log"
         
@@ -61,6 +82,9 @@ def get_all_host_speeches(log_dir: str = "logs") -> List[Dict[str, str]]:
     Returns:
         包含所有HOST发言的列表，每个元素是包含timestamp和content的字典
     """
+    if _GLOBAL_FORUM_READS_SUPPRESSED.get():
+        return []
+
     try:
         forum_log_path = Path(log_dir) / "forum.log"
         
@@ -103,6 +127,9 @@ def get_recent_agent_speeches(log_dir: str = "logs", limit: int = 5) -> List[Dic
     Returns:
         包含最近Agent发言的列表
     """
+    if _GLOBAL_FORUM_READS_SUPPRESSED.get():
+        return []
+
     try:
         forum_log_path = Path(log_dir) / "forum.log"
         

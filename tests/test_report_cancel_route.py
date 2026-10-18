@@ -1,9 +1,13 @@
 import importlib
 import sys
 from types import ModuleType, SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 from flask import Flask
+from common.provenance.models import ProvenanceBundle
+from common.provenance.normalizer import new_provenance_bundle
+from common.provenance.runtime import RuntimeProvenanceStore
 
 
 def _remove_modules(prefix):
@@ -23,6 +27,7 @@ def report_interface(monkeypatch):
 
     agent_module = ModuleType("ReportEngine.agent")
     agent_module.ReportAgent = type("ReportAgent", (), {})
+    agent_module.InsufficientInputError = type("InsufficientInputError", (ValueError,), {})
     agent_module.create_agent = lambda *args, **kwargs: None
 
     nodes_module = ModuleType("ReportEngine.nodes")
@@ -119,3 +124,99 @@ def test_cancel_missing_task_returns_not_found(report_interface):
 
     assert response.status_code == 404
     assert response.get_json()["success"] is False
+
+
+def test_status_exposes_failed_upstream_engine(report_interface, monkeypatch):
+    module, client = report_interface
+    monkeypatch.setattr(
+        module,
+        "check_engines_ready",
+        lambda _run_id="": {
+            "ready": False,
+            "missing_files": [],
+            "failed": {"insight": "model unavailable"},
+        },
+    )
+
+    response = client.get("/api/report/status?run_id=run-1")
+
+    assert response.status_code == 200
+    assert response.get_json()["failed_engines"] == {
+        "insight": "model unavailable"
+    }
+
+
+def test_generate_rejects_failed_upstream_engine(report_interface, monkeypatch):
+    module, client = report_interface
+    module.report_agent = object()
+    monkeypatch.setattr(
+        module,
+        "check_engines_ready",
+        lambda _run_id="": {
+            "ready": False,
+            "missing_files": [],
+            "failed": {"insight": "model unavailable"},
+        },
+    )
+
+    response = client.post(
+        "/api/report/generate", json={"query": "topic", "run_id": "run-1"}
+    )
+
+    assert response.status_code == 400
+    assert response.get_json()["error"] == "上游 Agent 运行失败"
+    assert response.get_json()["failed_engines"] == {
+        "insight": "model unavailable"
+    }
+
+
+def test_three_runtime_engine_results_flow_into_report_generation(
+    report_interface, monkeypatch
+):
+    module, _client = report_interface
+    store = RuntimeProvenanceStore(max_runs=2)
+    run_id = store.begin("topic", ["query", "media", "insight"])
+    for engine, report in (
+        ("query", "query report"),
+        ("media", "media report"),
+        ("insight", "insight report"),
+    ):
+        store.publish(
+            run_id,
+            engine,
+            "topic",
+            report,
+            new_provenance_bundle(f"{engine}_engine", "topic", run_id=run_id),
+        )
+
+    captured = {}
+
+    class Agent:
+        def generate_report(self, **kwargs):
+            captured.update(kwargs)
+            return {"html_content": "<html>done</html>"}
+
+    module.runtime_store = store
+    module.report_agent = Agent()
+    forum_reader = Mock(return_value="forum context")
+    monkeypatch.setattr(module, "read_runtime_forum_context", forum_reader)
+    task = module.ReportTask(query="topic", task_id="report-runtime")
+    module.current_task = task
+
+    module.run_report_generation(task, "topic", run_id=run_id)
+
+    assert task.status == "completed"
+    assert task.html_content == "<html>done</html>"
+    assert captured["reports"] == [
+        "query report",
+        "media report",
+        "insight report",
+    ]
+    assert captured["forum_logs"] == "forum context"
+    forum_reader.assert_called_once_with(run_id, set())
+    assert captured["provenance_bundle"].agent == "report_engine"
+    assert captured["provenance_bundle"].meta["agents"] == [
+        "query_engine",
+        "media_engine",
+        "insight_engine",
+    ]

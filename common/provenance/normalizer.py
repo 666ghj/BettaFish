@@ -10,12 +10,33 @@ from dataclasses import replace
 from typing import Any, Dict, Iterable, Mapping, Tuple
 from urllib.parse import urlparse, urlunparse
 
+from .identity import metadata_identity_values
 from .models import ClaimRecord, EvidenceRecord, ProvenanceBundle, SourceRecord, utc_now_iso
 
 
 def stable_id(prefix: str, *parts: Any) -> str:
     payload = json.dumps(parts, ensure_ascii=False, sort_keys=True, default=str, separators=(",", ":"))
     return f"{prefix}_{hashlib.sha256(payload.encode('utf-8')).hexdigest()[:20]}"
+
+
+def new_provenance_bundle(
+    agent: str,
+    query: str,
+    *,
+    run_id: str = "",
+) -> ProvenanceBundle:
+    """Create one consistently identified engine bundle for CLI or web runs."""
+    created_at = utc_now_iso()
+    identity = str(run_id or created_at)
+    meta = {"query": str(query or "")}
+    if run_id:
+        meta["run_id"] = str(run_id)
+    return ProvenanceBundle(
+        agent=str(agent or ""),
+        bundle_id=stable_id("bundle", agent, query, identity),
+        created_at=created_at,
+        meta=meta,
+    )
 
 
 def content_hash(content: Any) -> str:
@@ -56,6 +77,7 @@ def evidence_dedupe_key(record: EvidenceRecord, source: SourceRecord | None = No
             "db_row",
             str(_lookup(record, source, "table")),
             _canonical(_lookup(record, source, "primary_key", _lookup(record, source, "record_id"))),
+            content_hash(_canonical([record.snippet, record.normalized_value])),
         )
     if kind == "db_agg":
         return (
@@ -76,6 +98,7 @@ def evidence_dedupe_key(record: EvidenceRecord, source: SourceRecord | None = No
             "video_comment",
             source.platform.lower() if source else "",
             str(post_id), str(comment_id), str(timestamp),
+            content_hash(_canonical([record.snippet, record.normalized_value])),
         )
     if kind in {"web", "social", "text", "search_result", "ocr", "multimodal", "image_metadata"} or source_type in {"web", "social", "news"}:
         url = normalize_url(source.url if source else str(record.meta.get("url", "")))
@@ -98,33 +121,95 @@ def source_dedupe_key(source: SourceRecord) -> Tuple[str, ...]:
     )
 
 
+def _retrieval_contexts(record: EvidenceRecord) -> list[dict[str, Any]]:
+    contexts = [
+        copy.deepcopy(item)
+        for item in record.meta.get("retrieval_contexts", []) or []
+        if isinstance(item, Mapping)
+    ]
+    if record.scope:
+        contexts.append(copy.deepcopy(record.scope))
+    unique = {_canonical(item): item for item in contexts}
+    return [unique[key] for key in sorted(unique)]
+
+
+def _merge_equivalent_evidence(kept: EvidenceRecord, incoming: EvidenceRecord) -> None:
+    """Union retrieval contexts without changing the evidence content identity."""
+    contexts = _retrieval_contexts(kept) + _retrieval_contexts(incoming)
+    unique = {_canonical(item): item for item in contexts}
+    ordered = [unique[key] for key in sorted(unique)]
+    kept.meta["retrieval_contexts"] = ordered
+    if ordered:
+        kept.scope = copy.deepcopy(ordered[0])
+
+
+def _merge_equivalent_source(kept: SourceRecord, incoming: SourceRecord) -> None:
+    """Retain the richest attribution fields from duplicate source records."""
+    for field_name in ("title", "author", "publish_time", "platform", "url"):
+        current = str(getattr(kept, field_name) or "")
+        candidate = str(getattr(incoming, field_name) or "")
+        if candidate and (not current or len(candidate) > len(current)):
+            setattr(kept, field_name, candidate)
+
+    for target, candidate in (
+        (kept.locator, incoming.locator),
+        (kept.meta, incoming.meta),
+    ):
+        for key, value in candidate.items():
+            if key not in target or target[key] in (None, "", [], {}):
+                target[key] = copy.deepcopy(value)
+
+    agents = list(kept.meta.get("agents") or [])
+    agents.extend(item for item in (kept.agent, incoming.agent) if item)
+    kept.meta["agents"] = list(dict.fromkeys(str(item) for item in agents))
+    retrieval_times = list(kept.meta.get("retrieval_times") or [])
+    retrieval_times.extend(
+        item for item in (kept.retrieved_time, incoming.retrieved_time) if item
+    )
+    kept.meta["retrieval_times"] = list(
+        dict.fromkeys(str(item) for item in retrieval_times)
+    )
+
+
 def dedupe_bundle(bundle: ProvenanceBundle) -> ProvenanceBundle:
     bundle = copy.deepcopy(bundle)
     source_by_key: Dict[Tuple[str, ...], SourceRecord] = {}
     source_aliases: Dict[str, str] = {}
-    for source in bundle.sources:
+    for source in sorted(bundle.sources, key=lambda item: (source_dedupe_key(item), item.source_id)):
         key = source_dedupe_key(source)
         kept = source_by_key.get(key)
         if kept is None:
             source_by_key[key] = source
             source_aliases[source.source_id] = source.source_id
         else:
+            _merge_equivalent_source(kept, source)
             source_aliases[source.source_id] = kept.source_id
 
     sources = list(source_by_key.values())
     source_index = {item.source_id: item for item in sources}
     evidence_by_key: Dict[Tuple[str, ...], EvidenceRecord] = {}
     evidence_aliases: Dict[str, str] = {}
+    normalized_evidence = []
     for item in bundle.evidence:
         canonical_source_id = source_aliases.get(item.source_id, item.source_id)
         normalized = item if canonical_source_id == item.source_id else replace(item, source_id=canonical_source_id)
-        key = evidence_dedupe_key(normalized, source_index.get(canonical_source_id))
+        normalized_evidence.append(normalized)
+    normalized_evidence.sort(
+        key=lambda item: (
+            evidence_dedupe_key(item, source_index.get(item.source_id)),
+            item.evidence_id,
+        )
+    )
+    for normalized in normalized_evidence:
+        key = evidence_dedupe_key(normalized, source_index.get(normalized.source_id))
         kept = evidence_by_key.get(key)
         if kept is None:
+            normalized.meta["retrieval_contexts"] = _retrieval_contexts(normalized)
             evidence_by_key[key] = normalized
-            evidence_aliases[item.evidence_id] = normalized.evidence_id
+            evidence_aliases[normalized.evidence_id] = normalized.evidence_id
         else:
-            evidence_aliases[item.evidence_id] = kept.evidence_id
+            _merge_equivalent_evidence(kept, normalized)
+            evidence_aliases[normalized.evidence_id] = kept.evidence_id
 
     evidence = list(evidence_by_key.values())
     claims = []
@@ -152,18 +237,58 @@ def dedupe_bundle(bundle: ProvenanceBundle) -> ProvenanceBundle:
 
 
 def merge_bundles(bundles: Iterable[ProvenanceBundle | Mapping[str, Any] | None]) -> ProvenanceBundle:
-    merged = ProvenanceBundle(agent="report_engine", bundle_id=stable_id("bundle", "report_engine", utc_now_iso()))
+    merged = ProvenanceBundle(agent="report_engine")
     agents = []
+    queries = []
+    run_ids = []
+    input_bundle_ids = []
     for value in bundles:
         if not value:
             continue
         bundle = value if isinstance(value, ProvenanceBundle) else ProvenanceBundle.from_dict(value)
         if bundle.agent:
             agents.append(bundle.agent)
+        agents.extend(
+            str(item)
+            for item in (bundle.meta.get("agents") or [])
+            if item
+        )
+        nested_input_ids = [
+            str(item)
+            for item in (bundle.meta.get("input_bundle_ids") or [])
+            if item
+        ]
+        if nested_input_ids:
+            input_bundle_ids.extend(nested_input_ids)
+        elif bundle.bundle_id:
+            input_bundle_ids.append(bundle.bundle_id)
+        queries.extend(metadata_identity_values(bundle.meta, "query", "queries"))
+        run_ids.extend(metadata_identity_values(bundle.meta, "run_id", "run_ids"))
         merged.meta.setdefault("evidence_aliases", {}).update(bundle.meta.get("evidence_aliases") or {})
         merged.add_records(bundle.sources, bundle.evidence, bundle.claims)
     merged.meta["agents"] = list(dict.fromkeys(agents))
-    return dedupe_bundle(merged)
+    merged.meta["input_bundle_ids"] = list(dict.fromkeys(input_bundle_ids))
+    unique_queries = list(dict.fromkeys(queries))
+    unique_run_ids = list(dict.fromkeys(run_ids))
+    if unique_queries:
+        merged.meta["queries"] = unique_queries
+        if len(unique_queries) == 1:
+            merged.meta["query"] = unique_queries[0]
+    if unique_run_ids:
+        merged.meta["run_ids"] = unique_run_ids
+        if len(unique_run_ids) == 1:
+            merged.meta["run_id"] = unique_run_ids[0]
+    merged = dedupe_bundle(merged)
+    # Bundle identity represents the normalized evidence corpus, not the wall
+    # clock time of a merge call.  This keeps repeated normalization stable and
+    # lets the IR/state/sidecar refer to the same logical bundle.
+    merged.bundle_id = stable_id(
+        "bundle",
+        "report_engine",
+        sorted(item.source_id for item in merged.sources),
+        sorted(item.evidence_id for item in merged.evidence),
+    )
+    return merged
 
 
 def records_from_search_result(

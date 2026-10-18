@@ -8,8 +8,10 @@
 from __future__ import annotations
 
 import json
+from concurrent.futures import CancelledError
 from typing import Any, Dict, List, Optional
 from loguru import logger
+from common.cancellation import check_cancelled
 
 from ReportEngine.utils.config import settings
 
@@ -382,6 +384,7 @@ def create_llm_repair_functions() -> List:
         def repair_with_report_engine(widget_block: Dict[str, Any], errors: List[str]) -> Optional[Dict[str, Any]]:
             """使用ReportEngine的LLM修复图表"""
             try:
+                check_cancelled()
                 from ReportEngine.llms import LLMClient
 
                 client = LLMClient(
@@ -397,6 +400,7 @@ def create_llm_repair_functions() -> List:
                     temperature=0.0,
                     top_p=0.05
                 )
+                check_cancelled()
 
                 if not response:
                     return None
@@ -405,7 +409,10 @@ def create_llm_repair_functions() -> List:
                 repaired = json.loads(response)
                 return repaired
 
+            except CancelledError:
+                raise
             except Exception as e:
+                check_cancelled()
                 logger.exception(f"ReportEngine图表修复失败: {e}")
                 return None
 
@@ -417,6 +424,7 @@ def create_llm_repair_functions() -> List:
         def repair_with_forum_engine(widget_block: Dict[str, Any], errors: List[str]) -> Optional[Dict[str, Any]]:
             """使用ForumEngine的LLM修复图表"""
             try:
+                check_cancelled()
                 from ReportEngine.llms import LLMClient
 
                 client = LLMClient(
@@ -432,6 +440,7 @@ def create_llm_repair_functions() -> List:
                     temperature=0.0,
                     top_p=0.05
                 )
+                check_cancelled()
 
                 if not response:
                     return None
@@ -439,7 +448,10 @@ def create_llm_repair_functions() -> List:
                 repaired = json.loads(response)
                 return repaired
 
+            except CancelledError:
+                raise
             except Exception as e:
+                check_cancelled()
                 logger.exception(f"ForumEngine图表修复失败: {e}")
                 return None
 
@@ -451,6 +463,7 @@ def create_llm_repair_functions() -> List:
         def repair_with_insight_engine(widget_block: Dict[str, Any], errors: List[str]) -> Optional[Dict[str, Any]]:
             """使用InsightEngine的LLM修复图表"""
             try:
+                check_cancelled()
                 from ReportEngine.llms import LLMClient
 
                 client = LLMClient(
@@ -466,6 +479,7 @@ def create_llm_repair_functions() -> List:
                     temperature=0.0,
                     top_p=0.05
                 )
+                check_cancelled()
 
                 if not response:
                     return None
@@ -473,7 +487,10 @@ def create_llm_repair_functions() -> List:
                 repaired = json.loads(response)
                 return repaired
 
+            except CancelledError:
+                raise
             except Exception as e:
+                check_cancelled()
                 logger.exception(f"InsightEngine图表修复失败: {e}")
                 return None
 
@@ -485,6 +502,7 @@ def create_llm_repair_functions() -> List:
         def repair_with_media_engine(widget_block: Dict[str, Any], errors: List[str]) -> Optional[Dict[str, Any]]:
             """使用MediaEngine的LLM修复图表"""
             try:
+                check_cancelled()
                 from ReportEngine.llms import LLMClient
 
                 client = LLMClient(
@@ -500,6 +518,7 @@ def create_llm_repair_functions() -> List:
                     temperature=0.0,
                     top_p=0.05
                 )
+                check_cancelled()
 
                 if not response:
                     return None
@@ -507,7 +526,10 @@ def create_llm_repair_functions() -> List:
                 repaired = json.loads(response)
                 return repaired
 
+            except CancelledError:
+                raise
             except Exception as e:
+                check_cancelled()
                 logger.exception(f"MediaEngine图表修复失败: {e}")
                 return None
 
@@ -538,6 +560,7 @@ def create_table_repair_functions() -> List:
         def repair_table_with_report_engine(table_block: Dict[str, Any], errors: List[str]) -> Optional[Dict[str, Any]]:
             """使用 ReportEngine 的 LLM 修复表格"""
             try:
+                check_cancelled()
                 from ReportEngine.llms import LLMClient
 
                 client = LLMClient(
@@ -553,6 +576,7 @@ def create_table_repair_functions() -> List:
                     temperature=0.0,
                     top_p=0.05
                 )
+                check_cancelled()
 
                 if not response:
                     return None
@@ -561,7 +585,10 @@ def create_table_repair_functions() -> List:
                 repaired = json.loads(response)
                 return repaired
 
+            except CancelledError:
+                raise
             except Exception as e:
+                check_cancelled()
                 logger.exception(f"ReportEngine 表格修复失败: {e}")
                 return None
 
@@ -592,6 +619,7 @@ def create_wordcloud_repair_functions() -> List:
         def repair_wordcloud_with_report_engine(widget_block: Dict[str, Any], errors: List[str]) -> Optional[Dict[str, Any]]:
             """使用 ReportEngine 的 LLM 修复词云"""
             try:
+                check_cancelled()
                 from ReportEngine.llms import LLMClient
 
                 client = LLMClient(
@@ -607,6 +635,7 @@ def create_wordcloud_repair_functions() -> List:
                     temperature=0.0,
                     top_p=0.05
                 )
+                check_cancelled()
 
                 if not response:
                     return None
@@ -615,7 +644,10 @@ def create_wordcloud_repair_functions() -> List:
                 repaired = json.loads(response)
                 return repaired
 
+            except CancelledError:
+                raise
             except Exception as e:
+                check_cancelled()
                 logger.exception(f"ReportEngine 词云修复失败: {e}")
                 return None
 

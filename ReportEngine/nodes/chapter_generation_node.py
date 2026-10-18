@@ -8,12 +8,14 @@
 from __future__ import annotations
 
 import json
+from concurrent.futures import CancelledError
 from datetime import datetime
 from pathlib import Path
 import re
 from typing import Any, Dict, List, Tuple, Callable, Optional, Set
 
 from loguru import logger
+from common.cancellation import check_cancelled
 
 from ..core import TemplateSection, ChapterStorage
 from ..ir import (
@@ -247,14 +249,14 @@ class ChapterGenerationNode(BaseNode):
                 placeholder_created = True
 
         # 自动补全关键字段后再校验
-        chapter_json.setdefault("chapterId", section.chapter_id)
-        chapter_json.setdefault("anchor", section.slug)
-        chapter_json.setdefault("title", section.title)
-        chapter_json.setdefault("order", section.order)
+        chapter_json["chapterId"] = section.chapter_id
+        chapter_json["anchor"] = section.slug
+        chapter_json["title"] = section.title
+        chapter_json["order"] = section.order
         self._sanitize_chapter_blocks(chapter_json)
         if context.get("enforce_provenance", False):
             selected_bundle = ProvenanceBundle.from_dict(llm_payload["selectedEvidence"])
-            self._sanitize_provenance_claims(chapter_json, selected_bundle)
+            self._sanitize_provenance_claims(chapter_json, selected_bundle, section)
 
         valid, errors = self.validator.validate_chapter(chapter_json)
         if not valid and errors:
@@ -265,13 +267,13 @@ class ChapterGenerationNode(BaseNode):
             )
             if repaired:
                 chapter_json = repaired
-                chapter_json.setdefault("chapterId", section.chapter_id)
-                chapter_json.setdefault("anchor", section.slug)
-                chapter_json.setdefault("title", section.title)
-                chapter_json.setdefault("order", section.order)
+                chapter_json["chapterId"] = section.chapter_id
+                chapter_json["anchor"] = section.slug
+                chapter_json["title"] = section.title
+                chapter_json["order"] = section.order
                 self._sanitize_chapter_blocks(chapter_json)
                 if context.get("enforce_provenance", False):
-                    self._sanitize_provenance_claims(chapter_json, selected_bundle)
+                    self._sanitize_provenance_claims(chapter_json, selected_bundle, section)
                 valid, errors = self.validator.validate_chapter(chapter_json)
         content_error: ChapterContentError | None = None
         if valid and not placeholder_created and not context.get("enforce_provenance", False):
@@ -329,19 +331,11 @@ class ChapterGenerationNode(BaseNode):
         selected_bundle = self.evidence_selector.select(
             context.get("provenance_bundle"),
             chapter_topic=section.title,
+            report_query=str(context.get("query") or ""),
             chapter_draft=" ".join(section.outline or []) + " " + chapter_plan_text,
             claim_drafts=(chapter_plan or {}).get("emphasis") or [],
             top_k=context.get("evidence_top_k", 8),
         )
-        full_bundle = context.get("provenance_bundle")
-        if isinstance(full_bundle, ProvenanceBundle):
-            source_evidence = {item.evidence_id: item for item in full_bundle.evidence}
-            for selected in selected_bundle.evidence:
-                original = source_evidence.get(selected.evidence_id)
-                if original is not None:
-                    original.meta["selection_reason"] = selected.meta.get("selection_reason", "")
-                    original.meta["selection_score"] = selected.meta.get("selection_score", 0)
-
         payload = {
             "section": {
                 "chapterId": section.chapter_id,
@@ -361,12 +355,12 @@ class ChapterGenerationNode(BaseNode):
                 "templateOverview": context.get("template_overview", {}),
             },
             "reports": {
-                "query_engine": "",
-                "media_engine": "",
-                "insight_engine": "",
+                "query_engine": reports.get("query_engine", ""),
+                "media_engine": reports.get("media_engine", ""),
+                "insight_engine": reports.get("insight_engine", ""),
             },
             "forumLogs": context.get("forum_logs", ""),
-            "dataBundles": [],
+            "dataBundles": context.get("data_bundles", []),
             "selectedEvidence": selected_bundle.to_dict(),
             "provenancePolicy": {
                 "reportsAreContextOnly": True,
@@ -378,11 +372,11 @@ class ChapterGenerationNode(BaseNode):
             "constraints": {
                 "language": "zh-CN",
                 "maxTokens": context.get("max_tokens", 4096),
-                "allowedBlocks": ["heading", "paragraph", "list"],
+                "allowedBlocks": ALLOWED_BLOCK_TYPES,
                 "allowSwot": allow_swot,
                 "allowPest": allow_pest,
                 "styleHints": {
-                    "expectWidgets": False,
+                    "expectWidgets": True,
                     "forceHeadingAnchors": True,
                     "allowInlineMix": True,
                 },
@@ -421,8 +415,16 @@ class ChapterGenerationNode(BaseNode):
             ],
         }
 
-    def _sanitize_provenance_claims(self, chapter: Dict[str, Any], evidence: ProvenanceBundle) -> None:
-        chapter["blocks"] = sanitize_blocks(chapter.get("blocks", []), evidence)
+    def _sanitize_provenance_claims(
+        self,
+        chapter: Dict[str, Any],
+        evidence: ProvenanceBundle,
+        section: TemplateSection | None = None,
+    ) -> None:
+        trusted_headings = (section.title, *section.outline) if section else ()
+        chapter["blocks"] = sanitize_blocks(
+            chapter.get("blocks", []), evidence, trusted_headings=trusted_headings
+        )
 
     def _get_chapter_swot_permission(self, chapter_id: str, context: Dict[str, Any]) -> bool:
         """
@@ -511,23 +513,57 @@ class ChapterGenerationNode(BaseNode):
         返回:
             str: 将所有delta拼接后的原始文本。
         """
+        cancel_check = kwargs.get("cancel_check")
+
+        def check_cancelled():
+            if cancel_check and cancel_check():
+                raise CancelledError("报告任务已取消")
+
+        def push(delta: str, *, reset: bool = False):
+            if stream_callback:
+                meta = dict(section_meta or {})
+                if reset:
+                    meta["reset"] = True
+                try:
+                    stream_callback(delta, meta)
+                except CancelledError:
+                    raise
+                except Exception as callback_error:  # pragma: no cover - 非关键显示回调
+                    logger.warning(f"章节流式回调失败: {callback_error}")
+
         chunks: List[str] = []
-        with self.storage.capture_stream(chapter_dir) as stream_fp:
-            stream = self.llm_client.stream_invoke(
-                SYSTEM_PROMPT_CHAPTER_JSON,
-                user_message,
-                temperature=kwargs.get("temperature", 0.2),
-                top_p=kwargs.get("top_p", 0.95),
-            )
-            for delta in stream:
-                stream_fp.write(delta)
-                chunks.append(delta)
-                if stream_callback:
-                    meta = section_meta or {}
-                    try:
-                        stream_callback(delta, meta)
-                    except Exception as callback_error:  # pragma: no cover - 仅记录，不阻断主流程
-                        logger.warning(f"章节流式回调失败: {callback_error}")
+        stream = None
+        try:
+            check_cancelled()
+            push("", reset=True)
+            with self.storage.capture_stream(chapter_dir) as stream_fp:
+                stream = self.llm_client.stream_invoke(
+                    SYSTEM_PROMPT_CHAPTER_JSON,
+                    user_message,
+                    temperature=kwargs.get("temperature", 0.2),
+                    top_p=kwargs.get("top_p", 0.95),
+                )
+                for delta in stream:
+                    check_cancelled()
+                    stream_fp.write(delta)
+                    chunks.append(delta)
+                    push(delta)
+                check_cancelled()
+        except Exception:
+            # A partial response is neither parseable chapter input nor a
+            # resumable prefix.  Remove it before retrying this same chapter.
+            with self.storage.capture_stream(chapter_dir):
+                pass
+            push("", reset=True)
+            check_cancelled()
+            raise
+        finally:
+            close = getattr(stream, "close", None)
+            if callable(close):
+                try:
+                    close()
+                except Exception:  # pragma: no cover - preserve original failure
+                    logger.warning("关闭章节流失败")
         return "".join(chunks)
 
     def _attempt_cross_engine_json_rescue(
@@ -563,6 +599,7 @@ class ChapterGenerationNode(BaseNode):
         )
         attempted_labels = self._rescue_attempted_labels.setdefault(section.chapter_id, set())
         for label, client in self.fallback_llm_clients:
+            check_cancelled()
             if label in attempted_labels:
                 continue
             attempt_index = len(attempted_labels) + 1
@@ -577,14 +614,21 @@ class ChapterGenerationNode(BaseNode):
                     temperature=0.0,
                     top_p=0.05,
                 )
+                check_cancelled()
+            except CancelledError:
+                raise
             except Exception as exc:
+                check_cancelled()
                 logger.warning(f"{label} JSON修复调用失败: {exc}")
                 continue
             if not response:
                 continue
             try:
                 repaired = self._parse_chapter(response)
+            except CancelledError:
+                raise
             except Exception as exc:
+                check_cancelled()
                 logger.warning(f"{label} JSON修复输出仍无法解析: {exc}")
                 continue
             logger.warning(f"[{run_id}] {label} API已修复章节JSON")
@@ -993,6 +1037,7 @@ class ChapterGenerationNode(BaseNode):
         if not validation_errors:
             return None
         payload = build_chapter_repair_prompt(chapter, validation_errors, raw_text)
+        check_cancelled()
         try:
             response = self.llm_client.invoke(
                 SYSTEM_PROMPT_CHAPTER_JSON_REPAIR,
@@ -1000,14 +1045,21 @@ class ChapterGenerationNode(BaseNode):
                 temperature=0.0,
                 top_p=0.05,
             )
+            check_cancelled()
+        except CancelledError:
+            raise
         except Exception as exc:  # pragma: no cover - 网络或API异常仅记录
+            check_cancelled()
             logger.error(f"章节JSON LLM修复调用失败: {exc}")
             return None
         if not response:
             return None
         try:
             repaired = self._parse_chapter(response)
+        except CancelledError:
+            raise
         except Exception as exc:
+            check_cancelled()
             logger.error(f"LLM修复后的章节JSON解析失败: {exc}")
             return None
         logger.warning("章节JSON经多次本地修复仍不合规，已成功启用LLM兜底修复")

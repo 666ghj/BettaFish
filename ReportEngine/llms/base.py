@@ -10,6 +10,8 @@ from typing import Any, Dict, Optional, Generator
 from loguru import logger
 
 from openai import OpenAI
+from common.cancellation import check_cancelled, current_cancellation_token
+from .cancellable import CancellableCompletion
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(os.path.dirname(current_dir))
@@ -88,12 +90,22 @@ class LLMClient:
 
         timeout = kwargs.pop("timeout", self.timeout)
 
-        response = self.client.chat.completions.create(
-            model=self.model_name,
-            messages=messages,
-            timeout=timeout,
-            **extra_params,
-        )
+        token = current_cancellation_token()
+        if token is None:
+            response = self.client.chat.completions.create(
+                model=self.model_name, messages=messages, timeout=timeout,
+                **extra_params,
+            )
+        else:
+            check_cancelled()
+            responses = iter(self._cancellable_completion(
+                token, messages, timeout, **extra_params,
+            ))
+            try:
+                response = next(responses)
+            finally:
+                responses.close()
+            check_cancelled()
 
         if response.choices and response.choices[0].message:
             return self.validate_response(response.choices[0].message.content)
@@ -123,13 +135,19 @@ class LLMClient:
 
         timeout = kwargs.pop("timeout", self.timeout)
 
+        stream = None
         try:
-            stream = self.client.chat.completions.create(
-                model=self.model_name,
-                messages=messages,
-                timeout=timeout,
-                **extra_params,
-            )
+            token = current_cancellation_token()
+            if token is None:
+                stream = self.client.chat.completions.create(
+                    model=self.model_name, messages=messages, timeout=timeout,
+                    **extra_params,
+                )
+            else:
+                check_cancelled()
+                stream = iter(self._cancellable_completion(
+                    token, messages, timeout, **extra_params,
+                ))
             
             for chunk in stream:
                 if chunk.choices and len(chunk.choices) > 0:
@@ -137,8 +155,26 @@ class LLMClient:
                     if delta and delta.content:
                         yield delta.content
         except Exception as e:
+            check_cancelled()
             logger.error(f"流式请求失败: {str(e)}")
-            raise e
+            raise
+        finally:
+            if stream is not None:
+                try:
+                    stream.close()
+                except Exception:  # preserve a stream/cancellation failure
+                    logger.warning("关闭Report Engine响应流失败")
+
+    def _cancellable_completion(self, token, messages, timeout, **params):
+        options = {"api_key": self.api_key, "max_retries": 0}
+        if self.base_url:
+            options["base_url"] = self.base_url
+        return CancellableCompletion(
+            options,
+            {"model": self.model_name, "messages": messages,
+             "timeout": timeout, **params},
+            token,
+        )
     
     @with_retry(LLM_RETRY_CONFIG)
     def stream_invoke_to_string(self, system_prompt: str, user_prompt: str, **kwargs) -> str:

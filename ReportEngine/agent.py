@@ -10,6 +10,8 @@ Report Agent主类。
 
 import json
 import os
+from concurrent.futures import CancelledError
+from common.cancellation import check_cancelled as check_cancellation
 from copy import deepcopy
 from pathlib import Path
 from uuid import uuid4
@@ -17,6 +19,10 @@ from datetime import datetime
 from typing import Optional, Dict, Any, List, Callable, Mapping, Tuple
 
 from loguru import logger
+import httpx
+from openai import APIConnectionError, APIStatusError
+from requests import RequestException
+from utils.retry_helper import _should_retry_exception
 
 from .core import (
     ChapterStorage,
@@ -39,7 +45,17 @@ from .renderers import HTMLRenderer
 from .state import ReportState
 from .utils.config import settings, Settings
 
-from common.provenance.io import load_sidecar, save_sidecar
+from common.provenance.io import (
+    atomic_write_text,
+    load_sidecar,
+    save_sidecar,
+    sidecar_path,
+)
+from common.provenance.identity import (
+    validate_bundle_query,
+    validate_bundle_run,
+    validate_engine_bundles,
+)
 from common.provenance.models import ProvenanceBundle
 from common.provenance.normalizer import merge_bundles
 from common.provenance.validators import filter_valid_evidence
@@ -47,6 +63,10 @@ from common.provenance.validators import filter_valid_evidence
 
 class StageOutputFormatError(ValueError):
     """阶段性输出结构不符合预期时抛出的受控异常。"""
+
+
+class InsufficientInputError(ValueError):
+    """Input reports have no admissible provenance and cannot form a report."""
 
 
 class FileCountBaseline:
@@ -410,7 +430,8 @@ class ReportAgent:
     def generate_report(self, query: str, reports: List[Any], forum_logs: str = "",
                         custom_template: str = "", save_report: bool = True,
                         stream_handler: Optional[Callable[[str, Dict[str, Any]], None]] = None,
-                        provenance_bundle: Optional[Any] = None) -> str:
+                        provenance_bundle: Optional[Any] = None,
+                        cancel_check: Optional[Callable[[], bool]] = None) -> str:
         """
         生成综合报告（章节JSON → IR → HTML）。
 
@@ -443,15 +464,27 @@ class ReportAgent:
         self.state.mark_processing()
 
         normalized_reports = self._normalize_reports(reports)
-        runtime_bundle = self._normalize_provenance_bundle(provenance_bundle, reports)
+        runtime_bundle = self._normalize_provenance_bundle(
+            provenance_bundle,
+            reports,
+            expected_query=query,
+        )
         self.state.provenance_bundle = runtime_bundle
+
+        def check_cancelled():
+            check_cancellation()
+            if cancel_check and cancel_check():
+                raise CancelledError("报告任务已取消")
 
         def emit(event_type: str, payload: Dict[str, Any]):
             """面向Report Engine流通道的事件分发器，保证错误不外泄。"""
+            check_cancelled()
             if not stream_handler:
                 return
             try:
                 stream_handler(event_type, payload)
+            except CancelledError:
+                raise
             except Exception as callback_error:  # pragma: no cover - 仅记录
                 logger.warning(f"流式事件回调失败: {callback_error}")
 
@@ -460,6 +493,11 @@ class ReportAgent:
         emit('stage', {'stage': 'agent_start', 'report_id': report_id, 'query': query})
 
         try:
+            if not runtime_bundle.evidence:
+                raise InsufficientInputError(
+                    "insufficient-input: 输入报告没有可追溯证据；请重新运行三引擎，"
+                    "或为旧报告补齐有效的 .provenance.json sidecar"
+                )
             template_result = self._select_template(
                 query, list(normalized_reports.values()), forum_logs, custom_template
             )
@@ -496,7 +534,13 @@ class ReportAgent:
                 # toc 字段已被 tocPlan 取代，这里按最新Schema挑选/校验
                 expected_keys=["title", "hero", "tocPlan", "tocTitle"],
             )
-            layout_design = self._sanitize_layout_for_provenance(layout_design, runtime_bundle)
+            layout_design = self._sanitize_layout_for_provenance(
+                layout_design,
+                runtime_bundle,
+                query=query,
+                sections=sections,
+                template_name=template_result.get("template_name", ""),
+            )
             emit('stage', {
                 'stage': 'layout_designed',
                 'title': layout_design.get('title'),
@@ -575,6 +619,7 @@ class ReportAgent:
             chapter_max_attempts = max(
                 self._CONTENT_SPARSE_MIN_ATTEMPTS, self.config.CHAPTER_JSON_MAX_ATTEMPTS
             )
+            transport_max_attempts = max(1, self.config.CHAPTER_JSON_MAX_ATTEMPTS)
             total_chapters = len(sections)  # 总章节数
             completed_chapters = 0  # 已完成章节数
 
@@ -595,11 +640,14 @@ class ReportAgent:
                         meta: 节点回传的章节元数据，兜底时使用。
                         section_ref: 默认指向当前章节，保证在缺失元信息时也能定位。
                     """
-                    emit('chapter_chunk', {
+                    payload = {
                         'chapterId': meta.get('chapterId') or section_ref.chapter_id,
                         'title': meta.get('title') or section_ref.title,
                         'delta': delta
-                    })
+                    }
+                    if meta.get('reset'):
+                        payload['reset'] = True
+                    emit('chapter_chunk', payload)
 
                 chapter_payload: Dict[str, Any] | None = None
                 attempt = 1
@@ -607,14 +655,19 @@ class ReportAgent:
                 best_sparse_score = -1
                 fallback_used = False
                 while attempt <= chapter_max_attempts:
+                    check_cancelled()
                     try:
                         chapter_payload = self.chapter_generation_node.run(
                             section,
                             generation_context,
                             run_dir,
-                            stream_callback=chunk_callback
+                            stream_callback=chunk_callback,
+                            cancel_check=cancel_check,
                         )
+                        check_cancelled()
                         break
+                    except CancelledError:
+                        raise
                     except (ChapterJsonParseError, ChapterContentError, ChapterValidationError) as structured_error:
                         if isinstance(structured_error, ChapterContentError):
                             error_kind = "content_sparse"
@@ -710,24 +763,40 @@ class ReportAgent:
                         attempt += 1
                         continue
                     except Exception as chapter_error:
-                        if not self._should_retry_inappropriate_content_error(chapter_error):
+                        check_cancelled()
+                        transport_error = isinstance(
+                            chapter_error,
+                            (httpx.TransportError, APIConnectionError, APIStatusError,
+                             RequestException, ConnectionError, TimeoutError),
+                        )
+                        if transport_error:
+                            if not _should_retry_exception(chapter_error):
+                                raise
+                            retry_limit = transport_max_attempts
+                            reason = 'transient_stream'
+                        elif self._should_retry_inappropriate_content_error(chapter_error):
+                            retry_limit = chapter_max_attempts
+                            reason = 'content_filter'
+                        else:
                             raise
                         logger.warning(
-                            "章节 {title} 触发内容安全限制（第 {attempt}/{total} 次尝试），准备重新生成: {error}",
+                            "章节 {title} 生成失败（{reason}，第 {attempt}/{total} 次尝试）: {error}",
                             title=section.title,
+                            reason=reason,
                             attempt=attempt,
-                            total=chapter_max_attempts,
+                            total=retry_limit,
                             error=chapter_error,
                         )
                         emit('chapter_status', {
                             'chapterId': section.chapter_id,
                             'title': section.title,
-                            'status': 'retrying' if attempt < chapter_max_attempts else 'error',
+                            'status': 'retrying' if attempt < retry_limit else 'error',
                             'attempt': attempt,
+                            'max_attempts': retry_limit,
                             'error': str(chapter_error),
-                            'reason': 'content_filter'
+                            'reason': reason,
                         })
-                        if attempt >= chapter_max_attempts:
+                        if attempt >= retry_limit:
                             raise
                         attempt += 1
                         continue
@@ -760,6 +829,13 @@ class ReportAgent:
                 chapters,
                 runtime_bundle,
             )
+            # The composer replaces candidate search claims with the claims
+            # actually admitted into the final document.  Persist that exact
+            # bundle in state and in the sidecar instead of the stale input
+            # candidate bundle.
+            self.state.provenance_bundle = ProvenanceBundle.from_dict(
+                document_ir.get("provenanceBundle")
+            )
             emit('stage', {'stage': 'chapters_compiled', 'chapter_count': len(chapters)})
             html_report = self.renderer.render(document_ir)
             emit('stage', {'stage': 'html_rendered', 'html_length': len(html_report)})
@@ -782,6 +858,9 @@ class ReportAgent:
                 **saved_files
             }
 
+        except CancelledError:
+            self.state.status = "cancelled"
+            raise
         except Exception as e:
             self.state.mark_failed(str(e))
             logger.exception(f"报告生成过程中发生错误: {str(e)}")
@@ -832,6 +911,8 @@ class ReportAgent:
             logger.info(f"选择理由: {template_result['selection_reason']}")
             
             return template_result
+        except CancelledError:
+            raise
         except Exception as e:
             logger.error(f"模板选择失败，使用默认模板: {str(e)}")
             # 直接使用备用模板
@@ -965,6 +1046,7 @@ class ReportAgent:
         self,
         explicit_bundle: Optional[Any],
         reports: List[Any],
+        expected_query: str = "",
     ) -> ProvenanceBundle:
         bundles: List[Any] = []
         if isinstance(explicit_bundle, (list, tuple)):
@@ -977,20 +1059,64 @@ class ReportAgent:
             bundle = report.get("provenance_bundle") or report.get("provenance")
             if bundle:
                 bundles.append(bundle)
-        return filter_valid_evidence(merge_bundles(bundles))
+        merged = filter_valid_evidence(merge_bundles(bundles))
+        if merged.evidence:
+            validate_bundle_query(merged, expected_query, require_query=True)
+            validate_bundle_run(merged)
+        return merged
 
     def _sanitize_layout_for_provenance(
         self,
         layout: Dict[str, Any],
         bundle: ProvenanceBundle,
+        *,
+        query: str = "",
+        sections: Optional[List[TemplateSection]] = None,
+        template_name: str = "",
     ) -> Dict[str, Any]:
+        """Remove uncited factual prose from user-visible report metadata.
+
+        The layout model sees complete engine reports and forum discussion as
+        context, so its cover copy and table-of-contents descriptions can
+        otherwise bypass the claim gate applied to chapter blocks.  Keep the
+        visual design and structural permissions, but rebuild visible prose
+        from the query and trusted template section names.
+        """
         sanitized = deepcopy(layout or {})
         evidence_count = len(bundle.evidence)
+        safe_query = str(query or "").strip()
+        sanitized["title"] = (
+            f"{safe_query} - 舆情洞察报告" if safe_query else "舆情洞察报告"
+        )
+        sanitized["subtitle"] = str(template_name or "来源可追溯的分析报告")
+        sanitized["tagline"] = ""
+        sanitized["tocTitle"] = "报告目录"
+
+        original_toc = {
+            str(item.get("chapterId")): item
+            for item in sanitized.get("tocPlan", [])
+            if isinstance(item, Mapping) and item.get("chapterId")
+        }
+        safe_toc = []
+        for section in sections or []:
+            original = original_toc.get(section.chapter_id, {})
+            entry = {
+                "chapterId": section.chapter_id,
+                "anchor": section.slug,
+                "display": section.title,
+            }
+            for permission in ("allowSwot", "allowPest"):
+                if permission in original:
+                    entry[permission] = bool(original.get(permission))
+            safe_toc.append(entry)
+        if safe_toc:
+            sanitized["tocPlan"] = safe_toc
+
         sanitized["hero"] = {
             "summary": (
                 f"本报告基于 {evidence_count} 条可追溯证据生成，正文引用可查看来源详情。"
                 if evidence_count
-                else "当前未检索到可追溯证据，正文仅保留证据状态说明。"
+                else ""
             ),
             "highlights": [],
             "kpis": [],
@@ -1382,23 +1508,27 @@ class ReportAgent:
         返回:
             dict: 记录HTML/IR/State文件的绝对与相对路径信息。
         """
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        task_identity = "".join(
+            char for char in str(report_id or "") if char.isalnum() or char in ("-", "_")
+        )[-24:]
+        artifact_identity = f"{timestamp}_{task_identity or 'report'}_{uuid4().hex[:8]}"
         query_safe = "".join(
             c for c in self.state.metadata.query if c.isalnum() or c in (" ", "-", "_")
         ).rstrip()
         query_safe = query_safe.replace(" ", "_")[:30] or "report"
 
-        html_filename = f"final_report_{query_safe}_{timestamp}.html"
+        html_filename = f"final_report_{query_safe}_{artifact_identity}.html"
         html_path = Path(self.config.OUTPUT_DIR) / html_filename
-        html_path.write_text(html_content, encoding="utf-8")
+        atomic_write_text(html_path, html_content)
         html_abs = str(html_path.resolve())
         html_rel = os.path.relpath(html_abs, os.getcwd())
 
-        ir_path = self._save_document_ir(document_ir, query_safe, timestamp)
+        ir_path = self._save_document_ir(document_ir, query_safe, artifact_identity)
         ir_abs = str(ir_path.resolve())
         ir_rel = os.path.relpath(ir_abs, os.getcwd())
 
-        state_filename = f"report_state_{query_safe}_{timestamp}.json"
+        state_filename = f"report_state_{query_safe}_{artifact_identity}.json"
         state_path = Path(self.config.OUTPUT_DIR) / state_filename
         self.state.save_to_file(str(state_path))
         state_abs = str(state_path.resolve())
@@ -1445,9 +1575,9 @@ class ReportAgent:
         """
         filename = f"report_ir_{query_safe}_{timestamp}.json"
         ir_path = Path(self.config.DOCUMENT_IR_OUTPUT_DIR) / filename
-        ir_path.write_text(
+        atomic_write_text(
+            ir_path,
             json.dumps(document_ir, ensure_ascii=False, indent=2),
-            encoding="utf-8",
         )
         return ir_path
     
@@ -1481,7 +1611,10 @@ class ReportAgent:
                 continue
             path = run_dir / f"{name}.json"
             try:
-                path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+                atomic_write_text(
+                    path,
+                    json.dumps(payload, ensure_ascii=False, indent=2),
+                )
             except Exception as exc:
                 logger.warning(f"写入{name}失败: {exc}")
     
@@ -1560,7 +1693,11 @@ class ReportAgent:
         
         return result
     
-    def load_input_files(self, file_paths: Dict[str, str]) -> Dict[str, Any]:
+    def load_input_files(
+        self,
+        file_paths: Dict[str, str],
+        expected_query: str = "",
+    ) -> Dict[str, Any]:
         """
         加载输入文件内容
         
@@ -1575,25 +1712,67 @@ class ReportAgent:
             'forum_logs': '',
             'provenance_bundle': ProvenanceBundle(agent="report_engine"),
         }
-        sidecar_bundles = []
+        sidecar_bundles: Dict[str, ProvenanceBundle] = {}
+        sidecar_errors: Dict[str, str] = {}
         
-        # 加载报告文件
+        # 每个引擎固定占一个槽；报告正文与可选 sidecar 分开处理，
+        # 避免损坏的 sidecar 把后续引擎报告推到错误位置。
         engines = ['query', 'media', 'insight']
         for engine in engines:
-            if engine in file_paths:
+            report_content = ""
+            report_path = file_paths.get(engine)
+            if report_path:
                 try:
-                    with open(file_paths[engine], 'r', encoding='utf-8') as f:
+                    with open(report_path, 'r', encoding='utf-8') as f:
                         report_content = f.read()
-                    content['reports'].append(report_content)
-                    sidecar_bundle = load_sidecar(file_paths[engine])
-                    if sidecar_bundle.evidence:
-                        sidecar_bundles.append(sidecar_bundle)
                     logger.info(f"已加载 {engine} 报告: {len(report_content)} 字符")
                 except Exception as e:
                     logger.exception(f"加载 {engine} 报告失败: {str(e)}")
-                    content['reports'].append("")
+            content['reports'].append(report_content)
 
-        content['provenance_bundle'] = merge_bundles(sidecar_bundles)
+            if report_path:
+                try:
+                    sidecar_file = sidecar_path(report_path)
+                    if expected_query and not sidecar_file.exists():
+                        raise InsufficientInputError(
+                            f"{engine} 报告缺少 provenance sidecar: {sidecar_file.name}"
+                        )
+                    sidecar_bundle = load_sidecar(report_path)
+                    if expected_query and not sidecar_bundle.meta.get("query"):
+                        raise InsufficientInputError(
+                            f"{engine} 报告证据缺少当前查询身份"
+                        )
+                    if sidecar_bundle.agent or sidecar_bundle.meta or sidecar_bundle.evidence:
+                        sidecar_bundles[engine] = sidecar_bundle
+                except InsufficientInputError:
+                    if expected_query:
+                        raise
+                    sidecar_errors[engine] = "sidecar 缺少可验证查询身份"
+                except Exception as e:
+                    if expected_query:
+                        sidecar_errors[engine] = str(e)
+                    else:
+                        logger.warning(f"忽略损坏的 {engine} 证据 sidecar，保留报告正文: {str(e)}")
+
+        if expected_query and sidecar_errors:
+            details = "；".join(
+                f"{engine}: {message}" for engine, message in sidecar_errors.items()
+            )
+            raise InsufficientInputError(
+                "输入报告的 provenance sidecar 不完整或不可验证，已阻止跨轮次/部分证据合并："
+                + details
+            )
+
+        try:
+            validate_engine_bundles(
+                sidecar_bundles,
+                expected_query=expected_query,
+                require_query=bool(expected_query),
+                require_consistent_run=True,
+            )
+        except ValueError as exc:
+            raise InsufficientInputError(str(exc)) from exc
+        content['provenance_bundle'] = merge_bundles(sidecar_bundles.values())
         
         # 加载论坛日志
         if 'forum' in file_paths:

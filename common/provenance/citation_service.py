@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any, Dict, Iterable, List, Mapping
 
 from .models import EvidenceRecord, ProvenanceBundle, SourceRecord
@@ -30,8 +31,13 @@ class CitationService:
             self._numbers[evidence_id] = len(self._numbers) + 1
         return self._numbers[evidence_id]
 
-    def details_for_ids(self, evidence_ids: Iterable[str]) -> List[Dict[str, Any]]:
+    def details_for_ids(
+        self,
+        evidence_ids: Iterable[str],
+        selection_reasons: Mapping[str, str] | None = None,
+    ) -> List[Dict[str, Any]]:
         details = []
+        selection_reasons = selection_reasons or {}
         for evidence_id in evidence_ids:
             evidence = self.evidence.get(str(evidence_id))
             if evidence is None:
@@ -52,7 +58,51 @@ class CitationService:
                     "evidence_type": evidence.evidence_type,
                     "snippet": evidence.snippet,
                     "scope": evidence.scope,
-                    "selection_reason": evidence.meta.get("selection_reason", ""),
+                    "selection_reason": selection_reasons.get(evidence.evidence_id)
+                    or evidence.meta.get("selection_reason", ""),
                 }
             )
         return details
+
+    def details_for_block(self, block: Mapping[str, Any]) -> List[Dict[str, Any]]:
+        """Resolve citations with the chapter-scoped reason stored on each claim."""
+        evidence_ids = self.evidence_ids_for_block(block)
+        reasons: Dict[str, str] = {}
+        for claim in block.get("claims", []) or []:
+            if not isinstance(claim, Mapping):
+                continue
+            claim_reasons = (claim.get("meta") or {}).get(
+                "evidence_selection_reasons"
+            )
+            if not isinstance(claim_reasons, Mapping):
+                continue
+            for evidence_id, reason in claim_reasons.items():
+                if evidence_id in evidence_ids and reason:
+                    reasons.setdefault(str(evidence_id), str(reason))
+        return self.details_for_ids(evidence_ids, reasons)
+
+    @staticmethod
+    def internal_lineage_text(detail: Mapping[str, Any]) -> str:
+        """Format database lineage consistently across all export formats."""
+        locator = detail.get("locator") or {}
+        scope = detail.get("scope") or {}
+        parts = []
+        table = scope.get("table") or locator.get("table")
+        row_ids = scope.get("row_ids") or locator.get("row_ids")
+        if table:
+            parts.append(f"表 {table}")
+        if row_ids:
+            values = row_ids if isinstance(row_ids, list) else [row_ids]
+            parts.append("行 " + ", ".join(str(item) for item in values))
+        if scope.get("filters"):
+            parts.append(
+                "过滤 " + json.dumps(scope["filters"], ensure_ascii=False, sort_keys=True)
+            )
+        if scope.get("time_window"):
+            parts.append(
+                "范围 " + json.dumps(scope["time_window"], ensure_ascii=False, sort_keys=True)
+            )
+        retrieved = detail.get("retrieved_time") or scope.get("query_time")
+        if retrieved:
+            parts.append(f"检索于 {retrieved}")
+        return "；".join(parts) or "已记录审计定位信息"

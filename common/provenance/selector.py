@@ -3,32 +3,12 @@
 from __future__ import annotations
 
 import copy
-import re
-from typing import Any, Iterable, List, Mapping, Sequence, Tuple
+from typing import Any, List, Mapping, Sequence, Tuple
 
 from .models import EvidenceRecord, ProvenanceBundle
 from .normalizer import dedupe_bundle, stable_id
+from .relevance import flatten_text, meaningful_tokens
 from .validators import gate_claims
-
-
-_WORD_RE = re.compile(r"[A-Za-z0-9_]{2,}|[\u4e00-\u9fff]")
-
-
-def _tokens(value: Any) -> set[str]:
-    text = str(value or "").lower()
-    tokens = set(_WORD_RE.findall(text))
-    for sequence in re.findall(r"[\u4e00-\u9fff]+", text):
-        tokens.update(sequence)
-        tokens.update(sequence[index:index + 2] for index in range(max(0, len(sequence) - 1)))
-    return {item for item in tokens if item}
-
-
-def _flatten(value: Any) -> str:
-    if isinstance(value, Mapping):
-        return " ".join(f"{key} {_flatten(item)}" for key, item in value.items())
-    if isinstance(value, (list, tuple, set)):
-        return " ".join(_flatten(item) for item in value)
-    return str(value or "")
 
 
 class EvidenceSelector:
@@ -40,6 +20,7 @@ class EvidenceSelector:
         bundle: ProvenanceBundle | Mapping[str, Any] | None,
         *,
         chapter_topic: str,
+        report_query: str = "",
         chapter_draft: str = "",
         claim_drafts: Sequence[str] | None = None,
         top_k: int | None = None,
@@ -50,8 +31,15 @@ class EvidenceSelector:
         # tool candidates that have not yet been enriched with a URL.
         source_bundle = dedupe_bundle(source_bundle)
         limit = max(1, int(top_k or self.top_k))
-        query_text = " ".join([chapter_topic or "", chapter_draft or "", " ".join(claim_drafts or [])]).strip()
-        query_tokens = _tokens(query_text)
+        query_text = " ".join(
+            [
+                report_query or "",
+                chapter_topic or "",
+                chapter_draft or "",
+                " ".join(claim_drafts or []),
+            ]
+        ).strip()
+        query_tokens = meaningful_tokens(query_text)
         source_index = {item.source_id: item for item in source_bundle.sources}
 
         ranked: List[Tuple[float, int, EvidenceRecord, List[str]]] = []
@@ -60,13 +48,14 @@ class EvidenceSelector:
             candidate_text = " ".join(
                 [
                     evidence.snippet,
-                    _flatten(evidence.scope),
-                    _flatten(evidence.normalized_value),
+                    flatten_text(evidence.scope),
+                    flatten_text(evidence.meta.get("retrieval_contexts")),
+                    flatten_text(evidence.normalized_value),
                     source.title if source else "",
                     source.platform if source else "",
                 ]
             )
-            candidate_tokens = _tokens(candidate_text)
+            candidate_tokens = meaningful_tokens(candidate_text)
             overlap = query_tokens & candidate_tokens
             score = float(len(overlap))
             reasons: List[str] = []
@@ -76,7 +65,12 @@ class EvidenceSelector:
             if chapter_topic and chapter_topic.lower() in lowered_candidate:
                 score += 4.0
                 reasons.append("直接匹配章节主题")
-            if evidence.scope.get("subject") and str(evidence.scope["subject"]).lower() in query_text.lower():
+            contexts = evidence.meta.get("retrieval_contexts") or [evidence.scope]
+            subjects = [
+                item.get("subject") for item in contexts
+                if isinstance(item, Mapping) and item.get("subject")
+            ]
+            if any(str(subject).lower() in query_text.lower() for subject in subjects):
                 score += 2.0
                 reasons.append("证据范围与章节主题一致")
             if not score:
@@ -108,6 +102,7 @@ class EvidenceSelector:
             version=source_bundle.version,
             meta={
                 "selection": {
+                    "report_query": report_query,
                     "chapter_topic": chapter_topic,
                     "top_k": limit,
                     "pool_size": len(source_bundle.evidence),

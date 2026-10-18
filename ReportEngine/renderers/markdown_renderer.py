@@ -6,6 +6,7 @@ from typing import Any, Dict, List
 from loguru import logger
 
 from ReportEngine.utils.chart_review_service import get_chart_review_service
+from common.provenance.citation_service import CitationService
 
 
 class MarkdownRenderer:
@@ -20,6 +21,7 @@ class MarkdownRenderer:
     def __init__(self) -> None:
         self.document: Dict[str, Any] = {}
         self.metadata: Dict[str, Any] = {}
+        self.citation_service = CitationService()
 
     def render(
         self,
@@ -50,6 +52,7 @@ class MarkdownRenderer:
         )
 
         self.metadata = self.document.get("metadata", {}) or {}
+        self.citation_service = CitationService(self.document.get("provenanceBundle"))
 
         parts: List[str] = []
         title = self.metadata.get("title") or self.metadata.get("query") or "报告"
@@ -126,12 +129,22 @@ class MarkdownRenderer:
             "toc": lambda b: "",
         }
         if block_type in handlers:
-            return handlers[block_type](block)
+            rendered = handlers[block_type](block)
+            return self._append_block_provenance(rendered, block)
 
         if isinstance(block.get("blocks"), list):
             return self._render_blocks(block["blocks"])
 
-        return self._fallback_unknown(block)
+        return self._append_block_provenance(self._fallback_unknown(block), block)
+
+    def _append_block_provenance(self, rendered: str, block: Dict[str, Any]) -> str:
+        """Append citations attached to a rich block instead of a child paragraph."""
+        if not rendered or block.get("type") == "paragraph":
+            return rendered
+        provenance = f"{self._render_claim_label(block)}{self._render_citations(block).strip()}".strip()
+        if not provenance:
+            return rendered
+        return f"{rendered}\n\n{provenance}"
 
     def _render_heading(self, block: Dict[str, Any]) -> str:
         level = block.get("level", 2)
@@ -158,7 +171,36 @@ class MarkdownRenderer:
         # 检测并跳过包含文档元数据 JSON 的段落
         if self._is_metadata_paragraph(inlines):
             return ""
-        return self._render_inlines(inlines)
+        text = self._render_inlines(inlines)
+        return f"{self._render_claim_label(block)}{text}{self._render_citations(block)}"
+
+    @staticmethod
+    def _render_claim_label(block: Dict[str, Any]) -> str:
+        claim_types = {
+            str(item.get("claim_type") or "")
+            for item in block.get("claims", []) or []
+            if isinstance(item, dict)
+        }
+        if "prediction" in claim_types:
+            return "**[预测]** "
+        if "recommendation" in claim_types:
+            return "**[建议]** "
+        if block.get("support_status") == "weak":
+            return "**[弱支持]** "
+        return ""
+
+    def _render_citations(self, block: Dict[str, Any]) -> str:
+        fragments: List[str] = []
+        for detail in self.citation_service.details_for_block(block):
+            number = int(detail["number"])
+            url = str(detail.get("url") or "")
+            title = str(detail.get("title") or "未命名来源").replace('"', "'")
+            if url.lower().startswith(("http://", "https://")):
+                fragments.append(f' [[{number}]]({url} "{title}")')
+                continue
+            lineage = self.citation_service.internal_lineage_text(detail)
+            fragments.append(f" [{number}]（内部数据：{lineage}）")
+        return "".join(fragments)
 
     def _is_metadata_paragraph(self, inlines: List[Any]) -> bool:
         """

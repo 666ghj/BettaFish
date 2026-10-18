@@ -23,9 +23,11 @@ from .tools import TavilyNewsAgency, TavilyResponse
 from .utils import Settings, format_search_results_for_prompt
 from loguru import logger
 
-from common.provenance.io import save_sidecar
-from common.provenance.models import ProvenanceBundle
-from common.provenance.normalizer import add_search_results_to_bundle, stable_id
+from common.provenance.io import save_engine_report
+from common.provenance.normalizer import (
+    add_search_results_to_bundle,
+    new_provenance_bundle,
+)
 
 class DeepSearchAgent:
     """Deep Search Agent主类"""
@@ -179,11 +181,7 @@ class DeepSearchAgent:
         logger.info(f"开始深度研究: {query}")
         logger.info(f"{'='*60}")
 
-        self.state.provenance_bundle = ProvenanceBundle(
-            agent="query_engine",
-            bundle_id=stable_id("bundle", "query_engine", query, datetime.now().isoformat()),
-            meta={"query": query},
-        )
+        self.state.provenance_bundle = new_provenance_bundle("query_engine", query)
         
         try:
             # Step 1: 生成报告结构
@@ -197,7 +195,14 @@ class DeepSearchAgent:
             
             # Step 4: 保存报告
             if save_report:
-                self._save_report(final_report)
+                save_engine_report(
+                    final_report,
+                    query=self.state.query,
+                    output_dir=self.config.OUTPUT_DIR,
+                    bundle=self.state.provenance_bundle,
+                    state=self.state,
+                    save_intermediate_state=self.config.SAVE_INTERMEDIATE_STATES,
+                )
             
             logger.info(f"\n{'='*60}")
             logger.info("深度研究完成！")
@@ -456,32 +461,6 @@ class DeepSearchAgent:
         
         logger.info("最终报告生成完成")
         return final_report
-    
-    def _save_report(self, report_content: str):
-        """保存报告到文件"""
-        # 生成文件名
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        query_safe = "".join(c for c in self.state.query if c.isalnum() or c in (' ', '-', '_')).rstrip()
-        query_safe = query_safe.replace(' ', '_')[:30]
-        
-        filename = f"deep_search_report_{query_safe}_{timestamp}.md"
-        filepath = os.path.join(self.config.OUTPUT_DIR, filename)
-        
-        # 保存报告
-        with open(filepath, 'w', encoding='utf-8') as f:
-            f.write(report_content)
-
-        sidecar = save_sidecar(self.state.provenance_bundle, filepath)
-        
-        logger.info(f"报告已保存到: {filepath}")
-        logger.info(f"证据审计文件已保存到: {sidecar}")
-        
-        # 保存状态（如果配置允许）
-        if self.config.SAVE_INTERMEDIATE_STATES:
-            state_filename = f"state_{query_safe}_{timestamp}.json"
-            state_filepath = os.path.join(self.config.OUTPUT_DIR, state_filename)
-            self.state.save_to_file(state_filepath)
-            logger.info(f"状态已保存到: {state_filepath}")
     
     def get_progress_summary(self) -> Dict[str, Any]:
         """获取进度摘要"""

@@ -33,12 +33,13 @@ from .tools import (
 from .utils import format_search_results_for_prompt
 from .utils.config import Settings, settings
 
-from common.provenance.io import save_sidecar
-from common.provenance.models import ClaimRecord, EvidenceRecord, ProvenanceBundle, SourceRecord
+from common.provenance.io import save_engine_report
+from common.provenance.models import ClaimRecord, EvidenceRecord, SourceRecord
 from common.provenance.normalizer import (
     add_search_results_to_bundle,
     content_hash,
     dedupe_bundle,
+    new_provenance_bundle,
     stable_id,
 )
 
@@ -109,18 +110,29 @@ class DeepSearchAgent:
         paragraph_title: str,
     ) -> int:
         """Persist only database rows with complete, auditable lineage."""
-        if not response or not response.query_time:
+        if not response:
             return 0
-
-        filters = dict(response.parameters or {})
-        time_window = dict(response.time_window or {"kind": "unbounded"})
-        sample_size = int(response.results_count or 0)
-        aggregation_method = response.aggregation_method or "record_lookup"
         valid_results = []
         for result in search_results:
-            table = str(result.get("source_table") or "")
-            record_id = str(result.get("record_id") or "")
+            lineage = dict(result.get("provenance") or {})
+            table = str(lineage.get("table") or result.get("source_table") or "")
+            record_id = str(
+                lineage.get("primary_key") or result.get("record_id") or ""
+            )
+            query_time = str(lineage.get("query_time") or "")
+            filters = lineage.get("filters")
+            time_window = lineage.get("time_window")
+            aggregation_method = str(lineage.get("aggregation_method") or "")
+            row_ids = list(lineage.get("row_ids") or ([record_id] if record_id else []))
+            try:
+                sample_size = int(lineage.get("sample_size") or 0)
+            except (TypeError, ValueError, OverflowError):
+                sample_size = 0
             if not table or not record_id or sample_size <= 0:
+                continue
+            if not query_time or not isinstance(filters, dict) or not isinstance(time_window, dict):
+                continue
+            if not aggregation_method or not row_ids:
                 continue
             item = dict(result)
             item.update(
@@ -130,22 +142,23 @@ class DeepSearchAgent:
                     "table": table,
                     "primary_key": record_id,
                     "record_id": record_id,
-                    "query_time": response.query_time,
+                    "query_time": query_time,
                     "filters": filters,
                     "time_window": time_window,
                     "sample_size": sample_size,
                     "aggregation_method": aggregation_method,
+                    "retrieved_time": query_time,
                     "locator": {"table": table, "primary_key": record_id},
                     "scope": {
                         "subject": paragraph_title,
                         "query": search_query,
-                        "query_time": response.query_time,
+                        "query_time": query_time,
                         "table": table,
                         "filters": filters,
                         "time_window": time_window,
                         "sample_size": sample_size,
                         "aggregation_method": aggregation_method,
-                        "row_ids": [record_id],
+                        "row_ids": row_ids,
                         "primary_key": record_id,
                     },
                 }
@@ -162,9 +175,29 @@ class DeepSearchAgent:
             evidence_type="db_row",
         )
 
+        aggregation_method = response.aggregation_method or "record_lookup"
         if valid_results and aggregation_method != "record_lookup":
+            aggregate_base = valid_results[0]
+            aggregate_signature = (
+                aggregate_base["query_time"],
+                json.dumps(aggregate_base["filters"], ensure_ascii=False, sort_keys=True),
+                json.dumps(aggregate_base["time_window"], ensure_ascii=False, sort_keys=True),
+            )
+            if any(
+                (
+                    item["query_time"],
+                    json.dumps(item["filters"], ensure_ascii=False, sort_keys=True),
+                    json.dumps(item["time_window"], ensure_ascii=False, sort_keys=True),
+                ) != aggregate_signature
+                for item in valid_results[1:]
+            ):
+                return len(valid_results)
+            query_time = aggregate_base["query_time"]
+            filters = aggregate_base["filters"]
+            time_window = aggregate_base["time_window"]
+            sample_size = aggregate_base["sample_size"]
             tables = sorted(set(response.tables or [item["source_table"] for item in valid_results]))
-            locator = {"table": tables, "query_time": response.query_time}
+            locator = {"table": tables, "query_time": query_time}
             source_id = stable_id("src", "insight_engine", "db_agg", locator)
             source = SourceRecord(
                 source_id=source_id,
@@ -172,14 +205,14 @@ class DeepSearchAgent:
                 source_type="database",
                 title="内部数据库聚合查询",
                 platform="internal_db",
-                retrieved_time=response.query_time,
+                retrieved_time=query_time,
                 locator=locator,
                 meta={"tables": tables},
             )
             scope = {
                 "subject": paragraph_title,
                 "query": search_query,
-                "query_time": response.query_time,
+                "query_time": query_time,
                 "table": tables,
                 "metric": "hotness_score",
                 "filters": filters,
@@ -646,11 +679,7 @@ class DeepSearchAgent:
         logger.info(f"开始深度研究: {query}")
         logger.info(f"{'=' * 60}")
 
-        self.state.provenance_bundle = ProvenanceBundle(
-            agent="insight_engine",
-            bundle_id=stable_id("bundle", "insight_engine", query, datetime.now().isoformat()),
-            meta={"query": query},
-        )
+        self.state.provenance_bundle = new_provenance_bundle("insight_engine", query)
 
         try:
             # Step 1: 生成报告结构
@@ -664,7 +693,14 @@ class DeepSearchAgent:
 
             # Step 4: 保存报告
             if save_report:
-                self._save_report(final_report)
+                save_engine_report(
+                    final_report,
+                    query=self.state.query,
+                    output_dir=self.config.OUTPUT_DIR,
+                    bundle=self.state.provenance_bundle,
+                    state=self.state,
+                    save_intermediate_state=self.config.SAVE_INTERMEDIATE_STATES,
+                )
 
             logger.info("深度研究完成！")
 
@@ -826,6 +862,7 @@ class DeepSearchAgent:
                         "engagement": result.engagement,
                         "source_table": result.source_table,
                         "record_id": result.record_id,
+                        "provenance": dict(result.provenance or {}),
                     }
                 )
 
@@ -848,7 +885,7 @@ class DeepSearchAgent:
             search_response, search_results, search_query, paragraph.title
         )
         if captured == 0:
-            paragraph.research.latest_summary = "未检索到可追溯内部证据"
+            paragraph.research.latest_summary = ""
             logger.warning("  - 本轮结果缺少可追溯内部证据，跳过事实性总结")
             return
 
@@ -997,6 +1034,7 @@ class DeepSearchAgent:
                             "engagement": result.engagement,
                             "source_table": result.source_table,
                             "record_id": result.record_id,
+                            "provenance": dict(result.provenance or {}),
                         }
                     )
 
@@ -1045,7 +1083,7 @@ class DeepSearchAgent:
         logger.info(f"\n[步骤 3] 生成最终报告...")
 
         if not self.state.provenance_bundle.evidence:
-            final_report = "# 内部数据洞察\n\n未检索到可追溯内部证据"
+            final_report = ""
             self.state.final_report = final_report
             self.state.mark_completed()
             logger.warning("InsightEngine 未产生有效内部证据，已阻断事实性报告")
@@ -1054,6 +1092,8 @@ class DeepSearchAgent:
         # 准备报告数据
         report_data = []
         for paragraph in self.state.paragraphs:
+            if not paragraph.research.latest_summary.strip():
+                continue
             report_data.append(
                 {
                     "title": paragraph.title,
@@ -1076,34 +1116,6 @@ class DeepSearchAgent:
 
         logger.info("最终报告生成完成")
         return final_report
-
-    def _save_report(self, report_content: str):
-        """保存报告到文件"""
-        # 生成文件名
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        query_safe = "".join(
-            c for c in self.state.query if c.isalnum() or c in (" ", "-", "_")
-        ).rstrip()
-        query_safe = query_safe.replace(" ", "_")[:30]
-
-        filename = f"deep_search_report_{query_safe}_{timestamp}.md"
-        filepath = os.path.join(self.config.OUTPUT_DIR, filename)
-
-        # 保存报告
-        with open(filepath, "w", encoding="utf-8") as f:
-            f.write(report_content)
-
-        sidecar = save_sidecar(self.state.provenance_bundle, filepath)
-
-        logger.info(f"报告已保存到: {filepath}")
-        logger.info(f"证据审计文件已保存到: {sidecar}")
-
-        # 保存状态（如果配置允许）
-        if self.config.SAVE_INTERMEDIATE_STATES:
-            state_filename = f"state_{query_safe}_{timestamp}.json"
-            state_filepath = os.path.join(self.config.OUTPUT_DIR, state_filename)
-            self.state.save_to_file(state_filepath)
-            logger.info(f"状态已保存到: {state_filepath}")
 
     def get_progress_summary(self) -> Dict[str, Any]:
         """获取进度摘要"""

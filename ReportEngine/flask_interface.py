@@ -11,17 +11,20 @@ import os
 import json
 import threading
 import time
+from uuid import uuid4
 from collections import deque, defaultdict
+from concurrent.futures import CancelledError
 from datetime import datetime
 from pathlib import Path
 from queue import Queue, Empty
 from flask import Blueprint, request, jsonify, Response, send_file, stream_with_context
 from typing import Dict, Any, List, Optional
 from loguru import logger
-from .agent import ReportAgent, create_agent
+from .agent import InsufficientInputError, ReportAgent, create_agent
 from .nodes import ChapterJsonParseError
 from .utils.config import settings
-from common.provenance.runtime import runtime_store
+from common.provenance.runtime import read_runtime_forum_context, runtime_store
+from common.cancellation import CancellationToken, cancellation_scope
 
 
 # 创建Blueprint
@@ -30,7 +33,7 @@ report_bp = Blueprint('report_engine', __name__)
 # 全局变量
 report_agent = None
 current_task = None
-task_lock = threading.Lock()
+task_lock = threading.RLock()
 
 # ====== 流式推送与任务历史管理 ======
 # 通过有界deque缓存最近的事件，方便SSE断线后快速补发
@@ -195,6 +198,13 @@ def _prune_task_history_locked():
         tasks_registry.pop(task.task_id, None)
 
 
+def _active_worker_locked():
+    """Cancelled tasks retain the singleton Agent until their worker exits."""
+    if current_task and current_task.worker_running:
+        return current_task
+    return next((task for task in tasks_registry.values() if task.worker_running), None)
+
+
 def _get_task(task_id: str) -> Optional['ReportTask']:
     """
     统一的任务查找方法，优先返回当前任务。
@@ -293,6 +303,8 @@ class ReportTask:
         self.query = query
         self.custom_template = custom_template
         self.status = "pending"  # 四种状态（pending/running/completed/error）
+        self.worker_running = False
+        self.cancellation_token = CancellationToken()
         self.progress = 0
         self.result = None
         self.error_message = ""
@@ -326,23 +338,30 @@ class ReportTask:
             progress: 可选的进度百分比。
             error_message: 出错时的人类可读说明。
         """
-        self.status = status
-        if progress is not None:
-            self.progress = progress
-        if error_message:
-            self.error_message = error_message
-        self.updated_at = datetime.now()
-        # 推送状态变更事件，方便前端实时刷新
-        self.publish_event(
-            'status',
-            {
-                'status': self.status,
-                'progress': self.progress,
-                'error_message': self.error_message,
-                'hint': error_message or '',
-                'task': self.to_dict(),
-            }
-        )
+        with task_lock:
+            if self.status == "cancelled" and status != "cancelled":
+                return False
+            self.status = status
+            if status == "cancelled":
+                self.cancellation_token.cancel()
+            if progress is not None:
+                self.progress = progress
+            if error_message:
+                self.error_message = error_message
+            self.updated_at = datetime.now()
+            # Cancellation is terminal even when a late chunk/progress call
+            # reaches the worker between its last check and this mutation.
+            self.publish_event(
+                'status',
+                {
+                    'status': self.status,
+                    'progress': self.progress,
+                    'error_message': self.error_message,
+                    'hint': error_message or '',
+                    'task': self.to_dict(),
+                }
+            )
+            return True
 
     def to_dict(self) -> Dict[str, Any]:
         """转换为字典格式，方便直接返回给JSON API。"""
@@ -437,6 +456,13 @@ def check_engines_ready(run_id: str = '') -> Dict[str, Any]:
 
 
 def run_report_generation(task: ReportTask, query: str, custom_template: str = "", run_id: str = ''):
+    # Request-local context also reaches temporary clients created by repair
+    # helpers, without mutating shared Agent or renderer instances.
+    with cancellation_scope(task.cancellation_token):
+        _run_report_generation(task, query, custom_template, run_id)
+
+
+def _run_report_generation(task: ReportTask, query: str, custom_template: str = "", run_id: str = ''):
     """
     在后台线程中运行报告生成。
 
@@ -450,22 +476,33 @@ def run_report_generation(task: ReportTask, query: str, custom_template: str = "
     """
     global current_task
 
+    with task_lock:
+        task.worker_running = True
     try:
+        def check_cancelled():
+            task.cancellation_token.raise_if_cancelled()
+            if task.status == "cancelled":
+                raise CancelledError("报告任务已取消")
+
+        check_cancelled()
         # 在局部闭包内封装推送逻辑，便于传递给ReportAgent
         def stream_handler(event_type: str, payload: Dict[str, Any]):
             """所有阶段事件都通过同一个接口分发，保证日志一致。"""
+            check_cancelled()
             task.publish_event(event_type, payload)
             # 如果事件包含进度信息，同步更新任务进度
             if event_type == 'progress' and 'progress' in payload:
                 task.update_status("running", payload['progress'])
 
         task.update_status("running", 5)
+        check_cancelled()
         task.publish_event('stage', {'message': '任务已启动，正在检查输入文件', 'stage': 'prepare'})
 
         # 检查输入文件
         check_result = check_engines_ready(run_id)
         if not check_result['ready']:
             task.update_status("error", 0, f"输入文件未准备就绪: {check_result.get('missing_files', [])}")
+            check_cancelled()
             return
 
         task.publish_event('stage', {
@@ -475,63 +512,41 @@ def run_report_generation(task: ReportTask, query: str, custom_template: str = "
         })
 
         # 加载输入文件
-        content = runtime_store.inputs(run_id, query) if run_id else report_agent.load_input_files(check_result['latest_files'])
+        if run_id:
+            content = runtime_store.inputs(run_id, query)
+            allowed_evidence_ids = {
+                item.evidence_id
+                for item in content['provenance_bundle'].evidence
+            }
+            content['forum_logs'] = read_runtime_forum_context(
+                run_id,
+                allowed_evidence_ids,
+            )
+        else:
+            content = report_agent.load_input_files(
+                check_result['latest_files'],
+                expected_query=query,
+            )
         task.publish_event('stage', {'message': '源数据加载完成，启动生成流程', 'stage': 'data_loaded'})
 
-        # 生成报告（附带兜底重试，缓解瞬时网络抖动）
-        for attempt in range(1, 3):
-            try:
-                task.publish_event('stage', {
-                    'message': f'正在调用ReportAgent生成报告（第{attempt}次尝试）',
-                    'stage': 'agent_running',
-                    'attempt': attempt
-                })
-                generation_result = report_agent.generate_report(
-                    query=query,
-                    reports=content['reports'],
-                    forum_logs=content['forum_logs'],
-                    custom_template=custom_template,
-                    save_report=True,
-                    stream_handler=stream_handler,
-                    provenance_bundle=content.get('provenance_bundle'),
-                )
-                break
-            except ChapterJsonParseError as err:
-                hint_message = "尝试将Report Engine的API更换为算力更强、上下文更长的LLM"
-                task.publish_event('warning', {
-                    'message': hint_message,
-                    'stage': 'agent_running',
-                    'attempt': attempt,
-                    'reason': 'chapter_json_parse',
-                    'error': str(err),
-                    'task': task.to_dict(),
-                })
-                # 旧逻辑：在JSON解析失败后重启Report Engine
-                # backoff = min(5 * attempt, 15)
-                # task.publish_event('stage', {
-                #     'message': f'{backoff} 秒后重试生成任务',
-                #     'stage': 'retry_wait',
-                #     'wait_seconds': backoff
-                # })
-                # time.sleep(backoff)
-                raise ChapterJsonParseError(hint_message) from err
-            except Exception as err:
-                # 将错误即时推送至前端，方便观察重试策略
-                task.publish_event('warning', {
-                    'message': f'ReportAgent执行失败: {str(err)}',
-                    'stage': 'agent_running',
-                    'attempt': attempt
-                })
-                if attempt == 2:
-                    raise
-                # 简单的指数退避，防止频繁触发限流（单位秒）
-                backoff = min(5 * attempt, 15)
-                task.publish_event('stage', {
-                    'message': f'{backoff} 秒后重试生成任务',
-                    'stage': 'retry_wait',
-                    'wait_seconds': backoff
-                })
-                time.sleep(backoff)
+        # Retry belongs to the current chapter in ReportAgent.  Restarting
+        # here would discard completed chapters and repeat every paid call.
+        check_cancelled()
+        task.publish_event('stage', {
+            'message': '正在调用ReportAgent生成报告',
+            'stage': 'agent_running',
+        })
+        generation_result = report_agent.generate_report(
+            query=query,
+            reports=content['reports'],
+            forum_logs=content['forum_logs'],
+            custom_template=custom_template,
+            save_report=True,
+            stream_handler=stream_handler,
+            provenance_bundle=content.get('provenance_bundle'),
+            cancel_check=lambda: task.status == "cancelled",
+        )
+        check_cancelled()
 
         if isinstance(generation_result, dict):
             html_report = generation_result.get('html_content', '')
@@ -539,6 +554,7 @@ def run_report_generation(task: ReportTask, query: str, custom_template: str = "
             html_report = generation_result
 
         task.publish_event('stage', {'message': '报告生成完毕，准备持久化', 'stage': 'persist'})
+        check_cancelled()
 
         # 保存结果
         task.html_content = html_report
@@ -556,26 +572,42 @@ def run_report_generation(task: ReportTask, query: str, custom_template: str = "
             'state_file': task.state_file_relative_path or task.state_file_path,
             'task': task.to_dict(),
         })
-        task.update_status("completed", 100)
-        task.publish_event('completed', {
-            'message': '任务完成',
-            'duration_seconds': (task.updated_at - task.created_at).total_seconds(),
-            'report_file': task.report_file_relative_path or task.report_file_path,
-            'task': task.to_dict(),
-        })
+        # The cancellation endpoint uses this same lock.  Its terminal state
+        # must not be overwritten by a worker finishing at the same moment.
+        with task_lock:
+            check_cancelled()
+            task.update_status("completed", 100)
+            check_cancelled()
+            task.publish_event('completed', {
+                'message': '任务完成',
+                'duration_seconds': (task.updated_at - task.created_at).total_seconds(),
+                'report_file': task.report_file_relative_path or task.report_file_path,
+                'task': task.to_dict(),
+            })
 
-    except Exception as e:
-        logger.exception(f"报告生成过程中发生错误: {str(e)}")
-        task.update_status("error", 0, str(e))
-        task.publish_event('error', {
-            'message': str(e),
-            'stage': 'failed',
-            'task': task.to_dict(),
-        })
-        # 只在出错时清理任务
+    except CancelledError:
+        if task.status != "cancelled":
+            task.update_status("cancelled", task.progress, "用户取消任务")
+            task.publish_event('cancelled', {'message': '任务已取消', 'task': task.to_dict()})
         with task_lock:
             if current_task and current_task.task_id == task.task_id:
                 current_task = None
+    except Exception as e:
+        if task.status != "cancelled":
+            logger.error(f"报告生成过程中发生错误 ({type(e).__name__}): {str(e)}")
+        with task_lock:
+            if task.status != "cancelled":
+                task.update_status("error", 0, str(e))
+                task.publish_event('error', {
+                    'message': str(e),
+                    'stage': 'failed',
+                    'task': task.to_dict(),
+                })
+            if current_task and current_task.task_id == task.task_id:
+                current_task = None
+    finally:
+        with task_lock:
+            task.worker_running = False
 
 
 @report_bp.route('/status', methods=['GET'])
@@ -595,6 +627,7 @@ def get_status():
             'engines_ready': engines_status['ready'],
             'files_found': engines_status.get('files_found', []),
             'missing_files': engines_status.get('missing_files', []),
+            'failed_engines': engines_status.get('failed', {}),
             'current_task': current_task.to_dict() if current_task else None
         })
     except Exception as e:
@@ -621,9 +654,17 @@ def generate_report():
     """
     global current_task
 
+    reserved_task = None
     try:
         # 检查是否有任务在运行
         with task_lock:
+            active_worker = _active_worker_locked()
+            if active_worker:
+                return jsonify({
+                    'success': False,
+                    'error': '上一报告任务尚未释放生成资源，请稍后重试',
+                    'current_task': active_worker.to_dict(),
+                }), 409
             if current_task and current_task.status == "running":
                 return jsonify({
                     'success': False,
@@ -640,9 +681,11 @@ def generate_report():
         if not isinstance(data, dict):
             logger.warning("generate_report 接收到非对象JSON负载，已忽略原始内容")
             data = {}
-        query = data.get('query', '智能舆情分析报告')
+        query = str(data.get('query', '智能舆情分析报告') or '').strip()
         custom_template = data.get('custom_template', '')
-        run_id = data.get('run_id', '')
+        run_id = str(data.get('run_id', '') or '').strip()
+        if not query:
+            return jsonify({'success': False, 'error': '报告查询不能为空'}), 400
 
         # 清空日志文件
         clear_report_log()
@@ -657,17 +700,39 @@ def generate_report():
         # 检查输入文件是否准备就绪
         engines_status = check_engines_ready(run_id)
         if not engines_status['ready']:
+            failed_engines = engines_status.get('failed', {})
             return jsonify({
                 'success': False,
-                'error': '输入文件未准备就绪',
-                'missing_files': engines_status.get('missing_files', [])
+                'error': '上游 Agent 运行失败' if failed_engines else '输入文件未准备就绪',
+                'missing_files': engines_status.get('missing_files', []),
+                'failed_engines': failed_engines,
             }), 400
 
+        if run_id:
+            try:
+                run_context = runtime_store.context(run_id)
+            except ValueError as exc:
+                return jsonify({'success': False, 'error': str(exc)}), 400
+            if run_context['query'] != query:
+                return jsonify({
+                    'success': False,
+                    'error': '报告查询与本轮搜索任务不匹配',
+                }), 400
+
         # 创建新任务
-        task_id = f"report_{int(time.time())}"
+        task_id = f"report_{time.time_ns()}_{uuid4().hex[:8]}"
         task = ReportTask(query, task_id, custom_template)
 
         with task_lock:
+            active_worker = _active_worker_locked()
+            if active_worker:
+                return jsonify({
+                    'success': False,
+                    'error': '上一报告任务尚未释放生成资源，请稍后重试',
+                    'current_task': active_worker.to_dict(),
+                }), 409
+            task.worker_running = True
+            reserved_task = task
             current_task = task
             tasks_registry[task_id] = task
             _prune_task_history_locked()
@@ -700,6 +765,11 @@ def generate_report():
         })
 
     except Exception as e:
+        if reserved_task:
+            with task_lock:
+                reserved_task.worker_running = False
+                if current_task is reserved_task:
+                    current_task = None
         logger.exception(f"开始生成报告失败: {str(e)}")
         return jsonify({
             'success': False,
@@ -1006,7 +1076,7 @@ def cancel_task(task_id: str):
         with task_lock:
             cancelled = False
             if current_task and current_task.task_id == task_id:
-                if current_task.status == "running":
+                if current_task.status in {"pending", "running"}:
                     current_task.update_status("cancelled", 0, "用户取消任务")
                     current_task.publish_event('cancelled', {
                         'message': '任务被用户主动终止',
@@ -1015,7 +1085,7 @@ def cancel_task(task_id: str):
                     cancelled = True
                 current_task = None
             task = tasks_registry.get(task_id)
-            if task and task.status == 'running':
+            if task and task.status in {'pending', 'running'}:
                 task.update_status("cancelled", task.progress, "用户取消任务")
                 task.publish_event('cancelled', {
                     'message': '任务被用户主动终止',

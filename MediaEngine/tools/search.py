@@ -44,6 +44,11 @@ if utils_dir not in sys.path:
 
 from retry_helper import with_graceful_retry, SEARCH_API_RETRY_CONFIG
 
+
+def _log_search_failure(context: str, exc: Exception) -> None:
+    """记录可重试搜索错误，但不输出可能包含认证头的局部变量。"""
+    logger.warning("{}: {}: {}", context, type(exc).__name__, str(exc))
+
 # --- 1. 数据结构定义 ---
 from dataclasses import dataclass, field
 
@@ -211,12 +216,12 @@ class BochaMultimodalSearch:
 
             return self._parse_search_response(response_dict, query)
 
-        except requests.exceptions.RequestException as e:
-            logger.exception(f"搜索时发生网络错误: {str(e)}")
-            raise e  # 让重试机制捕获并处理
-        except Exception as e:
-            logger.exception(f"处理响应时发生未知错误: {str(e)}")
-            raise e  # 让重试机制捕获并处理
+        except requests.exceptions.RequestException as exc:
+            _log_search_failure("搜索时发生网络错误", exc)
+            raise  # 让重试机制捕获并处理
+        except Exception as exc:
+            _log_search_failure("处理响应时发生未知错误", exc)
+            raise  # 让重试机制捕获并处理
 
     # --- Agent 可用的工具方法 ---
 
@@ -333,12 +338,12 @@ class AnspireAISearch:
 
             response_dict = response.json()
             return self._parse_search_response(response_dict, query)
-        except requests.exceptions.RequestException as e:
-            logger.exception(f"搜索时发生网络错误: {str(e)}")
-            raise e  # 让重试机制捕获并处理
-        except Exception as e:
-            logger.exception(f"处理响应时发生未知错误: {str(e)}")
-            raise e  # 让重试机制捕获并处理
+        except requests.exceptions.RequestException as exc:
+            _log_search_failure("搜索时发生网络错误", exc)
+            raise  # 让重试机制捕获并处理
+        except Exception as exc:
+            _log_search_failure("处理响应时发生未知错误", exc)
+            raise  # 让重试机制捕获并处理
     
     def comprehensive_search(self, query: str, max_results: int = 10) -> AnspireResponse:
         """

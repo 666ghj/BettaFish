@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     # ================== Flask 服务器配置 ====================
     HOST: str = Field("0.0.0.0", description="BETTAFISH 主机地址，例如 0.0.0.0 或 127.0.0.1")
     PORT: int = Field(5000, description="Flask服务器端口号，默认5000")
+    INSIGHT_ENGINE_PORT: int = Field(8501, description="Insight Streamlit 服务端口")
+    MEDIA_ENGINE_PORT: int = Field(8502, description="Media Streamlit 服务端口")
+    QUERY_ENGINE_PORT: int = Field(8503, description="Query Streamlit 服务端口")
 
     # ====================== 数据库配置 ======================
     DB_DIALECT: str = Field("postgresql", description="数据库类型，可选 mysql 或 postgresql；请与其他连接信息同时配置")
