@@ -177,7 +177,8 @@ def _ensure_windows_gtk_paths():
     for path in candidates:
         if not path or not path.exists():
             continue
-        if not any(path.glob("pango*-1.0-*.dll")) and not (path / "pango-1.0-0.dll").exists():
+        # libpango-1.0-0.dll 或 pango-1.0-0.dll（Windows 可能带 lib 前缀）
+        if not any(path.glob("*pango*-1.0-*.dll")):
             continue
 
         try:
