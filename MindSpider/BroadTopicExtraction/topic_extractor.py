@@ -163,13 +163,13 @@ class TopicExtractor:
             print(f"原始返回: {result_text}")
             
             # 尝试手动解析
-            return self._manual_parse_result(result_text)
+            return self._manual_parse_result(result_text, max_keywords)
         
         except Exception as e:
             print(f"处理分析结果失败: {e}")
             return [], "分析结果处理失败，请稍后重试。"
     
-    def _manual_parse_result(self, text: str) -> Tuple[List[str], str]:
+    def _manual_parse_result(self, text: str, max_keywords: int = 100) -> Tuple[List[str], str]:
         """手动解析结果（当JSON解析失败时的后备方案）"""
         print("尝试手动解析结果...")
         

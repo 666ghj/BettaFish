@@ -39,6 +39,12 @@ from .renderers import HTMLRenderer
 from .state import ReportState
 from .utils.config import settings, Settings
 
+# 论坛日志进入提示词前的字符上限。长时间运行的 ForumEngine 可产出十余万字符，
+# 直接拼进提示词会超出模型上下文；按所用模型的窗口调整此值。
+FORUM_LOG_CHAR_LIMIT = 20000
+# 超限时保留的头部比例，其余额度留给尾部（尾部通常是最新、最完整的讨论结论）。
+FORUM_LOG_HEAD_RATIO = 0.4
+
 
 class StageOutputFormatError(ValueError):
     """阶段性输出结构不符合预期时抛出的受控异常。"""
@@ -452,7 +458,13 @@ class ReportAgent:
         emit('stage', {'stage': 'agent_start', 'report_id': report_id, 'query': query})
 
         try:
-            template_result = self._select_template(query, reports, forum_logs, custom_template)
+            # 论坛日志在进入任何提示词之前统一截断一次，模板选择、文档设计
+            # 和后续章节生成共用同一份文本。
+            forum_logs_truncated = self._truncate_forum_logs(forum_logs)
+
+            template_result = self._select_template(
+                query, reports, forum_logs_truncated, custom_template
+            )
             template_result = self._ensure_mapping(
                 template_result,
                 "模板选择结果",
@@ -479,7 +491,7 @@ class ReportAgent:
                     sections,
                     template_text,
                     normalized_reports,
-                    forum_logs,
+                    forum_logs_truncated,
                     query,
                     template_overview,
                 ),
@@ -499,7 +511,7 @@ class ReportAgent:
                     sections,
                     layout_design,
                     normalized_reports,
-                    forum_logs,
+                    forum_logs_truncated,
                     query,
                     template_overview,
                 ),
@@ -521,7 +533,7 @@ class ReportAgent:
             generation_context = self._build_generation_context(
                 query,
                 normalized_reports,
-                forum_logs,
+                forum_logs_truncated,
                 template_result,
                 layout_design,
                 chapter_targets,
@@ -901,7 +913,7 @@ class ReportAgent:
             "query": query,
             "template_name": template_result.get("template_name"),
             "reports": reports,
-            "forum_logs": self._stringify(forum_logs),
+            "forum_logs": forum_logs,
             "theme_tokens": theme_tokens,
             "style_directives": {
                 "tone": "analytical",
@@ -1154,6 +1166,35 @@ class ReportAgent:
             except Exception:
                 return str(value)
         return str(value)
+
+    def _truncate_forum_logs(self, forum_logs: Any) -> str:
+        """
+        将论坛日志压到可进入提示词的长度。
+
+        ForumEngine 连续运行时，主持人会对三引擎进行多轮点评，日志可达十余万
+        字符，而其中各轮发言高度重复。超过 `FORUM_LOG_CHAR_LIMIT` 时保留首部
+        （讨论起点）与尾部（最新、最完整的结论），省略重复度最高的中段。
+
+        参数:
+            forum_logs: 论坛日志，字符串或可序列化对象。
+
+        返回:
+            str: 不超过 `FORUM_LOG_CHAR_LIMIT` 的日志文本。
+        """
+        text = self._stringify(forum_logs)
+        if len(text) <= FORUM_LOG_CHAR_LIMIT:
+            return text
+
+        head_len = int(FORUM_LOG_CHAR_LIMIT * FORUM_LOG_HEAD_RATIO)
+        tail_len = FORUM_LOG_CHAR_LIMIT - head_len
+        logger.warning(
+            f"论坛日志过长({len(text)}字符)，已截断至{FORUM_LOG_CHAR_LIMIT}字符"
+        )
+        return (
+            text[:head_len]
+            + "\n\n...(中间讨论内容已省略)...\n\n"
+            + text[-tail_len:]
+        )
 
     def _default_theme_tokens(self) -> Dict[str, Any]:
         """
