@@ -174,11 +174,36 @@ def fix_incomplete_json(text: str) -> str:
             # 单个对象，包装成数组
             text = '[' + text + ']'
     
-    # 检查括号是否匹配
-    open_braces = text.count('{')
-    close_braces = text.count('}')
-    open_brackets = text.count('[')
-    close_brackets = text.count(']')
+    # 检查括号是否匹配（忽略字符串内的括号）
+    open_braces = 0
+    close_braces = 0
+    open_brackets = 0
+    close_brackets = 0
+    in_string = False
+    escape_next = False
+    for char in text:
+        if escape_next:
+            escape_next = False
+            continue
+        if char == '\\':
+            escape_next = True
+            continue
+        if char == '"' and not in_string:
+            in_string = True
+            continue
+        if char == '"' and in_string:
+            in_string = False
+            continue
+        if in_string:
+            continue
+        if char == '{':
+            open_braces += 1
+        elif char == '}':
+            close_braces += 1
+        elif char == '[':
+            open_brackets += 1
+        elif char == ']':
+            close_brackets += 1
     
     # 修复不匹配的括号
     if open_braces > close_braces:
@@ -205,17 +230,42 @@ def fix_aggressive_json(text: str) -> str:
     Returns:
         修复后的JSON文本
     """
-    # 查找所有可能的JSON对象
-    objects = re.findall(r'\{[^{}]*\}', text)
+    # 查找所有可能的JSON对象（支持嵌套）
+    objects = []
+    depth = 0
+    start = -1
+    in_string = False
+    escape_next = False
+    for i, char in enumerate(text):
+        if escape_next:
+            escape_next = False
+            continue
+        if char == '\\':
+            escape_next = True
+            continue
+        if char == '"' and not in_string:
+            in_string = True
+            continue
+        if char == '"' and in_string:
+            in_string = False
+            continue
+        if in_string:
+            continue
+        if char == '{':
+            if depth == 0:
+                start = i
+            depth += 1
+        elif char == '}':
+            depth -= 1
+            if depth == 0 and start != -1:
+                objects.append(text[start:i+1])
+                start = -1
     
     if len(objects) >= 2:
-        # 如果有多个对象，包装成数组
         return '[' + ','.join(objects) + ']'
     elif len(objects) == 1:
-        # 如果只有一个对象，包装成数组
         return '[' + objects[0] + ']'
     else:
-        # 如果没有找到对象，返回空数组
         return '[]'
 
 
