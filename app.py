@@ -201,7 +201,7 @@ def write_config_values(updates):
         else:
             value_str = str(raw_value)
             # 如果包含空格或特殊字符，需要引号
-            if ' ' in value_str or '\n' in value_str or '#' in value_str:
+            if ' ' in value_str or '\n' in value_str or '#' in value_str or value_str.lstrip()[:1] in ('"', "'"):
                 escaped = value_str.replace('\\', '\\\\').replace('"', '\\"')
                 env_value = f'"{escaped}"'
             else:
